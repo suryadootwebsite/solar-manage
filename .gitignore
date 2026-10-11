@@ -1,0 +1,12 @@
+# OS & Temporary
+.DS_Store
+Thumbs.db
+*.tmp
+*.log
+
+# Editor
+.vscode/
+.idea/
+
+# Node
+node_modules/

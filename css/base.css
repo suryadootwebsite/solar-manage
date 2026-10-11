@@ -1,0 +1,108 @@
+/**
+ * base.css — Mobile-First Base Styles & Typography.
+ *
+ * Doc ref: Doc 06 §1 (Design Principles), Doc 06 §9 (Accessibility & High Glare),
+ *          Doc 09 §6.1 (Mobile-First UI Standard)
+ */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans Devanagari", "Noto Sans", Helvetica, Arial, sans-serif;
+  color: var(--text-main);
+  background-color: var(--bg);
+  height: 100%;
+}
+
+body {
+  min-height: 100%;
+  min-height: -webkit-fill-available;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  font-size: 1rem;
+  line-height: 1.6;
+  padding-top: calc(var(--header-height) + var(--sat));
+  padding-bottom: calc(var(--nav-height) + var(--sab) + 16px);
+  padding-left: var(--sal);
+  padding-right: var(--sar);
+}
+
+/* Typography Defaults */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--text-main);
+  margin-bottom: 0.5rem;
+}
+
+h1 { font-size: 1.5rem; }
+h2 { font-size: 1.25rem; }
+h3 { font-size: 1.1rem; }
+
+p {
+  margin-bottom: 0.75rem;
+}
+
+small {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+/* Accessibility & Touch Target Minimums */
+button, input, select, textarea {
+  font: inherit;
+  font-size: 1rem; /* Minimum 16px to prevent iOS zoom */
+  line-height: 1.5;
+  color: inherit;
+  min-height: var(--min-touch-target);
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+input, select, textarea {
+  width: 100%;
+  padding: 0.625rem 0.875rem;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background-color: var(--surface);
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.2);
+}
+
+/* Responsive Main Shell Container */
+#app {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 1rem;
+  flex: 1;
+}
+
+@media (min-width: 1024px) {
+  #app {
+    max-width: 960px;
+    padding: 1.5rem;
+  }
+}
