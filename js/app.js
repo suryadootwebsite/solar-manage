@@ -44,20 +44,11 @@
     var dashTab = document.getElementById('tab-label-dashboard');
     if (dashTab) dashTab.textContent = t('nav.dashboard');
 
-    var usersTab = document.getElementById('tab-label-users');
-    if (usersTab) usersTab.textContent = t('users.title');
-
     var lotsTab = document.getElementById('tab-label-lots');
-    if (lotsTab) lotsTab.textContent = t('nav.lots');
+    if (lotsTab) lotsTab.textContent = t('nav.lots') || 'Purchase';
 
-    var customersTab = document.getElementById('tab-label-customers');
-    if (customersTab) customersTab.textContent = t('nav.customers');
-
-    var mastersTab = document.getElementById('tab-label-masters');
-    if (mastersTab) mastersTab.textContent = t('nav.masters');
-
-    var settingsTab = document.getElementById('tab-label-settings');
-    if (settingsTab) settingsTab.textContent = t('settings.title');
+    var moreTab = document.getElementById('tab-label-more');
+    if (moreTab) moreTab.textContent = t('nav.more') || 'More';
   }
 
   updateUIStrings();
@@ -86,30 +77,136 @@
   syncNetworkState();
 
   // ---------------------------------------------------------------------------
-  // Auth guard helper: hides/shows nav tabs based on role permissions.
-  // Called once after route changes and after login/logout.
+  // Auth guard & Navigation visibility (Doc 06 & Requirements B6, B8)
+  // Max 5 items per role in bottom nav, plus 'More' bottom sheet.
+  // OWNER: Dashboard, Sites, Stock, Purchase (lots), More
+  // MANAGER: Dashboard, Sites, Stock, Purchase, More
+  // SITE_USER: Sites, Stock (or specific allowed tabs), More
   // ---------------------------------------------------------------------------
   function syncNavVisibility() {
-    var usersTab = document.querySelector('[data-tab="users"]');
-    if (usersTab) {
-      usersTab.style.display = window.auth.isAuthenticated() && window.auth.can('users.list') ? '' : 'none';
+    var isAuth = window.auth.isAuthenticated();
+    var header = document.getElementById('app-header');
+    var nav = document.getElementById('bottom-nav');
+
+    if (!isAuth) {
+      document.body.classList.add('not-authenticated');
+      if (header) header.style.display = 'none';
+      if (nav) nav.style.display = 'none';
+      return;
     }
+
+    document.body.classList.remove('not-authenticated');
+    if (header) header.style.display = 'flex';
+    if (nav) nav.style.display = 'flex';
+
+    var role = window.auth.getRole() || 'SITE_USER';
+
+    // Configure visible bottom tabs based on role permissions
+    var dashTab = document.querySelector('[data-tab="dashboard"]');
+    if (dashTab) dashTab.style.display = window.auth.can('dashboard.get') ? '' : 'none';
+
+    var sitesTab = document.querySelector('[data-tab="sites"]');
+    if (sitesTab) sitesTab.style.display = window.auth.can('sites.list') ? '' : 'none';
+
+    var stockTab = document.querySelector('[data-tab="stock"]');
+    if (stockTab) stockTab.style.display = window.auth.can('stock.summary') ? '' : 'none';
+
     var lotsTab = document.querySelector('[data-tab="lots"]');
-    if (lotsTab) {
-      lotsTab.style.display = window.auth.isAuthenticated() && window.auth.can('lots.list') ? '' : 'none';
+    if (lotsTab) lotsTab.style.display = window.auth.can('lots.list') ? '' : 'none';
+  }
+
+  // ---------------------------------------------------------------------------
+  // 'More' bottom sheet for mobile (Requirement B8)
+  // Contains items beyond the 4 primary tabs: Customers, Masters, Money, Reports, Users, Settings, language toggle, logout
+  // ---------------------------------------------------------------------------
+  function openMoreSheet() {
+    var t = window.i18n.t;
+    var user = window.auth.getUser() || {};
+    var role = user.role || 'SITE_USER';
+
+    var items = [];
+
+    if (window.auth.can('customers.list')) {
+      items.push({ hash: '#/customers', icon: '👥', label: t('nav.customers') || 'Customers' });
     }
-    var customersTab = document.querySelector('[data-tab="customers"]');
-    if (customersTab) {
-      customersTab.style.display = window.auth.isAuthenticated() && window.auth.can('customers.list') ? '' : 'none';
+    if (window.auth.can('products.list') || window.auth.can('locations.list')) {
+      items.push({ hash: '#/masters', icon: '📦', label: t('nav.masters') || 'Masters' });
     }
-    var mastersTab = document.querySelector('[data-tab="masters"]');
-    if (mastersTab) {
-      mastersTab.style.display = window.auth.isAuthenticated() && (window.auth.can('products.list') || window.auth.can('locations.list')) ? '' : 'none';
+    if (window.auth.can('cpay.add')) {
+      items.push({ hash: '#/money', icon: '💰', label: t('money.title') || 'Money / P&L' });
     }
-    var moneyTab = document.querySelector('[data-tab="money"]');
-    if (moneyTab) {
-      moneyTab.style.display = window.auth.isAuthenticated() && window.auth.can('cpay.add') ? '' : 'none';
+    if (window.auth.can('reports.list')) {
+      items.push({ hash: '#/reports', icon: '📊', label: t('rep.title') || 'Reports' });
     }
+    if (window.auth.can('users.list')) {
+      items.push({ hash: '#/users', icon: '👤', label: t('users.title') || 'Users' });
+    }
+    items.push({ hash: '#/settings', icon: '⚙️', label: t('settings.title') || 'Settings' });
+
+    var itemsHtml = `
+      <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:0.75rem; padding:0.5rem 0;">
+        ${items.map(function(item) {
+          return `
+            <a href="${item.hash}" class="more-nav-item card" style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:0.85rem 0.5rem; text-align:center; text-decoration:none; color:var(--text-main); border:1px solid var(--border-light); border-radius:8px; min-height:76px;">
+              <span style="font-size:1.6rem; margin-bottom:0.25rem;">${item.icon}</span>
+              <span style="font-size:0.75rem; font-weight:600; line-height:1.2;">${window.ui.esc(item.label)}</span>
+            </a>
+          `;
+        }).join('')}
+      </div>
+
+      <div style="margin-top:1rem; padding-top:0.75rem; border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+        <button id="more-lang-btn" class="btn btn-secondary" style="min-height:40px; font-size:0.85rem;">
+          🌐 ${window.i18n.getLang() === 'hi' ? 'English (EN)' : 'हिंदी (HI)'}
+        </button>
+        <button id="more-logout-btn" class="btn btn-danger" style="min-height:40px; font-size:0.85rem;">
+          🚪 ${window.ui.esc(t('settings.logout') || 'Log Out')}
+        </button>
+      </div>
+    `;
+
+    window.ui.openBottomSheet(t('nav.more') || 'Menu', itemsHtml, '');
+
+    // Bind item click to close sheet
+    var modalBackdrop = document.getElementById('modal-backdrop');
+    if (modalBackdrop) {
+      modalBackdrop.querySelectorAll('.more-nav-item').forEach(function(el) {
+        el.onclick = function() { window.ui.closeBottomSheet(); };
+      });
+    }
+
+    var langBtn = document.getElementById('more-lang-btn');
+    if (langBtn) {
+      langBtn.onclick = async function() {
+        var newLang = window.i18n.toggleLang();
+        window.ui.closeBottomSheet();
+        if (window.auth.isAuthenticated()) {
+          try { await window.api.call('auth.setLang', { lang: newLang }); } catch(e){}
+        }
+      };
+    }
+
+    var logoutBtn = document.getElementById('more-logout-btn');
+    if (logoutBtn) {
+      logoutBtn.onclick = function() {
+        window.ui.closeBottomSheet();
+        window.ui.confirmDialog(
+          t('settings.logout_confirm_title') || 'Confirm Logout',
+          t('settings.logout_confirm_msg') || 'Are you sure you want to log out?',
+          async function() {
+            try { await window.api.call('auth.logout'); } catch(e){}
+            window.auth.clearToken();
+            window.location.hash = '#/login';
+          }
+        );
+      };
+    }
+  }
+
+  // Bind 'More' button
+  var moreBtn = document.getElementById('nav-more-btn');
+  if (moreBtn) {
+    moreBtn.onclick = openMoreSheet;
   }
 
   // ---------------------------------------------------------------------------
@@ -167,24 +264,34 @@
       submitBtn.disabled = true;
       submitBtn.textContent = '…';
 
-      try {
-        await window.api.call('auth.changePassword', { old_password: oldPwd, new_password: newPwd });
-        window.auth.updateUser({ must_change_password: false });
-        window.ui.closeBottomSheet();
-        window.ui.toast(t('change_pwd.success'), 'success');
-        if (forced) {
-          // Redirect to main app after forced change
-          window.location.hash = '#/ping';
+        try {
+          await window.api.call('auth.changePassword', { old_password: oldPwd, new_password: newPwd });
+          window.auth.updateUser({ must_change_password: false });
+          window.ui.closeBottomSheet();
+          window.ui.toast(t('change_pwd.success'), 'success');
+          if (forced) {
+            // Redirect to primary app view after forced change
+            var defaultHash = window.auth.can('dashboard.get') ? '#/dashboard' : '#/sites';
+            window.location.hash = defaultHash;
+          }
+        } catch (err) {
+          var fieldMsg = '';
+          if (err && err.fields) {
+            var fieldKeys = Object.keys(err.fields);
+            if (fieldKeys.length > 0) {
+              var fName = fieldKeys[0];
+              var fCode = err.fields[fName];
+              fieldMsg = t('err.' + fCode) || fCode;
+            }
+          }
+          var code = (err && err.code) ? ('err.' + err.code) : 'err.GENERIC';
+          errEl.textContent = fieldMsg || t(code) || (err && err.message) || t('err.GENERIC');
+          errEl.style.display = '';
+          submitBtn.disabled = false;
+          submitBtn.textContent = t('change_pwd.submit_btn');
         }
-      } catch (err) {
-        var code = (err && err.code) ? ('err.' + err.code) : 'err.NETWORK_ERROR';
-        errEl.textContent = t(code) || (err && err.message) || 'Error';
-        errEl.style.display = '';
-        submitBtn.disabled = false;
-        submitBtn.textContent = t('change_pwd.submit_btn');
-      }
-    });
-  };
+      });
+    };
 
   // 3. Register Routes
   window.router.register('/login', window.pages.login);

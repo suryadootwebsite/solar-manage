@@ -15,21 +15,11 @@ window.pages.login = function(container) {
   container.innerHTML = `
     <div style="max-width: 420px; margin: 1.5rem auto; padding: 0 1rem;">
       <div class="card" style="padding: 2rem 1.5rem; text-align: center; border-top: 4px solid var(--brand);">
-        <div style="display:inline-flex; align-items:center; justify-content:center; width:56px; height:56px; border-radius:50%; background:var(--brand-light); color:var(--brand); margin-bottom:1rem;">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="5"></circle>
-            <line x1="12" y1="1" x2="12" y2="3"></line>
-            <line x1="12" y1="21" x2="12" y2="23"></line>
-            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-            <line x1="1" y1="12" x2="3" y2="12"></line>
-            <line x1="21" y1="12" x2="23" y2="12"></line>
-            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-          </svg>
+        <div style="margin-bottom:1.25rem;">
+          <img src="assets/logo-full-560.png" alt="Suryadoot Energy Solution" style="max-width:240px; width:80%; height:auto; margin:0 auto; display:block;" />
         </div>
 
-        <h1 style="font-size:1.5rem; font-weight:7 child00; margin:0 0 0.5rem; color:var(--text-main);">${ui.esc(t('login.title'))}</h1>
+        <h1 style="font-size:1.35rem; font-weight:700; margin:0 0 0.5rem; color:var(--text-main);">${ui.esc(t('login.title'))}</h1>
         <p style="font-size:0.875rem; color:var(--text-muted); margin:0 0 1.5rem;">${ui.esc(t('login.subtitle'))}</p>
 
         <form id="login-form" style="text-align:left;">
@@ -138,7 +128,8 @@ window.pages.login = function(container) {
             window.showPasswordChangeModal(true);
           } else {
             ui.showToast(t('login.welcome') || 'Welcome back!', 'success', 2500);
-            window.location.hash = '#/ping';
+            var targetHash = window.auth.can('dashboard.get') ? '#/dashboard' : '#/sites';
+            window.location.hash = targetHash;
           }
         } catch (err) {
           var errMsg = err.message || t('err.INVALID_CREDENTIALS') || 'Login failed';

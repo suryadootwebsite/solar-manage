@@ -10,20 +10,20 @@ window.pages.sites = async function(container) {
 
   container.innerHTML = `
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:0.5rem;">
-      <div>
-        <h2 style="margin:0;">Solar Sites</h2>
-        <p class="text-muted" style="margin:0.25rem 0 0; font-size:0.875rem;">Active installations and stage progress</p>
+      <div style="min-width:160px; flex:1;">
+        <h2 style="margin:0; font-size:1.35rem; line-height:1.2;">Solar Sites</h2>
+        <p class="text-muted" style="margin:0.25rem 0 0; font-size:0.8rem;">Active installations and stage progress</p>
       </div>
-      <button id="site-new-btn" class="btn btn-primary" style="min-height:44px;">+ New Site</button>
+      <button id="site-new-btn" class="btn btn-primary" style="min-height:42px; line-height:1.2; padding:0.5rem 0.85rem; font-size:0.875rem; white-space:nowrap; align-self:center;">+ New Site</button>
     </div>
 
-    <!-- Filter chips -->
-    <div style="display:flex; gap:0.5rem; margin-bottom:1rem; overflow-x:auto;">
-      <button class="btn btn-primary site-filter-btn active" data-status="">All</button>
-      <button class="btn btn-secondary site-filter-btn" data-status="ACTIVE">ACTIVE</button>
-      <button class="btn btn-secondary site-filter-btn" data-status="ON_HOLD">ON HOLD</button>
-      <button class="btn btn-secondary site-filter-btn" data-status="COMPLETED">COMPLETED</button>
-      <button class="btn btn-secondary" id="site-stuck-toggle">Stuck Only</button>
+    <!-- Filter chips (horizontal scroll with no wrap and smooth touch) -->
+    <div style="display:flex; gap:0.35rem; margin-bottom:1rem; overflow-x:auto; padding-bottom:4px; -webkit-overflow-scrolling:touch; scrollbar-width:none;">
+      <button class="btn btn-primary site-filter-btn active" data-status="" style="padding:0.35rem 0.75rem; font-size:0.8rem; min-height:36px; white-space:nowrap;">All</button>
+      <button class="btn btn-secondary site-filter-btn" data-status="ACTIVE" style="padding:0.35rem 0.75rem; font-size:0.8rem; min-height:36px; white-space:nowrap;">Active</button>
+      <button class="btn btn-secondary site-filter-btn" data-status="ON_HOLD" style="padding:0.35rem 0.75rem; font-size:0.8rem; min-height:36px; white-space:nowrap;">Hold</button>
+      <button class="btn btn-secondary site-filter-btn" data-status="COMPLETED" style="padding:0.35rem 0.75rem; font-size:0.8rem; min-height:36px; white-space:nowrap;">Done</button>
+      <button class="btn btn-secondary" id="site-stuck-toggle" style="padding:0.35rem 0.75rem; font-size:0.8rem; min-height:36px; white-space:nowrap;">Stuck</button>
     </div>
 
     <div id="site-list-view">

@@ -117,7 +117,9 @@ window.pages.customers = async function(container) {
           <textarea id="cf-address" class="input" rows="2">${cust ? window.ui.esc(cust.address || '') : ''}</textarea>
         </div>
         <div id="cf-error" class="text-error" style="display:none; margin-bottom:0.75rem;"></div>
-        <button type="submit" id="cf-submit" class="btn btn-primary btn-full">${window.ui.esc(t('btn.save'))}</button>
+        <div class="sheet-footer" style="padding-top:0.75rem; border-top:1px solid var(--border);">
+          <button type="submit" id="cf-submit" class="btn btn-primary btn-full">${window.ui.esc(t('btn.save'))}</button>
+        </div>
       </form>
     `;
 

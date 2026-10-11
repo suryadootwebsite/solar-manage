@@ -60,18 +60,22 @@ window.ui = (function() {
     var sheet = document.getElementById('bottom-sheet-content');
     if (!backdrop || !sheet) return;
 
+    var footerMarkup = footerButtonsHtml ? `
+      <div class="sheet-footer">
+        ${footerButtonsHtml}
+      </div>
+    ` : '';
+
     sheet.innerHTML = `
       <div class="sheet-handle"></div>
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-        <h3 style="margin:0;">${esc(title)}</h3>
-        <button id="sheet-close-btn" style="font-size:1.5rem; line-height:1; min-height:44px; min-width:44px;">&times;</button>
+      <div class="sheet-header">
+        <h3 style="margin:0; font-size:1.15rem; color:var(--text-main);">${esc(title)}</h3>
+        <button id="sheet-close-btn" class="btn btn-secondary" style="font-size:1.4rem; line-height:1; min-height:40px; min-width:40px; padding:0; border-radius:50%; border:none;" aria-label="Close">&times;</button>
       </div>
-      <div class="sheet-body" style="margin-bottom:1.5rem;">
+      <div class="sheet-body">
         ${bodyHtml}
       </div>
-      <div class="sheet-footer" style="display:flex; gap:0.5rem; flex-direction:column;">
-        ${footerButtonsHtml || ''}
-      </div>
+      ${footerMarkup}
     `;
 
     backdrop.classList.add('is-open');

@@ -34,6 +34,12 @@ body {
   padding-right: var(--sar);
 }
 
+body.not-authenticated {
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+  justify-content: center;
+}
+
 /* Typography Defaults */
 h1, h2, h3, h4, h5, h6 {
   font-weight: 700;

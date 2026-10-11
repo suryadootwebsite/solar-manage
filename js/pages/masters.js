@@ -196,7 +196,9 @@ window.pages.masters = async function(container) {
             <input id="pf-gst" type="number" class="input" value="${p ? (p.default_gst_rate || 12) : 12}">
           </div>
           <div id="pf-error" class="text-error" style="display:none; margin-bottom:0.75rem;"></div>
-          <button type="submit" id="pf-submit" class="btn btn-primary btn-full">${window.ui.esc(t('btn.save'))}</button>
+          <div class="sheet-footer" style="padding-top:0.75rem; border-top:1px solid var(--border);">
+            <button type="submit" id="pf-submit" class="btn btn-primary btn-full">${window.ui.esc(t('btn.save'))}</button>
+          </div>
         </form>
       `;
 
@@ -344,7 +346,9 @@ window.pages.masters = async function(container) {
             <textarea id="sf-address" class="input" rows="2">${s ? window.ui.esc(s.address || '') : ''}</textarea>
           </div>
           <div id="sf-error" class="text-error" style="display:none; margin-bottom:0.75rem;"></div>
-          <button type="submit" id="sf-submit" class="btn btn-primary btn-full">${window.ui.esc(t('btn.save'))}</button>
+          <div class="sheet-footer" style="padding-top:0.75rem; border-top:1px solid var(--border);">
+            <button type="submit" id="sf-submit" class="btn btn-primary btn-full">${window.ui.esc(t('btn.save'))}</button>
+          </div>
         </form>
       `;
 
@@ -500,7 +504,9 @@ window.pages.masters = async function(container) {
             <textarea id="lf-address" class="input" rows="2">${loc ? window.ui.esc(loc.address || '') : ''}</textarea>
           </div>
           <div id="lf-error" class="text-error" style="display:none; margin-bottom:0.75rem;"></div>
-          <button type="submit" id="lf-submit" class="btn btn-primary btn-full">${window.ui.esc(t('btn.save'))}</button>
+          <div class="sheet-footer" style="padding-top:0.75rem; border-top:1px solid var(--border);">
+            <button type="submit" id="lf-submit" class="btn btn-primary btn-full">${window.ui.esc(t('btn.save'))}</button>
+          </div>
         </form>
       `;
 

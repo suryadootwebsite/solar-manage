@@ -26,18 +26,35 @@ window.router = (function() {
 
     _currentRoute = path;
 
+    // Strict Auth Guard inside router
+    if (!window.auth || !window.auth.isAuthenticated()) {
+      if (path !== '/login') {
+        window.location.hash = '#/login';
+        return;
+      }
+    }
+
     // Update bottom nav active state
     var navTabs = document.querySelectorAll('.nav-tab');
     navTabs.forEach(function(tab) {
-      var tabHash = tab.getAttribute('href').slice(1);
-      if (tabHash === path || (path === '/' && tabHash === '/ping')) {
+      var href = tab.getAttribute('href');
+      if (!href) return;
+      var tabHash = href.slice(1);
+      if (tabHash === path) {
         tab.classList.add('active');
       } else {
         tab.classList.remove('active');
       }
     });
 
-    var handler = _routes[path] || _routes['/'] || _routes['/ping'];
+    var handler = _routes[path];
+    if (!handler) {
+      if (window.auth && window.auth.isAuthenticated()) {
+        handler = _routes['/dashboard'] || _routes['/sites'];
+      } else {
+        handler = _routes['/login'];
+      }
+    }
     var container = document.getElementById('main-content');
 
     if (handler && container) {
@@ -51,7 +68,11 @@ window.router = (function() {
     window.addEventListener('localechange', _handleRoute);
     // Initial routing
     if (!window.location.hash) {
-      window.location.hash = '#/ping';
+      if (window.auth && window.auth.isAuthenticated()) {
+        window.location.hash = window.auth.can('dashboard.get') ? '#/dashboard' : '#/sites';
+      } else {
+        window.location.hash = '#/login';
+      }
     } else {
       _handleRoute();
     }

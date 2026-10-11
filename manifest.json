@@ -1,6 +1,6 @@
 {
-  "name": "Solar Management System",
-  "short_name": "Solar MS",
+  "name": "Suryadoot Energy Solution",
+  "short_name": "Suryadoot",
   "description": "Internal Solar Installation Project & Inventory Management System",
   "start_url": "./",
   "display": "standalone",
