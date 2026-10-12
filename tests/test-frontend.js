@@ -116,7 +116,17 @@ if (inlineMatches.length > 0) {
 
 console.log('\n=== Step 5: Validating ui.esc() HTML Escaping ===');
 const vm = require('vm');
-const sandbox = { window: {} };
+const sandbox = {
+  window: {
+    addEventListener: () => {}
+  },
+  document: {
+    getElementById: () => null,
+    createElement: () => ({ appendChild: () => {}, querySelector: () => null, addEventListener: () => {} }),
+    body: { classList: { add: () => {}, remove: () => {} } }
+  }
+};
+sandbox.window.document = sandbox.document;
 vm.createContext(sandbox);
 vm.runInContext(fs.readFileSync(path.join(baseDir, 'js/ui.js'), 'utf8'), sandbox);
 
@@ -133,5 +143,54 @@ if (escaped !== expected) {
   process.exit(1);
 }
 console.log('ui.esc() HTML escaping: PASS');
+
+console.log('\n=== Step 6: Validating that all t(...) keys in js/ exist in en.json and hi.json ===');
+function scanDir(dir) {
+  let files = [];
+  for (const item of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, item.name);
+    if (item.isDirectory()) {
+      files = files.concat(scanDir(full));
+    } else if (item.name.endsWith('.js')) {
+      files.push(full);
+    }
+  }
+  return files;
+}
+
+const jsFiles = scanDir(path.join(baseDir, 'js'));
+// Regex matches t('key') and t("key") where key is a literal string without dynamic interpolation
+const tRegex = /\bt\(\s*['"]([a-zA-Z0-9_\.]+)['"]\s*[\),]/g;
+const foundKeys = new Set();
+
+for (const file of jsFiles) {
+  const content = fs.readFileSync(file, 'utf8');
+  let match;
+  while ((match = tRegex.exec(content)) !== null) {
+    foundKeys.add(match[1]);
+  }
+}
+
+console.log('Found', foundKeys.size, 'static translation keys in js/ files.');
+const missingInEnFromJs = [];
+const missingInHiFromJs = [];
+
+for (const k of foundKeys) {
+  if (!en.hasOwnProperty(k)) missingInEnFromJs.push(k);
+  if (!hi.hasOwnProperty(k)) missingInHiFromJs.push(k);
+}
+
+if (missingInEnFromJs.length > 0) {
+  console.error('Keys used in js/ missing in en.json:', missingInEnFromJs);
+}
+if (missingInHiFromJs.length > 0) {
+  console.error('Keys used in js/ missing in hi.json:', missingInHiFromJs);
+}
+
+if (missingInEnFromJs.length === 0 && missingInHiFromJs.length === 0) {
+  console.log('All static t(...) keys exist in en.json and hi.json: PASS');
+} else {
+  process.exit(1);
+}
 
 console.log('\nALL FRONTEND SHELL VERIFICATIONS PASSED ✓');

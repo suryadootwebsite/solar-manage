@@ -554,7 +554,7 @@ window.pages.lots = async function(container) {
 
       try {
         await window.api.call('lots.create', payload);
-        window.ui.closeBottomSheet();
+        window.ui.closeAllBottomSheets();
         window.ui.toast('Purchase lot recorded successfully', 'success');
         loadLots();
       } catch(err) {

@@ -4,8 +4,14 @@
   "nav.dashboard": "Dashboard",
   "nav.sites": "Sites",
   "nav.stock": "Stock",
+  "nav.purchase": "Purchase",
+  "nav.customers": "Customers",
+  "nav.masters": "Masters",
+  "nav.money": "Money",
+  "nav.reports": "Reports",
+  "nav.users": "Users",
+  "nav.settings": "Settings",
   "nav.ping": "Ping",
-  "nav.more": "More",
   "nav.logout": "Logout",
   "btn.confirm": "Confirm",
   "btn.cancel": "Cancel",
@@ -293,5 +299,22 @@
   "rep.export_csv": "Export CSV",
   "rep.no_data": "No rows found for this report.",
   "rep.loading": "Loading report data...",
-  "rep.rows_count": "{count} records found"
+  "rep.rows_count": "{count} records found",
+
+  "usage.no_sites": "No active sites available.",
+  "usage.no_records": "No material issue records found.",
+  "usage.reason_required": "Reason is required.",
+  "usage.select_site_first": "Please select a site first.",
+  "usage.serial_nos": "Serial Numbers",
+  "usage.select_product": "Select Product",
+
+  "common.actions": "Actions",
+  "common.cancel": "Cancel",
+  "common.confirm": "Confirm",
+
+  "serials.search_hint": "Search by serial number or site...",
+  "serials.no_results": "No serials found matching query.",
+  "serials.replace_notice": "Replacement Notice",
+  "serials.no_avail": "No available serials in stock.",
+  "serials.choose_new": "Choose new serial"
 }

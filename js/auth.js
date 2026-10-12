@@ -50,6 +50,7 @@ window.auth = (function() {
     storage.setItem(TOKEN_KEY, token);
     if (user) storage.setItem(USER_KEY, JSON.stringify(user));
     if (permissions) storage.setItem(PERMS_KEY, JSON.stringify(permissions));
+    window.dispatchEvent(new CustomEvent('authchange', { detail: { isAuthenticated: true, user: user } }));
   }
 
   function setToken(token, remember, user) {
@@ -63,6 +64,7 @@ window.auth = (function() {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
     localStorage.removeItem(PERMS_KEY);
+    window.dispatchEvent(new CustomEvent('authchange', { detail: { isAuthenticated: false, user: null } }));
   }
 
   function isAuthenticated() {

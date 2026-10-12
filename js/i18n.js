@@ -13,21 +13,23 @@ window.i18n = (function() {
   var _isLoaded = false;
 
   /**
-   * Initializes translations by fetching JSON dictionaries.
+   * Initializes translations by fetching JSON dictionaries independently.
    */
   async function init() {
     try {
-      var [enRes, hiRes] = await Promise.all([
-        fetch('./locales/en.json'),
-        fetch('./locales/hi.json')
-      ]);
-
+      var enRes = await fetch('./locales/en.json');
       if (enRes.ok) _dictionaries.en = await enRes.json();
-      if (hiRes.ok) _dictionaries.hi = await hiRes.json();
-      _isLoaded = true;
-    } catch (err) {
-      console.error('Failed to load locale dictionaries:', err);
+    } catch (e) {
+      console.error('Failed to load en.json locale:', e);
     }
+
+    try {
+      var hiRes = await fetch('./locales/hi.json');
+      if (hiRes.ok) _dictionaries.hi = await hiRes.json();
+    } catch (e) {
+      console.error('Failed to load hi.json locale:', e);
+    }
+    _isLoaded = true;
   }
 
   function getLang() {
@@ -58,7 +60,15 @@ window.i18n = (function() {
     var dict = _dictionaries[_currentLang] || {};
     var fallback = _dictionaries.en || {};
 
-    var text = dict[key] || fallback[key] || key;
+    var text = dict[key] || fallback[key];
+    if (!text) {
+      // A raw key like 'login.title' or 'nav.dashboard' must never reach the screen
+      if (typeof key === 'string' && key.indexOf('.') !== -1) {
+        text = _currentLang === 'hi' ? 'जानकारी उपलब्ध नहीं है' : 'Information unavailable';
+      } else {
+        text = key || '';
+      }
+    }
 
     if (params && typeof params === 'object') {
       for (var p in params) {

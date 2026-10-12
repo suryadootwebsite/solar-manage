@@ -32,23 +32,31 @@
     var headerTitle = document.getElementById('app-header-title');
     if (headerTitle) headerTitle.textContent = t('app.title');
 
-    var pingTab = document.getElementById('tab-label-ping');
-    if (pingTab) pingTab.textContent = t('nav.ping');
+    var tabLabels = {
+      dashboard: t('nav.dashboard') || 'Dashboard',
+      sites: t('nav.sites') || 'Sites',
+      stock: t('nav.stock') || 'Stock',
+      lots: t('nav.purchase') || 'Purchase',
+      customers: t('nav.customers') || 'Customers',
+      masters: t('nav.masters') || 'Masters',
+      money: t('nav.money') || 'Money',
+      reports: t('nav.reports') || 'Reports',
+      users: t('nav.users') || 'Users',
+      settings: t('nav.settings') || 'Settings'
+    };
 
-    var sitesTab = document.getElementById('tab-label-sites');
-    if (sitesTab) sitesTab.textContent = t('nav.sites');
+    for (var key in tabLabels) {
+      var el = document.getElementById('tab-label-' + key);
+      if (el) el.textContent = tabLabels[key];
+    }
 
-    var stockTab = document.getElementById('tab-label-stock');
-    if (stockTab) stockTab.textContent = t('nav.stock');
-
-    var dashTab = document.getElementById('tab-label-dashboard');
-    if (dashTab) dashTab.textContent = t('nav.dashboard');
-
-    var lotsTab = document.getElementById('tab-label-lots');
-    if (lotsTab) lotsTab.textContent = t('nav.lots') || 'Purchase';
-
-    var moreTab = document.getElementById('tab-label-more');
-    if (moreTab) moreTab.textContent = t('nav.more') || 'More';
+    // Update user initial in header
+    var user = window.auth.getUser();
+    var initialEl = document.getElementById('user-initial');
+    if (initialEl) {
+      var name = (user && user.name) ? user.name.trim() : (user && user.username) ? user.username.trim() : 'U';
+      initialEl.textContent = name.charAt(0).toUpperCase();
+    }
   }
 
   updateUIStrings();
@@ -77,105 +85,157 @@
   syncNetworkState();
 
   // ---------------------------------------------------------------------------
-  // Auth guard & Navigation visibility (Doc 06 & Requirements B6, B8)
-  // Max 5 items per role in bottom nav, plus 'More' bottom sheet.
-  // OWNER: Dashboard, Sites, Stock, Purchase (lots), More
-  // MANAGER: Dashboard, Sites, Stock, Purchase, More
-  // SITE_USER: Sites, Stock (or specific allowed tabs), More
+  // Edge fade gradients update for swipeable bottom bar (B2)
+  // ---------------------------------------------------------------------------
+  function updateNavEdgeFades() {
+    var nav = document.getElementById('bottom-nav');
+    var fadeLeft = document.getElementById('nav-fade-left');
+    var fadeRight = document.getElementById('nav-fade-right');
+    if (!nav || !fadeLeft || !fadeRight) return;
+
+    var scrollLeft = nav.scrollLeft;
+    var maxScroll = nav.scrollWidth - nav.clientWidth;
+
+    if (scrollLeft > 6) {
+      fadeLeft.classList.add('is-visible');
+    } else {
+      fadeLeft.classList.remove('is-visible');
+    }
+
+    if (maxScroll > 6 && scrollLeft < maxScroll - 6) {
+      fadeRight.classList.add('is-visible');
+    } else {
+      fadeRight.classList.remove('is-visible');
+    }
+  }
+
+  var navEl = document.getElementById('bottom-nav');
+  if (navEl) {
+    navEl.addEventListener('scroll', updateNavEdgeFades);
+    window.addEventListener('resize', updateNavEdgeFades);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Center active tab into view (B2)
+  // ---------------------------------------------------------------------------
+  function centerActiveNavTab() {
+    var nav = document.getElementById('bottom-nav');
+    if (!nav) return;
+    var activeTab = nav.querySelector('.nav-tab.active');
+    if (activeTab) {
+      // Calculate target scrollLeft to center activeTab within nav container
+      var targetLeft = activeTab.offsetLeft - (nav.clientWidth / 2) + (activeTab.clientWidth / 2);
+      nav.scrollTo({ left: Math.max(0, targetLeft), behavior: 'smooth' });
+    }
+    setTimeout(updateNavEdgeFades, 350);
+  }
+
+  window.addEventListener('hashchange', function() {
+    setTimeout(centerActiveNavTab, 50);
+  });
+
+  // ---------------------------------------------------------------------------
+  // Navigation visibility & Role permissions (B1, B3)
+  // OWNER: Dashboard, Sites, Stock, Purchase, Customers, Masters, Money, Reports, Users, Settings
+  // MANAGER: only permitted actions (e.g. Dashboard, Sites, Stock, Purchase, Customers, Masters, Reports)
+  // SITE_USER: only Sites, Stock (if permitted)
   // ---------------------------------------------------------------------------
   function syncNavVisibility() {
     var isAuth = window.auth.isAuthenticated();
     var header = document.getElementById('app-header');
-    var nav = document.getElementById('bottom-nav');
+    var navContainer = document.getElementById('bottom-nav-container');
 
     if (!isAuth) {
       document.body.classList.add('not-authenticated');
       if (header) header.style.display = 'none';
-      if (nav) nav.style.display = 'none';
+      if (navContainer) navContainer.style.display = 'none';
       return;
     }
 
     document.body.classList.remove('not-authenticated');
     if (header) header.style.display = 'flex';
-    if (nav) nav.style.display = 'flex';
+    if (navContainer) navContainer.style.display = 'block';
+
+    updateUIStrings();
 
     var role = window.auth.getRole() || 'SITE_USER';
 
-    // Configure visible bottom tabs based on role permissions
-    var dashTab = document.querySelector('[data-tab="dashboard"]');
-    if (dashTab) dashTab.style.display = window.auth.can('dashboard.get') ? '' : 'none';
+    // Map each tab to its permission requirement
+    var tabPermissions = {
+      dashboard: window.auth.can('dashboard.get'),
+      sites: window.auth.can('sites.list'),
+      stock: window.auth.can('stock.summary'),
+      lots: window.auth.can('lots.list'),
+      customers: window.auth.can('customers.list'),
+      masters: window.auth.can('products.list') || window.auth.can('locations.list'),
+      money: role === 'OWNER' && window.auth.can('cpay.add'),
+      reports: role !== 'SITE_USER' && window.auth.can('reports.list'),
+      users: role === 'OWNER' && window.auth.can('users.list'),
+      settings: role === 'OWNER'
+    };
 
-    var sitesTab = document.querySelector('[data-tab="sites"]');
-    if (sitesTab) sitesTab.style.display = window.auth.can('sites.list') ? '' : 'none';
+    for (var tabKey in tabPermissions) {
+      var tabElement = document.querySelector('[data-tab="' + tabKey + '"]');
+      if (tabElement) {
+        tabElement.style.display = tabPermissions[tabKey] ? '' : 'none';
+      }
+    }
 
-    var stockTab = document.querySelector('[data-tab="stock"]');
-    if (stockTab) stockTab.style.display = window.auth.can('stock.summary') ? '' : 'none';
-
-    var lotsTab = document.querySelector('[data-tab="lots"]');
-    if (lotsTab) lotsTab.style.display = window.auth.can('lots.list') ? '' : 'none';
+    setTimeout(function() {
+      updateNavEdgeFades();
+      centerActiveNavTab();
+    }, 100);
   }
 
   // ---------------------------------------------------------------------------
-  // 'More' bottom sheet for mobile (Requirement B8)
-  // Contains items beyond the 4 primary tabs: Customers, Masters, Money, Reports, Users, Settings, language toggle, logout
+  // User Menu in Header (B5)
+  // Small round button with user initial that opens a bottom sheet with:
+  // user name and role, language toggle, change password, logout.
   // ---------------------------------------------------------------------------
-  function openMoreSheet() {
+  function openUserMenuSheet() {
     var t = window.i18n.t;
     var user = window.auth.getUser() || {};
     var role = user.role || 'SITE_USER';
+    var name = user.name || user.username || 'User';
 
-    var items = [];
+    var roleBadges = {
+      OWNER: '<span class="badge badge-success">OWNER</span>',
+      MANAGER: '<span class="badge badge-info">MANAGER</span>',
+      SITE_USER: '<span class="badge badge-warning">SITE USER</span>'
+    };
 
-    if (window.auth.can('customers.list')) {
-      items.push({ hash: '#/customers', icon: '👥', label: t('nav.customers') || 'Customers' });
-    }
-    if (window.auth.can('products.list') || window.auth.can('locations.list')) {
-      items.push({ hash: '#/masters', icon: '📦', label: t('nav.masters') || 'Masters' });
-    }
-    if (window.auth.can('cpay.add')) {
-      items.push({ hash: '#/money', icon: '💰', label: t('money.title') || 'Money / P&L' });
-    }
-    if (window.auth.can('reports.list')) {
-      items.push({ hash: '#/reports', icon: '📊', label: t('rep.title') || 'Reports' });
-    }
-    if (window.auth.can('users.list')) {
-      items.push({ hash: '#/users', icon: '👤', label: t('users.title') || 'Users' });
-    }
-    items.push({ hash: '#/settings', icon: '⚙️', label: t('settings.title') || 'Settings' });
-
-    var itemsHtml = `
-      <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:0.75rem; padding:0.5rem 0;">
-        ${items.map(function(item) {
-          return `
-            <a href="${item.hash}" class="more-nav-item card" style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:0.85rem 0.5rem; text-align:center; text-decoration:none; color:var(--text-main); border:1px solid var(--border-light); border-radius:8px; min-height:76px;">
-              <span style="font-size:1.6rem; margin-bottom:0.25rem;">${item.icon}</span>
-              <span style="font-size:0.75rem; font-weight:600; line-height:1.2;">${window.ui.esc(item.label)}</span>
-            </a>
-          `;
-        }).join('')}
+    var menuHtml = `
+      <div style="padding:0.5rem 0 1rem; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:0.75rem;">
+        <div style="width:48px; height:48px; border-radius:50%; background:var(--brand); color:#fff; font-size:1.3rem; font-weight:700; display:flex; align-items:center; justify-content:center;">
+          ${name.charAt(0).toUpperCase()}
+        </div>
+        <div>
+          <div style="font-weight:700; font-size:1.05rem; color:var(--text-main);">${window.ui.esc(name)}</div>
+          <div style="margin-top:0.2rem;">${roleBadges[role] || role}</div>
+        </div>
       </div>
 
-      <div style="margin-top:1rem; padding-top:0.75rem; border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
-        <button id="more-lang-btn" class="btn btn-secondary" style="min-height:40px; font-size:0.85rem;">
-          🌐 ${window.i18n.getLang() === 'hi' ? 'English (EN)' : 'हिंदी (HI)'}
+      <div style="display:flex; flex-direction:column; gap:0.5rem; margin-top:1rem;">
+        <!-- Switch Language -->
+        <button type="button" id="um-lang-btn" class="btn btn-secondary" style="justify-content:flex-start; min-height:48px; font-size:0.95rem;">
+          🌐 <strong>${window.i18n.getLang() === 'hi' ? 'Switch to English (EN)' : 'हिंदी में बदलें (HI)'}</strong>
         </button>
-        <button id="more-logout-btn" class="btn btn-danger" style="min-height:40px; font-size:0.85rem;">
+
+        <!-- Change Password -->
+        <button type="button" id="um-change-pwd-btn" class="btn btn-secondary" style="justify-content:flex-start; min-height:48px; font-size:0.95rem;">
+          🔒 ${window.ui.esc(t('settings.change_pwd') || 'Change Password')}
+        </button>
+
+        <!-- Logout -->
+        <button type="button" id="um-logout-btn" class="btn btn-danger" style="justify-content:flex-start; min-height:48px; font-size:0.95rem; margin-top:0.5rem;">
           🚪 ${window.ui.esc(t('settings.logout') || 'Log Out')}
         </button>
       </div>
     `;
 
-    window.ui.openBottomSheet(t('nav.more') || 'Menu', itemsHtml, '');
+    window.ui.openBottomSheet(t('settings.title') || 'Account', menuHtml, '');
 
-    // Bind item click to close sheet
-    var modalBackdrop = document.getElementById('modal-backdrop');
-    if (modalBackdrop) {
-      modalBackdrop.querySelectorAll('.more-nav-item').forEach(function(el) {
-        el.onclick = function() { window.ui.closeBottomSheet(); };
-      });
-    }
-
-    var langBtn = document.getElementById('more-lang-btn');
+    var langBtn = document.getElementById('um-lang-btn');
     if (langBtn) {
       langBtn.onclick = async function() {
         var newLang = window.i18n.toggleLang();
@@ -186,7 +246,15 @@
       };
     }
 
-    var logoutBtn = document.getElementById('more-logout-btn');
+    var changePwdBtn = document.getElementById('um-change-pwd-btn');
+    if (changePwdBtn) {
+      changePwdBtn.onclick = function() {
+        window.ui.closeBottomSheet();
+        window.showPasswordChangeModal(false);
+      };
+    }
+
+    var logoutBtn = document.getElementById('um-logout-btn');
     if (logoutBtn) {
       logoutBtn.onclick = function() {
         window.ui.closeBottomSheet();
@@ -203,10 +271,9 @@
     }
   }
 
-  // Bind 'More' button
-  var moreBtn = document.getElementById('nav-more-btn');
-  if (moreBtn) {
-    moreBtn.onclick = openMoreSheet;
+  var userMenuBtn = document.getElementById('user-menu-btn');
+  if (userMenuBtn) {
+    userMenuBtn.onclick = openUserMenuSheet;
   }
 
   // ---------------------------------------------------------------------------
@@ -318,8 +385,22 @@
   window.router.register('/lots', window.pages.lots);
   window.router.register('/settings', window.pages.settings);
 
-  // 4. Auth guard: before router activates, check session.
-  //    If not authenticated and not on /login, redirect to /login.
+  // 4. Auth guard: before router activates, verify session.
+  // With a stored token, verify it (auth.me) before showing the shell;
+  // on UNAUTHORIZED clear everything and show only the login screen.
+  if (window.auth.isAuthenticated()) {
+    try {
+      var meData = await window.api.call('auth.me', {}, { skipAuth: false });
+      if (meData && meData.user) {
+        window.auth.updateUser(meData.user);
+      }
+    } catch (e) {
+      if (e && (e.code === 'UNAUTHORIZED' || e.code === 'INVALID_TOKEN' || e.code === 'EXPIRED_TOKEN')) {
+        window.auth.clearToken();
+      }
+    }
+  }
+
   var currentHash = window.location.hash.replace('#', '') || '/';
   if (!window.auth.isAuthenticated() && currentHash !== '/login') {
     window.location.hash = '#/login';

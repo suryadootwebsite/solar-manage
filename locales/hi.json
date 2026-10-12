@@ -4,8 +4,14 @@
   "nav.dashboard": "डैशबोर्ड",
   "nav.sites": "साइट्स",
   "nav.stock": "स्टॉक",
+  "nav.purchase": "खरीद",
+  "nav.customers": "ग्राहक",
+  "nav.masters": "मास्टर्स",
+  "nav.money": "आय-व्यय",
+  "nav.reports": "रिपोर्ट्स",
+  "nav.users": "उपयोगकर्ता",
+  "nav.settings": "सेटिंग्स",
   "nav.ping": "पिंग",
-  "nav.more": "अधिक",
   "nav.logout": "लॉग आउट",
   "btn.confirm": "पुष्टि करें",
   "btn.cancel": "रद्द करें",
@@ -293,5 +299,22 @@
   "rep.export_csv": "CSV डाउनलोड करें",
   "rep.no_data": "इस रिपोर्ट के लिए कोई डेटा नहीं मिला।",
   "rep.loading": "रिपोर्ट डेटा लोड हो रहा है...",
-  "rep.rows_count": "{count} रिकॉर्ड मिले"
+  "rep.rows_count": "{count} रिकॉर्ड मिले",
+
+  "usage.no_sites": "कोई सक्रिय साइट उपलब्ध नहीं है।",
+  "usage.no_records": "कोई सामग्री निकासी रिकॉर्ड नहीं मिला।",
+  "usage.reason_required": "कारण दर्ज करना अनिवार्य है।",
+  "usage.select_site_first": "कृपया पहले एक साइट चुनें।",
+  "usage.serial_nos": "सीरियल नंबर",
+  "usage.select_product": "उत्पाद चुनें",
+
+  "common.actions": "कार्रवाई (Actions)",
+  "common.cancel": "रद्द करें",
+  "common.confirm": "पुष्टि करें",
+
+  "serials.search_hint": "सीरियल नंबर या साइट द्वारा खोजें...",
+  "serials.no_results": "कोई सीरियल नहीं मिला।",
+  "serials.replace_notice": "प्रतिस्थापन सूचना (Replacement)",
+  "serials.no_avail": "स्टॉक में कोई सीरियल उपलब्ध नहीं है।",
+  "serials.choose_new": "नया सीरियल चुनें"
 }

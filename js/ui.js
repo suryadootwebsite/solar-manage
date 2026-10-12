@@ -55,10 +55,16 @@ window.ui = (function() {
     if (overlay) overlay.style.display = 'none';
   }
 
+  var _sheetStack = [];
+
   function openBottomSheet(title, bodyHtml, footerButtonsHtml) {
     var backdrop = document.getElementById('modal-backdrop');
-    var sheet = document.getElementById('bottom-sheet-content');
-    if (!backdrop || !sheet) return;
+    if (!backdrop) return;
+
+    var layer = document.createElement('div');
+    layer.className = 'bottom-sheet bottom-sheet-layer';
+    var layerIndex = _sheetStack.length;
+    layer.style.zIndex = String(510 + layerIndex * 10);
 
     var footerMarkup = footerButtonsHtml ? `
       <div class="sheet-footer">
@@ -66,11 +72,11 @@ window.ui = (function() {
       </div>
     ` : '';
 
-    sheet.innerHTML = `
+    layer.innerHTML = `
       <div class="sheet-handle"></div>
       <div class="sheet-header">
         <h3 style="margin:0; font-size:1.15rem; color:var(--text-main);">${esc(title)}</h3>
-        <button id="sheet-close-btn" class="btn btn-secondary" style="font-size:1.4rem; line-height:1; min-height:40px; min-width:40px; padding:0; border-radius:50%; border:none;" aria-label="Close">&times;</button>
+        <button type="button" class="btn btn-secondary sheet-close-btn" style="font-size:1.4rem; line-height:1; min-height:40px; min-width:40px; padding:0; border-radius:50%; border:none;" aria-label="Close">&times;</button>
       </div>
       <div class="sheet-body">
         ${bodyHtml}
@@ -78,20 +84,67 @@ window.ui = (function() {
       ${footerMarkup}
     `;
 
+    backdrop.appendChild(layer);
+    _sheetStack.push(layer);
+
+    // Apply scroll lock to body
+    document.body.classList.add('sheet-open');
     backdrop.classList.add('is-open');
 
-    var closeBtn = document.getElementById('sheet-close-btn');
-    if (closeBtn) closeBtn.onclick = closeBottomSheet;
+    // Force reflow for entrance animation
+    void layer.offsetHeight;
+    layer.classList.add('layer-active');
+
+    var closeBtn = layer.querySelector('.sheet-close-btn');
+    if (closeBtn) {
+      closeBtn.onclick = function() {
+        closeBottomSheet();
+      };
+    }
 
     backdrop.onclick = function(e) {
-      if (e.target === backdrop) closeBottomSheet();
+      if (e.target === backdrop) {
+        closeBottomSheet();
+      }
     };
   }
 
   function closeBottomSheet() {
+    if (_sheetStack.length === 0) return;
+    var topLayer = _sheetStack.pop();
+
+    if (topLayer && topLayer.parentNode) {
+      topLayer.classList.remove('layer-active');
+      setTimeout(function() {
+        if (topLayer.parentNode) topLayer.parentNode.removeChild(topLayer);
+      }, 200);
+    }
+
+    if (_sheetStack.length === 0) {
+      var backdrop = document.getElementById('modal-backdrop');
+      if (backdrop) backdrop.classList.remove('is-open');
+      document.body.classList.remove('sheet-open');
+    }
+  }
+
+  function closeAllBottomSheets() {
+    while (_sheetStack.length > 0) {
+      var layer = _sheetStack.pop();
+      if (layer && layer.parentNode) {
+        layer.parentNode.removeChild(layer);
+      }
+    }
     var backdrop = document.getElementById('modal-backdrop');
     if (backdrop) backdrop.classList.remove('is-open');
+    document.body.classList.remove('sheet-open');
   }
+
+  // Handle hardware / browser back button to close top bottom sheet first
+  window.addEventListener('popstate', function() {
+    if (_sheetStack.length > 0) {
+      closeBottomSheet();
+    }
+  });
 
   function confirmDialog(title, message, onConfirm, onCancel) {
     var confirmText = window.i18n.t('btn.confirm') || 'Confirm';
@@ -106,15 +159,23 @@ window.ui = (function() {
       `
     );
 
-    document.getElementById('modal-confirm-btn').onclick = function() {
-      closeBottomSheet();
-      if (typeof onConfirm === 'function') onConfirm();
-    };
-
-    document.getElementById('modal-cancel-btn').onclick = function() {
-      closeBottomSheet();
-      if (typeof onCancel === 'function') onCancel();
-    };
+    var topLayer = _sheetStack[_sheetStack.length - 1];
+    if (topLayer) {
+      var cBtn = topLayer.querySelector('#modal-confirm-btn');
+      var xBtn = topLayer.querySelector('#modal-cancel-btn');
+      if (cBtn) {
+        cBtn.onclick = function() {
+          closeBottomSheet();
+          if (typeof onConfirm === 'function') onConfirm();
+        };
+      }
+      if (xBtn) {
+        xBtn.onclick = function() {
+          closeBottomSheet();
+          if (typeof onCancel === 'function') onCancel();
+        };
+      }
+    }
   }
 
   /**
@@ -142,6 +203,8 @@ window.ui = (function() {
     hideSpinner: hideSpinner,
     openBottomSheet: openBottomSheet,
     closeBottomSheet: closeBottomSheet,
+    closeAllBottomSheets: closeAllBottomSheets,
+    getSheetStackCount: function() { return _sheetStack.length; },
     confirmDialog: confirmDialog,
     withButtonLoading: withButtonLoading
   };
