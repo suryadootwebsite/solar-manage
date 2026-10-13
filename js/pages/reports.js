@@ -122,7 +122,7 @@
       return;
     }
 
-    var countText = t('rep.rows_count').replace('{count}', data.rows.length);
+    var countText = t('rep.rows_count', { count: data.rows.length });
 
     var html =
       '<div class="card">' +

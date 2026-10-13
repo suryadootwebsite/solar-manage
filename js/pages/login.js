@@ -127,7 +127,8 @@ window.pages.login = function(container) {
             ui.showToast(t('login.must_change_pwd_notice') || 'Please update your password to proceed', 'warning', 4000);
             window.showPasswordChangeModal(true);
           } else {
-            ui.showToast(t('login.welcome') || 'Welcome back!', 'success', 2500);
+            var userName = (res.user && res.user.name) ? res.user.name : (res.user && res.user.username) ? res.user.username : 'User';
+            ui.showToast(t('login.welcome', { name: userName }), 'success', 2500);
             var targetHash = window.auth.can('dashboard.get') ? '#/dashboard' : '#/sites';
             window.location.hash = targetHash;
           }

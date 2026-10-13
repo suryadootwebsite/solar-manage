@@ -685,3 +685,62 @@ body.is-offline .offline-pill {
     text-align: right;
   }
 }
+
+/* -------------------------------------------------------------------------
+   Task 8 & 3: Top Slim Progress Bar & Skeleton Loaders
+   ------------------------------------------------------------------------- */
+#top-progress-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 3px;
+  width: 0%;
+  background: linear-gradient(90deg, var(--brand), #ea580c);
+  z-index: 10000;
+  transition: width 0.2s ease, opacity 0.3s ease;
+  opacity: 0;
+  pointer-events: none;
+}
+
+#top-progress-bar.is-active {
+  opacity: 1;
+  width: 75%;
+}
+
+#top-progress-bar.is-finished {
+  width: 100%;
+  opacity: 0;
+}
+
+/* Skeleton Loading Elements */
+.skeleton {
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+  border-radius: var(--radius-sm);
+  display: block;
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.skeleton-text {
+  height: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.skeleton-card {
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.btn-loading {
+  position: relative;
+  pointer-events: none;
+  opacity: 0.85;
+}

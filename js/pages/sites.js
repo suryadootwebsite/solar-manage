@@ -66,16 +66,39 @@ window.pages.sites = async function(container) {
     return st ? st.name_en : id;
   }
 
-  async function loadSites() {
+  var SITES_CACHE_KEY = 'sms_cache_sites';
+
+  async function loadSites(forceRefresh) {
+    var cached = null;
+    if (!forceRefresh) {
+      try {
+        var raw = sessionStorage.getItem(SITES_CACHE_KEY);
+        if (raw) cached = JSON.parse(raw);
+      } catch (e) {}
+    }
+
+    if (cached) {
+      sites = cached;
+      renderSites();
+    } else {
+      listView.innerHTML = '<div class="kpi-grid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(300px, 1fr));gap:0.75rem;">' +
+        '<div class="card skeleton" style="height:80px;"></div>'.repeat(4) + '</div>';
+    }
+
     try {
       var payload = {};
       if (currentStatus) payload.status = currentStatus;
       if (stuckOnly) payload.stuck_only = true;
       var res = await window.api.call('sites.list', payload);
       sites = res.items || [];
+      try { sessionStorage.setItem(SITES_CACHE_KEY, JSON.stringify(sites)); } catch (e) {}
       renderSites();
     } catch(err) {
-      listView.innerHTML = `<div class="card text-error" style="text-align:center;">${window.ui.esc(err.message || 'Failed to load sites')}</div>`;
+      if (!cached) {
+        listView.innerHTML = `<div class="card text-error" style="text-align:center;">${window.ui.esc(err.message || 'Failed to load sites')}</div>`;
+      } else {
+        window.ui.toast(err.message || 'Refresh failed', 'error');
+      }
     }
   }
 

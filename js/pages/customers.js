@@ -34,13 +34,36 @@ window.pages.customers = async function(container) {
 
   var customers = [];
 
-  async function loadCustomers() {
+  var CUST_CACHE_KEY = 'sms_cache_customers';
+
+  async function loadCustomers(forceRefresh) {
+    var cached = null;
+    if (!forceRefresh) {
+      try {
+        var raw = sessionStorage.getItem(CUST_CACHE_KEY);
+        if (raw) cached = JSON.parse(raw);
+      } catch (e) {}
+    }
+
+    if (cached) {
+      customers = cached;
+      renderList(searchInput.value);
+    } else {
+      listView.innerHTML = '<div style="display:flex;flex-direction:column;gap:0.75rem;">' +
+        '<div class="card skeleton" style="height:72px;"></div>'.repeat(4) + '</div>';
+    }
+
     try {
       var res = await window.api.call('customers.list', {});
       customers = res.items || [];
+      try { sessionStorage.setItem(CUST_CACHE_KEY, JSON.stringify(customers)); } catch (e) {}
       renderList(searchInput.value);
     } catch(err) {
-      listView.innerHTML = `<div class="card text-error" style="text-align:center;">Failed to load customers: ${window.ui.esc(err.message || 'Error')}</div>`;
+      if (!cached) {
+        listView.innerHTML = `<div class="card text-error" style="text-align:center;">Failed to load customers: ${window.ui.esc(err.message || 'Error')}</div>`;
+      } else {
+        window.ui.toast(err.message || 'Refresh failed', 'error');
+      }
     }
   }
 

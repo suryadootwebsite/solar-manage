@@ -22,6 +22,24 @@ window.api = (function() {
     return new Promise(function(resolve) { setTimeout(resolve, ms); });
   }
 
+  var _activeRequests = 0;
+  function _updateProgress() {
+    var bar = document.getElementById('top-progress-bar');
+    if (!bar) return;
+    if (_activeRequests > 0) {
+      bar.style.display = 'block';
+      bar.style.width = '70%';
+    } else {
+      bar.style.width = '100%';
+      setTimeout(function() {
+        if (_activeRequests === 0) {
+          bar.style.display = 'none';
+          bar.style.width = '0%';
+        }
+      }, 200);
+    }
+  }
+
   /**
    * Calls an API action on the Google Apps Script backend.
    *
@@ -49,70 +67,77 @@ window.api = (function() {
     var maxRetries = window.APP_CONFIG.MAX_RETRIES || 2;
     var backoffs = window.APP_CONFIG.RETRY_BACKOFF_MS || [1000, 3000];
 
-    for (var attempt = 0; attempt <= maxRetries; attempt++) {
-      var controller = new AbortController();
-      var timeoutId = setTimeout(function() { controller.abort(); }, window.APP_CONFIG.API_TIMEOUT_MS || 15000);
+    _activeRequests++;
+    _updateProgress();
+    try {
+      for (var attempt = 0; attempt <= maxRetries; attempt++) {
+        var controller = new AbortController();
+        var timeoutId = setTimeout(function() { controller.abort(); }, window.APP_CONFIG.API_TIMEOUT_MS || 15000);
 
-      var response;
-      try {
-        response = await fetch(apiUrl, {
-          method: 'POST',
-          headers: {
-            // text/plain prevents CORS preflight in Apps Script
-            'Content-Type': 'text/plain;charset=utf-8'
-          },
-          body: JSON.stringify(envelope),
-          signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-      } catch (fetchErr) {
-        clearTimeout(timeoutId);
+        var response;
+        try {
+          response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+              // text/plain prevents CORS preflight in Apps Script
+              'Content-Type': 'text/plain;charset=utf-8'
+            },
+            body: JSON.stringify(envelope),
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
+        } catch (fetchErr) {
+          clearTimeout(timeoutId);
 
-        // Network error / timeout retry
-        if (attempt < maxRetries) {
-          await _sleep(backoffs[attempt]);
-          continue;
+          // Network error / timeout retry
+          if (attempt < maxRetries) {
+            await _sleep(backoffs[attempt]);
+            continue;
+          }
+
+          // Network retries exhausted
+          throw {
+            code: 'NETWORK_ERROR',
+            message: window.i18n.t('err.NETWORK_ERROR') || 'Network connection failed. Please check your internet.'
+          };
         }
 
-        // Network retries exhausted
-        throw {
-          code: 'NETWORK_ERROR',
-          message: window.i18n.t('err.NETWORK_ERROR') || 'Network connection failed. Please check your internet.'
-        };
-      }
-
-      // Process server HTTP response
-      var data;
-      try {
-        data = await response.json();
-      } catch (jsonErr) {
-        throw { code: 'INVALID_JSON', message: 'Could not parse server response as JSON' };
-      }
-
-      if (data && data.ok) {
-        return data.data;
-      }
-
-      var err = data ? data.error : { code: 'SERVER_ERROR', message: 'Unknown server error' };
-
-      // Handle LOCKED status by retrying; if retries exhausted, throw LOCKED error
-      if (err.code === 'LOCKED') {
-        if (attempt < maxRetries) {
-          await _sleep(backoffs[attempt]);
-          continue;
+        // Process server HTTP response
+        var data;
+        try {
+          data = await response.json();
+        } catch (jsonErr) {
+          throw { code: 'INVALID_JSON', message: 'Could not parse server response as JSON' };
         }
+
+        if (data && data.ok) {
+          return data.data;
+        }
+
+        var err = data ? data.error : { code: 'SERVER_ERROR', message: 'Unknown server error' };
+
+        // Handle LOCKED status by retrying; if retries exhausted, throw LOCKED error
+        if (err.code === 'LOCKED') {
+          if (attempt < maxRetries) {
+            await _sleep(backoffs[attempt]);
+            continue;
+          }
+          throw err;
+        }
+
+        // Handle UNAUTHORIZED
+        if (err.code === 'UNAUTHORIZED') {
+          window.auth.clearToken();
+          window.location.hash = '#/login';
+          throw err;
+        }
+
+        // Any other business error: throw immediately without retry
         throw err;
       }
-
-      // Handle UNAUTHORIZED
-      if (err.code === 'UNAUTHORIZED') {
-        window.auth.clearToken();
-        window.location.hash = '#/login';
-        throw err;
-      }
-
-      // Any other business error: throw immediately without retry
-      throw err;
+    } finally {
+      _activeRequests--;
+      _updateProgress();
     }
   }
 

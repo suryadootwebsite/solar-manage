@@ -30,43 +30,75 @@
               '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>' +
               ui.esc(t('dash.quick_reports')) +
             '</a>' : '') +
-          '<button id="dash-refresh-btn" class="btn btn-primary" style="min-height:48px;">' +
+          '<button id="dash-refresh-btn" class="btn btn-primary" style="min-height:48px;display:none;">' +
             '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>' +
             ui.esc(t('btn.retry')) +
           '</button>' +
         '</div>' +
       '</div>' +
-      '<div id="dash-content">' +
-        '<div class="card" style="text-align:center;padding:2rem;">' +
-          '<div class="spinner" style="margin:0 auto 1rem;"></div>' +
-          '<p class="text-muted">' + ui.esc(t('rep.loading')) + '</p>' +
-        '</div>' +
-      '</div>';
+      '<div id="dash-content"></div>';
 
     var refreshBtn = container.querySelector('#dash-refresh-btn');
     var contentEl = container.querySelector('#dash-content');
 
-    function loadDashboard() {
+    function renderSkeleton() {
       contentEl.innerHTML =
-        '<div class="card" style="text-align:center;padding:2rem;">' +
-          '<div class="spinner" style="margin:0 auto 1rem;"></div>' +
-          '<p class="text-muted">' + ui.esc(t('rep.loading')) + '</p>' +
-        '</div>';
+        '<div class="kpi-grid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));gap:1rem;margin-bottom:1.5rem;">' +
+          '<div class="card skeleton" style="height:100px;"></div>' +
+          '<div class="card skeleton" style="height:100px;"></div>' +
+          '<div class="card skeleton" style="height:100px;"></div>' +
+          '<div class="card skeleton" style="height:100px;"></div>' +
+        '</div>' +
+        '<div class="card skeleton" style="height:180px;margin-bottom:1.5rem;"></div>' +
+        '<div class="card skeleton" style="height:180px;"></div>';
+    }
 
+    var DASH_CACHE_KEY = 'sms_cache_dashboard_' + role;
+
+    function loadDashboard(forceRefresh) {
+      // 1. Try to render from cache immediately (stale-while-revalidate)
+      var cached = null;
+      if (!forceRefresh) {
+        try {
+          var raw = sessionStorage.getItem(DASH_CACHE_KEY);
+          if (raw) cached = JSON.parse(raw);
+        } catch (e) {}
+      }
+
+      if (cached) {
+        renderDashboardData(contentEl, cached, role);
+        refreshBtn.style.display = 'none';
+      } else {
+        renderSkeleton();
+        refreshBtn.style.display = 'none';
+      }
+
+      // 2. Fetch fresh data
       api.call('dashboard.get', {})
         .then(function(dash) {
+          try {
+            sessionStorage.setItem(DASH_CACHE_KEY, JSON.stringify(dash));
+          } catch (e) {}
           renderDashboardData(contentEl, dash, role);
+          refreshBtn.style.display = 'none';
         })
         .catch(function(err) {
-          contentEl.innerHTML =
-            '<div class="card card-error" style="padding:1.5rem;">' +
-              '<h3>' + ui.esc(t('ping.failed')) + '</h3>' +
-              '<p class="text-muted">' + ui.esc(err.message || 'Error loading dashboard') + '</p>' +
-            '</div>';
+          if (!cached) {
+            contentEl.innerHTML =
+              '<div class="card card-error" style="padding:1.5rem;text-align:center;">' +
+                '<h3 style="color:#dc2626;margin-bottom:0.5rem;">' + ui.esc(t('dash.failed')) + '</h3>' +
+                '<p class="text-muted" style="margin-bottom:1rem;">' + ui.esc(err.message || t('err.GENERIC')) + '</p>' +
+              '</div>';
+            refreshBtn.style.display = 'inline-flex';
+          } else {
+            ui.toast(err.message || t('dash.failed'), 'error');
+          }
         });
     }
 
-    refreshBtn.addEventListener('click', loadDashboard);
+    refreshBtn.addEventListener('click', function() {
+      loadDashboard(true);
+    });
     loadDashboard();
   }
 

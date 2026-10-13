@@ -20,10 +20,12 @@ window.pages.lots = async function(container) {
 
     <!-- Filter chips -->
     <div style="display:flex; gap:0.5rem; margin-bottom:1rem; overflow-x:auto; padding-bottom:0.25rem;">
-      <button class="btn btn-secondary lot-filter-btn active" data-status="">All</button>
-      <button class="btn btn-secondary lot-filter-btn" data-status="CONFIRMED">CONFIRMED</button>
+      <button class="btn btn-primary lot-filter-btn active" data-status="">All</button>
+      <button class="btn btn-secondary lot-filter-btn" data-status="ORDER_CONFIRMED">CONFIRMED</button>
+      <button class="btn btn-secondary lot-filter-btn" data-status="DISPATCHED">DISPATCHED</button>
+      <button class="btn btn-secondary lot-filter-btn" data-status="DELIVERED">DELIVERED</button>
+      <button class="btn btn-secondary lot-filter-btn" data-status="RETURNED">RETURNED</button>
       <button class="btn btn-secondary lot-filter-btn" data-status="PENDING_RATE">PENDING RATE</button>
-      <button class="btn btn-secondary lot-filter-btn" data-status="CANCELLED">CANCELLED</button>
     </div>
 
     <div id="lot-list-view">
@@ -85,6 +87,8 @@ window.pages.lots = async function(container) {
 
     listView.innerHTML = lots.map(function(l) {
       var statusClass = l.status === 'CONFIRMED' ? 'badge-success' : (l.status === 'PENDING_RATE' ? 'badge-warning' : 'badge-disabled');
+      var ordStatus = l.order_status || 'ORDER_CONFIRMED';
+      var ordClass = ordStatus === 'DELIVERED' ? 'badge-success' : (ordStatus === 'DISPATCHED' ? 'badge-primary' : (ordStatus === 'RETURNED' ? 'badge-danger' : 'badge-warning'));
       var totalText = isOwner && l.grand_total_paise !== undefined ? `₹${(l.grand_total_paise / 100).toLocaleString('en-IN')}` : '';
 
       return `
@@ -102,7 +106,10 @@ window.pages.lots = async function(container) {
               </div>
             </div>
             <div style="text-align:right;">
-              <span class="badge ${statusClass}">${l.status}</span>
+              <div style="display:flex; gap:0.25rem; justify-content:flex-end; flex-wrap:wrap;">
+                <span class="badge ${ordClass}">${ordStatus}</span>
+                <span class="badge ${statusClass}">${l.status}</span>
+              </div>
               ${totalText ? `<div style="font-weight:700; margin-top:0.5rem; color:var(--brand);">${totalText}</div>` : ''}
             </div>
           </div>
@@ -157,6 +164,38 @@ window.pages.lots = async function(container) {
 
       var canSetRate = isOwner && lot.status === 'PENDING_RATE';
       var canCancel = isOwner && lot.status !== 'CANCELLED';
+      var curOrd = lot.order_status || 'ORDER_CONFIRMED';
+      var canUpdateOrd = curOrd !== 'DELIVERED' && curOrd !== 'RETURNED' && curOrd !== 'CANCELLED';
+
+      // Timeline HTML
+      var timelineSteps = [
+        { key: 'ORDER_CONFIRMED', label: t('lots.status_confirmed') || 'Order Confirmed', date: lot.created_at ? lot.created_at.slice(0, 10) : '' },
+        { key: 'DISPATCHED', label: t('lots.status_dispatched') || 'Dispatched', date: lot.dispatched_on || (curOrd === 'DISPATCHED' || curOrd === 'DELIVERED' ? 'Done' : '') },
+        { key: 'DELIVERED', label: t('lots.status_delivered') || 'Delivered', date: lot.delivered_on || (curOrd === 'DELIVERED' ? 'Done' : '') }
+      ];
+      if (curOrd === 'RETURN_IN_PROGRESS' || curOrd === 'RETURNED') {
+        timelineSteps.push({ key: curOrd, label: curOrd === 'RETURNED' ? t('lots.status_returned') : t('lots.status_return_in_progress'), date: lot.returned_on || '' });
+      }
+
+      var timelineHtml = `
+        <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:8px; padding:0.75rem; margin-bottom:1rem;">
+          <div style="font-weight:700; font-size:0.85rem; margin-bottom:0.5rem;">${window.ui.esc(t('lots.timeline'))}</div>
+          <div style="display:flex; justify-content:space-between; position:relative; gap:0.25rem;">
+            ${timelineSteps.map(function(st, idx) {
+              var isReached = (curOrd === st.key) || (st.key === 'ORDER_CONFIRMED') || (st.key === 'DISPATCHED' && curOrd === 'DELIVERED');
+              var dotColor = isReached ? 'var(--brand)' : 'var(--border)';
+              var textColor = isReached ? 'var(--text-main)' : 'var(--text-muted)';
+              return `
+                <div style="flex:1; text-align:center; font-size:0.75rem;">
+                  <div style="width:12px; height:12px; border-radius:50%; background:${dotColor}; margin:0 auto 4px;"></div>
+                  <div style="font-weight:600; color:${textColor};">${st.label}</div>
+                  ${st.date ? `<div style="font-size:0.7rem; color:var(--text-muted);">${st.date}</div>` : ''}
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
 
       var bodyHtml = `
         <div style="margin-bottom:1rem;">
@@ -172,6 +211,10 @@ window.pages.lots = async function(container) {
             <span>Location:</span>
             <strong>${window.ui.esc(getLocationName(lot.location_id))}</strong>
           </div>
+          <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem;">
+            <span>Order Status:</span>
+            <strong><span class="badge badge-primary">${curOrd}</span></strong>
+          </div>
           ${isOwner && lot.grand_total_paise !== undefined ? `
             <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem; color:var(--brand); font-weight:bold;">
               <span>Grand Total:</span>
@@ -179,17 +222,26 @@ window.pages.lots = async function(container) {
             </div>
           ` : ''}
         </div>
+        ${timelineHtml}
         <div style="font-weight:700; margin-bottom:0.5rem;">Line Items:</div>
         <div style="margin-bottom:1.5rem;">
           ${itemsHtml}
         </div>
         <div style="display:flex; flex-direction:column; gap:0.5rem;">
-          ${canSetRate ? `<button id="lot-set-rate-btn" class="btn btn-primary btn-full">Set Rates (Back-fill)</button>` : ''}
+          ${canUpdateOrd ? `<button id="lot-update-status-btn" class="btn btn-primary btn-full">${window.ui.esc(t('lots.update_status_btn'))}</button>` : ''}
+          ${canSetRate ? `<button id="lot-set-rate-btn" class="btn btn-secondary btn-full">Set Rates (Back-fill)</button>` : ''}
           ${canCancel ? `<button id="lot-cancel-btn" class="btn btn-secondary btn-full" style="color:var(--danger, #dc2626);">Cancel Lot</button>` : ''}
         </div>
       `;
 
       window.ui.openBottomSheet('Purchase Lot: ' + lot.lot_id, bodyHtml, '');
+
+      if (canUpdateOrd) {
+        document.getElementById('lot-update-status-btn').onclick = function() {
+          window.ui.closeBottomSheet();
+          openUpdateOrderStatusDialog(lot);
+        };
+      }
 
       if (canSetRate) {
         document.getElementById('lot-set-rate-btn').onclick = function() {
@@ -223,8 +275,96 @@ window.pages.lots = async function(container) {
   }
 
   // ---------------------------------------------------------------------------
-  // Set Rates Form (Owner Back-fill)
+  // Update Order Status Dialog
   // ---------------------------------------------------------------------------
+  function openUpdateOrderStatusDialog(lot) {
+    var cur = lot.order_status || 'ORDER_CONFIRMED';
+    var nextOptions = [];
+    if (cur === 'ORDER_CONFIRMED') {
+      nextOptions = ['DISPATCHED', 'DELIVERED', 'CANCELLED'];
+    } else if (cur === 'DISPATCHED') {
+      nextOptions = ['DELIVERED', 'RETURN_IN_PROGRESS', 'CANCELLED'];
+    } else if (cur === 'DELIVERED') {
+      nextOptions = ['RETURN_IN_PROGRESS'];
+    } else if (cur === 'RETURN_IN_PROGRESS') {
+      nextOptions = ['RETURNED'];
+    }
+
+    var formHtml = `
+      <form id="update-ord-status-form" novalidate>
+        <p class="text-muted" style="margin:0 0 1rem 0;">Current Status: <strong>${cur}</strong></p>
+        <div class="form-field">
+          <label>Target Status *</label>
+          <select id="uos-status" class="input" required>
+            ${nextOptions.map(function(o) { return `<option value="${o}">${o}</option>`; }).join('')}
+          </select>
+        </div>
+        <div class="form-field" id="uos-reason-wrap" style="display:none;">
+          <label>Reason *</label>
+          <input type="text" id="uos-reason" class="input" placeholder="e.g. Defective items returned">
+        </div>
+        <div class="form-field" id="uos-date-wrap">
+          <label>Action Date</label>
+          <input type="date" id="uos-date" class="input" value="${new Date().toISOString().slice(0, 10)}">
+        </div>
+        <div id="uos-error" class="text-error" style="display:none; margin-bottom:0.75rem;"></div>
+        <button type="submit" id="uos-submit" class="btn btn-primary btn-full">Save Order Status</button>
+      </form>
+    `;
+
+    window.ui.openBottomSheet('Update Status: ' + lot.invoice_no, formHtml, '');
+
+    var statusSelect = document.getElementById('uos-status');
+    var reasonWrap = document.getElementById('uos-reason-wrap');
+
+    statusSelect.onchange = function() {
+      reasonWrap.style.display = (statusSelect.value === 'CANCELLED' || statusSelect.value === 'RETURN_IN_PROGRESS' || statusSelect.value === 'RETURNED') ? 'block' : 'none';
+    };
+
+    document.getElementById('update-ord-status-form').onsubmit = async function(e) {
+      e.preventDefault();
+      var errEl = document.getElementById('uos-error');
+      var submitBtn = document.getElementById('uos-submit');
+      errEl.style.display = 'none';
+
+      var toStatus = statusSelect.value;
+      var reason = document.getElementById('uos-reason').value.trim();
+      var actionDate = document.getElementById('uos-date').value;
+
+      if ((toStatus === 'CANCELLED' || toStatus === 'RETURN_IN_PROGRESS' || toStatus === 'RETURNED') && !reason) {
+        errEl.textContent = 'Reason is required for cancellation or returns';
+        errEl.style.display = 'block';
+        return;
+      }
+
+      var payload = {
+        lot_id: lot.lot_id,
+        order_status: toStatus
+      };
+      if (toStatus === 'DISPATCHED') payload.dispatched_on = actionDate;
+      if (toStatus === 'DELIVERED') payload.delivered_on = actionDate;
+      if (toStatus === 'RETURN_IN_PROGRESS' || toStatus === 'RETURNED') {
+        payload.returned_on = actionDate;
+        payload.return_reason = reason;
+      }
+      if (toStatus === 'CANCELLED') payload.reason = reason;
+
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span class="spinner"></span> Saving…';
+
+      try {
+        await window.api.call('lots.updateOrderStatus', payload);
+        window.ui.closeBottomSheet();
+        window.ui.toast('Order status updated to ' + toStatus, 'success');
+        loadLots();
+      } catch(err) {
+        errEl.textContent = err.message || 'Update failed';
+        errEl.style.display = 'block';
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Save Order Status';
+      }
+    };
+  }
   function openSetRatesForm(lot, items) {
     var linesHtml = items.map(function(it, idx) {
       var prd = products.find(function(p) { return p.product_id === it.product_id; });
@@ -445,6 +585,14 @@ window.pages.lots = async function(container) {
           <label>Invoice Date</label>
           <input type="date" id="clf-date" class="input" value="${new Date().toISOString().split('T')[0]}">
         </div>
+        <div class="form-field">
+          <label>${window.ui.esc(t('lots.order_status'))}</label>
+          <select id="clf-order-status" class="input">
+            <option value="DELIVERED" selected>DELIVERED (Immediate Stock)</option>
+            <option value="ORDER_CONFIRMED">ORDER CONFIRMED (Pending Delivery)</option>
+            <option value="DISPATCHED">DISPATCHED (In Transit)</option>
+          </select>
+        </div>
 
         <div style="margin:1rem 0 0.5rem 0; font-weight:700;">Line Items:</div>
         <div id="clf-lines-container"></div>
@@ -535,11 +683,14 @@ window.pages.lots = async function(container) {
         return res;
       });
 
+      var orderStatusVal = document.getElementById('clf-order-status') ? document.getElementById('clf-order-status').value : 'DELIVERED';
+
       var payload = {
         supplier_id: supId,
         invoice_no: invNo,
         location_id: locId,
         lot_date: lotDate,
+        order_status: orderStatusVal,
         items: itemsPayload
       };
 

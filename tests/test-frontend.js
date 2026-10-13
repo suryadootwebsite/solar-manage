@@ -193,4 +193,36 @@ if (missingInEnFromJs.length === 0 && missingInHiFromJs.length === 0) {
   process.exit(1);
 }
 
+console.log('\n=== Step 7: Validating {placeholder} Interpolation Params ===');
+// Scan for calls to t('key') or t("key") where no second parameter is passed
+// Regex matches t('key') where next character is ')'
+const noParamsRegex = /\bt\(\s*['"]([a-zA-Z0-9_\.]+)['"]\s*\)/g;
+const placeholderRegex = /\{[a-zA-Z0-9_]+\}/;
+const placeholderViolations = [];
+
+for (const file of jsFiles) {
+  const content = fs.readFileSync(file, 'utf8');
+  let match;
+  while ((match = noParamsRegex.exec(content)) !== null) {
+    const key = match[1];
+    const enVal = en[key];
+    const hiVal = hi[key];
+    if ((enVal && placeholderRegex.test(enVal)) || (hiVal && placeholderRegex.test(hiVal))) {
+      placeholderViolations.push({
+        file: path.relative(baseDir, file),
+        key: key,
+        enVal: enVal,
+        hiVal: hiVal
+      });
+    }
+  }
+}
+
+if (placeholderViolations.length > 0) {
+  console.error('FAIL: Found t(\'key\') called without params for keys containing {placeholder}:', placeholderViolations);
+  process.exit(1);
+} else {
+  console.log('Zero unpopulated {placeholder} calls found: PASS');
+}
+
 console.log('\nALL FRONTEND SHELL VERIFICATIONS PASSED ✓');

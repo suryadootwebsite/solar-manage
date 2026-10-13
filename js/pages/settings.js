@@ -10,7 +10,7 @@ window.pages = window.pages || {};
 
 window.pages.settings = function(container) {
   var t = window.i18n.t;
-  var user = window.auth.getUser() || { name: 'Staff User', role: 'VIEWER', lang: 'hi' };
+  var user = window.auth.getUser() || { name: 'Staff User', role: 'SITE_USER', lang: 'hi' };
   var isOwner = window.auth.getRole() === 'OWNER';
 
   container.innerHTML = `
