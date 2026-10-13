@@ -168,6 +168,11 @@
       var r = Math.round(Number(val) / 100);
       return '₹' + r.toLocaleString('en-IN');
     }
+    // Format YYYY-MM-DD dates to DD-MM-YYYY (B6)
+    if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(val)) {
+      var parts = val.split('-');
+      return parts[2] + '-' + parts[1] + '-' + parts[0];
+    }
     return window.ui.esc(String(val));
   }
 

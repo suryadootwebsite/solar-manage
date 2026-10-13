@@ -316,5 +316,18 @@
   "serials.no_results": "No serials found matching query.",
   "serials.replace_notice": "Replacement Notice",
   "serials.no_avail": "No available serials in stock.",
-  "serials.choose_new": "Choose new serial"
+  "serials.choose_new": "Choose new serial",
+
+  "err.DUPLICATE_USERNAME": "This username is already taken. Please choose another.",
+  "err.INVALID_ROLE": "Invalid role selected.",
+  "err.DEVELOPER_PROTECTED": "Developer account cannot be modified via API.",
+
+  "nav.page_not_found": "Page Not Found",
+  "nav.page_not_found_msg": "The page you are looking for does not exist or has been moved.",
+  "nav.back_to_dashboard": "Back to Dashboard",
+
+  "role.OWNER": "Owner",
+  "role.MANAGER": "Manager",
+  "role.SITE_USER": "Site User",
+  "role.DEVELOPER": "Developer"
 }

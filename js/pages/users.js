@@ -240,7 +240,28 @@ window.pages.users = function(container) {
   // Add User Button
   var addBtn = document.getElementById('add-user-btn');
   if (addBtn) {
-    addBtn.onclick = function() {
+    addBtn.onclick = async function() {
+      // Fetch default password from settings (fallback: 1234567890)
+      var defaultPwd = '1234567890';
+      try {
+        var sRes = await api.call('settings.get', { key: 'default_new_user_password' });
+        if (sRes && sRes.value) defaultPwd = sRes.value;
+      } catch (e) {}
+
+      // Fetch branches for selection
+      var branches = [];
+      try {
+        var bRes = await api.call('branches.list', {});
+        branches = bRes.items || [];
+      } catch (e) {}
+
+      var branchOptions = branches.length ? branches.map(function(b) {
+        return `<label style="display:inline-flex; align-items:center; gap:0.35rem; font-size:0.875rem; margin-right:0.75rem;">
+          <input type="checkbox" name="nu-branches" value="${ui.esc(b.branch_id)}" ${b.branch_id === 'BR-001' ? 'checked' : ''} />
+          ${ui.esc(b.name || b.branch_id)}
+        </label>`;
+      }).join('') : `<input type="text" id="nu-branch" value="BR-001" class="form-control" style="width:100%; min-height:44px; padding:0.5rem; border:1.5px solid var(--border); border-radius:8px; box-sizing:border-box;" />`;
+
       ui.openBottomSheet(
         t('users.modal_create_title') || 'Create New User',
         `
@@ -260,17 +281,23 @@ window.pages.users = function(container) {
             <div>
               <label style="display:block; font-size:0.875rem; font-weight:600; margin-bottom:0.25rem;">Role *</label>
               <select id="nu-role" required class="form-control" style="width:100%; min-height:44px; padding:0.5rem; border:1.5px solid var(--border); border-radius:8px; box-sizing:border-box; background:var(--bg-card); color:var(--text-main);">
-                <option value="SITE_SUPERVISOR">Site Supervisor</option>
-                <option value="MANAGER">Manager</option>
-                <option value="TECHNICIAN">Technician</option>
-                <option value="STORE_KEEPER">Store Keeper</option>
-                <option value="VIEWER">Viewer</option>
-                <option value="OWNER">Owner</option>
+                <option value="SITE_USER">${ui.esc(t('role.SITE_USER') || 'Site User')}</option>
+                <option value="MANAGER">${ui.esc(t('role.MANAGER') || 'Manager')}</option>
+                <option value="OWNER">${ui.esc(t('role.OWNER') || 'Owner')}</option>
               </select>
             </div>
             <div>
-              <label style="display:block; font-size:0.875rem; font-weight:600; margin-bottom:0.25rem;">Branch ID(s) (e.g. BR-001)</label>
-              <input type="text" id="nu-branch" value="BR-001" class="form-control" style="width:100%; min-height:44px; padding:0.5rem; border:1.5px solid var(--border); border-radius:8px; box-sizing:border-box;" />
+              <label style="display:block; font-size:0.875rem; font-weight:600; margin-bottom:0.25rem;">Branch(es)</label>
+              <div id="nu-branches-container" style="padding:0.5rem 0;">
+                ${branchOptions}
+              </div>
+            </div>
+            <div>
+              <label style="display:block; font-size:0.875rem; font-weight:600; margin-bottom:0.25rem;">Optional Password</label>
+              <div style="position:relative; display:flex; align-items:center;">
+                <input type="password" id="nu-password" value="${ui.esc(defaultPwd)}" class="form-control" style="width:100%; min-height:44px; padding:0.5rem 2.5rem 0.5rem 0.5rem; border:1.5px solid var(--border); border-radius:8px; box-sizing:border-box;" />
+                <button type="button" id="nu-toggle-pwd" style="position:absolute; right:8px; background:none; border:none; cursor:pointer; font-size:1.1rem; padding:4px;" title="Show/Hide">👁️</button>
+              </div>
             </div>
             <div>
               <label style="display:block; font-size:0.875rem; font-weight:600; margin-bottom:0.25rem;">Language</label>
@@ -291,6 +318,14 @@ window.pages.users = function(container) {
         `
       );
 
+      var togglePwdBtn = document.getElementById('nu-toggle-pwd');
+      var pwdInput = document.getElementById('nu-password');
+      if (togglePwdBtn && pwdInput) {
+        togglePwdBtn.onclick = function() {
+          pwdInput.type = pwdInput.type === 'password' ? 'text' : 'password';
+        };
+      }
+
       var cancelBtn = document.getElementById('cancel-new-user-btn');
       if (cancelBtn) cancelBtn.onclick = ui.closeBottomSheet;
 
@@ -301,8 +336,14 @@ window.pages.users = function(container) {
           var username = document.getElementById('nu-username').value.trim();
           var phone = document.getElementById('nu-phone').value.trim();
           var role = document.getElementById('nu-role').value;
-          var branch = document.getElementById('nu-branch').value.trim();
           var lang = document.getElementById('nu-lang').value;
+          var password = document.getElementById('nu-password').value;
+
+          var checkedBranches = [];
+          document.querySelectorAll('input[name="nu-branches"]:checked').forEach(function(cb) {
+            checkedBranches.push(cb.value);
+          });
+          var branchVal = checkedBranches.length ? checkedBranches.join(',') : (document.getElementById('nu-branch') ? document.getElementById('nu-branch').value.trim() : 'BR-001');
 
           if (!name || !username) {
             ui.showToast('Name and Username are required', 'warning');
@@ -316,14 +357,19 @@ window.pages.users = function(container) {
                 username: username,
                 phone: phone,
                 role: role,
-                branch_ids: branch,
-                lang: lang
+                branch_ids: branchVal,
+                lang: lang,
+                password: password || undefined
               });
               ui.closeBottomSheet();
               loadUsers();
               showTempPasswordModal(name, res.temp_password);
             } catch (err) {
-              ui.showToast(err.message || 'User creation failed', 'error');
+              var code = (err && err.code) ? ('err.' + err.code) : 'err.GENERIC';
+              var msg = (err && err.fields && err.fields.username === 'DUPLICATE_USERNAME')
+                ? (t('err.DUPLICATE_USERNAME') || t('err.DUPLICATE') || err.message)
+                : (t(code) || err.message || 'User creation failed');
+              ui.showToast(msg, 'error');
             }
           });
         };

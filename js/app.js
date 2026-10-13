@@ -61,12 +61,13 @@
 
   updateUIStrings();
 
-  // Language toggle button listener
-  var toggleBtn = document.getElementById('lang-toggle-btn');
-  if (toggleBtn) {
-    toggleBtn.addEventListener('click', function() {
-      window.i18n.toggleLang();
-      updateUIStrings();
+  // Header brand click -> go to dashboard if authenticated (B2)
+  var headerBrand = document.getElementById('header-brand');
+  if (headerBrand) {
+    headerBrand.addEventListener('click', function() {
+      if (window.auth && window.auth.isAuthenticated()) {
+        window.location.hash = window.auth.can('dashboard.get') ? '#/dashboard' : '#/sites';
+      }
     });
   }
 

@@ -59,18 +59,15 @@
 
   <!-- Top Header Bar -->
   <header class="app-header" id="app-header" style="display:none;">
-    <div class="brand-wrapper">
+    <div class="brand-wrapper" id="header-brand" style="cursor:pointer;" title="Go to Dashboard">
       <span class="brand-logo" style="display:inline-flex; align-items:center; gap:0.5rem;">
-        <img src="assets/logo-emblem-128.png" alt="Suryadoot Logo" style="height:38px; width:auto; vertical-align:middle; object-fit:contain;" />
-        <span id="app-header-title">Suryadoot Energy Solutions</span>
+        <img src="assets/logo-emblem-128.png" alt="Suryadoot Logo" style="height:36px; width:auto; vertical-align:middle; object-fit:contain;" />
+        <span id="app-header-title" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:180px;">Suryadoot Energy Solution</span>
       </span>
       <span class="offline-pill" id="offline-indicator">Offline</span>
     </div>
 
     <div class="header-actions">
-      <button id="lang-toggle-btn" class="lang-btn" aria-label="Toggle language">
-        <span id="lang-btn-text">EN</span>
-      </button>
       <button id="user-menu-btn" class="user-menu-btn" aria-label="User menu">
         <span id="user-initial">U</span>
       </button>

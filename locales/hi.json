@@ -316,5 +316,18 @@
   "serials.no_results": "कोई सीरियल नहीं मिला।",
   "serials.replace_notice": "प्रतिस्थापन सूचना (Replacement)",
   "serials.no_avail": "स्टॉक में कोई सीरियल उपलब्ध नहीं है।",
-  "serials.choose_new": "नया सीरियल चुनें"
+  "serials.choose_new": "नया सीरियल चुनें",
+
+  "err.DUPLICATE_USERNAME": "यह यूज़रनेम पहले से मौजूद है। कृपया दूसरा चुनें।",
+  "err.INVALID_ROLE": "अमान्य भूमिका चुनी गई है।",
+  "err.DEVELOPER_PROTECTED": "डेवलपर खाते को API के माध्यम से बदला नहीं जा सकता।",
+
+  "nav.page_not_found": "पेज नहीं मिला (404)",
+  "nav.page_not_found_msg": "जिस पेज को आप ढूंढ रहे हैं वह मौजूद नहीं है या हटा दिया गया है।",
+  "nav.back_to_dashboard": "डैशबोर्ड पर वापस जाएं",
+
+  "role.OWNER": "मालिक (Owner)",
+  "role.MANAGER": "प्रबंधक (Manager)",
+  "role.SITE_USER": "साइट यूज़र (Site User)",
+  "role.DEVELOPER": "डेवलपर (Developer)"
 }

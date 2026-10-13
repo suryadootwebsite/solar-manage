@@ -44,7 +44,7 @@ window.pages.materialIssue = function(container) {
   // Load sites
   window.api.call('sites.list', {})
     .then(function(res) {
-      var sites = (res && res.data && res.data.rows) ? res.data.rows : [];
+      var sites = (res && res.items) ? res.items : (res && res.rows ? res.rows : (res && res.data && res.data.rows ? res.data.rows : []));
       if (!sites.length) {
         siteSelect.innerHTML = '<option value="">' + esc(t('usage.no_sites') || 'No sites found') + '</option>';
         return;
@@ -71,7 +71,7 @@ window.pages.materialIssue = function(container) {
     usageContainer.innerHTML = '<p class="text-muted">' + esc(t('common.loading') || 'Loading...') + '</p>';
     window.api.call('usage.list', { site_id: siteId })
       .then(function(res) {
-        var rows = (res && res.data && res.data.rows) ? res.data.rows : [];
+        var rows = (res && res.items) ? res.items : (res && res.rows ? res.rows : (res && res.data && res.data.rows ? res.data.rows : []));
         if (!rows.length) {
           usageContainer.innerHTML = '<p class="text-muted" style="font-size:0.85rem;">' + esc(t('usage.no_records') || 'No material issued to this site yet.') + '</p>';
           return;
@@ -208,7 +208,7 @@ window.pages.materialIssue = function(container) {
 
     window.api.call('products.list', {})
       .then(function(res) {
-        var prods = (res && res.data && res.data.rows) ? res.data.rows : [];
+        var prods = (res && res.items) ? res.items : (res && res.rows ? res.rows : (res && res.data && res.data.rows ? res.data.rows : []));
         prodSelect.innerHTML = '<option value="">-- ' + esc(t('usage.select_product') || 'Select Product') + ' --</option>' +
           prods.map(function(p) {
             return '<option value="' + esc(p.product_id) + '" data-serial="' + (p.track_serial ? '1' : '0') + '">' + esc(p.name) + '</option>';

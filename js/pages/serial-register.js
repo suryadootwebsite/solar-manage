@@ -47,7 +47,7 @@ window.pages.serialRegister = function(container) {
 
     window.api.call(action, payload)
       .then(function(res) {
-        var rows = (res && res.data && res.data.rows) ? res.data.rows : [];
+        var rows = (res && res.items) ? res.items : (res && res.rows ? res.rows : (res && res.data && res.data.rows ? res.data.rows : []));
         if (!rows.length) {
           tableContainer.innerHTML = '<p class="text-muted" style="font-size:0.85rem;">' + esc(t('serials.no_results') || 'No serial numbers found.') + '</p>';
           return;
@@ -131,7 +131,7 @@ window.pages.serialRegister = function(container) {
     var sel = document.getElementById('repl-new-serial-select');
     window.api.call('serials.available', { product_id: productId, site_id: siteId })
       .then(function(res) {
-        var avail = (res && res.data && res.data.rows) ? res.data.rows : [];
+        var avail = (res && res.items) ? res.items : (res && res.rows ? res.rows : (res && res.data && res.data.rows ? res.data.rows : []));
         if (!avail.length) {
           sel.innerHTML = '<option value="">' + esc(t('serials.no_avail') || 'No IN_STOCK serials available') + '</option>';
           return;
@@ -162,8 +162,9 @@ window.pages.serialRegister = function(container) {
       })
       .then(function(res) {
         window.ui.hideBottomSheet();
-        if (res && res.data && res.data.warning) {
-          window.ui.toast(res.data.warning, 'warning');
+        var warningMsg = (res && res.warning) || (res && res.data && res.data.warning);
+        if (warningMsg) {
+          window.ui.toast(warningMsg, 'warning');
         } else {
           window.ui.toast(t('serials.replace_success') || 'Serial replaced successfully', 'success');
         }

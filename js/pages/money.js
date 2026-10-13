@@ -82,7 +82,7 @@ window.pages.money = function(container) {
 
     window.api.call('sites.list', {})
       .then(function(res) {
-        var sites = (res && res.data && res.data.rows) ? res.data.rows : [];
+        var sites = (res && res.items) ? res.items : (res && res.rows ? res.rows : (res && res.data && res.data.rows ? res.data.rows : []));
         if (!sites.length) {
           siteSel.innerHTML = '<option value="">' + esc(t('money.no_sites') || 'No sites found') + '</option>';
           return;
@@ -143,7 +143,7 @@ window.pages.money = function(container) {
     function loadCpayList(siteId) {
       window.api.call('cpay.list', { site_id: siteId })
         .then(function(res) {
-          var rows = (res && res.data && res.data.rows) ? res.data.rows : [];
+          var rows = (res && res.rows) ? res.rows : (res && res.items ? res.items : (res && res.data && res.data.rows ? res.data.rows : []));
           if (!rows.length) {
             tableContainer.innerHTML = '<p class="text-muted" style="font-size:0.85rem;">' + esc(t('money.no_payments') || 'No payments recorded for this site.') + '</p>';
             return;
@@ -294,10 +294,10 @@ window.pages.money = function(container) {
 
     window.api.call('suppliers.list', {})
       .then(function(res) {
-        var sups = (res && res.data && res.data.rows) ? res.data.rows : [];
+        var sups = (res && res.items) ? res.items : (res && res.rows ? res.rows : (res && res.data && res.data.rows ? res.data.rows : []));
         supSel.innerHTML = '<option value="">-- ' + esc(t('money.choose_supplier') || 'Choose Supplier') + ' --</option>' +
           sups.map(function(s) {
-            return '<option value="' + esc(s.supplier_id) + '">' + esc(s.name) + '</option>';
+            return '<option value="' + esc(s.supplier_id) + '">' + esc(s.name) + ' (' + esc(s.supplier_id) + ')</option>';
           }).join('');
       });
 
@@ -322,10 +322,12 @@ window.pages.money = function(container) {
     function loadSpayLedger(supId) {
       window.api.call('spay.ledger', { supplier_id: supId })
         .then(function(res) {
-          var d = res.data;
+          var d = (res && res.data) ? res.data : res;
+          var supplierNameDisplay = d.supplier_name ? `<strong>${esc(d.supplier_name)}</strong> <span style="font-size:0.8rem; color:var(--text-muted);">(${esc(supId)})</span>` : esc(supId);
+
           ledgerArea.innerHTML =
             '<div class="card" style="margin-bottom:1rem;">' +
-              '<h3 style="margin-top:0; font-size:1rem;">' + esc(t('money.supplier_balance') || 'Supplier Ledger Summary') + '</h3>' +
+              '<h3 style="margin-top:0; font-size:1rem;">' + esc(t('money.supplier_balance') || 'Supplier Ledger') + ': ' + supplierNameDisplay + '</h3>' +
               '<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:0.75rem; font-size:0.85rem;">' +
                 '<div><span class="text-muted">Total Purchased:</span><br><strong>₹' + (d.total_purchased_paise / 100).toLocaleString('en-IN') + '</strong></div>' +
                 '<div><span class="text-muted">Total Paid:</span><br><strong style="color:var(--success);">₹' + (d.total_paid_paise / 100).toLocaleString('en-IN') + '</strong></div>' +
@@ -335,7 +337,7 @@ window.pages.money = function(container) {
 
             '<div class="card">' +
               '<h3 style="margin-top:0; font-size:1rem;">' + esc(t('money.lot_breakdown') || 'Purchase Lots') + '</h3>' +
-              (!d.lots.length ? '<p class="text-muted" style="font-size:0.85rem;">No purchase lots for this supplier.</p>' :
+              (!d.lots || !d.lots.length ? '<p class="text-muted" style="font-size:0.85rem;">No purchase lots for this supplier.</p>' :
                 '<div style="overflow-x:auto;">' +
                   '<table class="table" style="width:100%; font-size:0.85rem;">' +
                     '<thead><tr><th>Lot ID</th><th>Invoice</th><th>Total</th><th>Paid</th><th>Pending</th></tr></thead>' +
@@ -443,7 +445,7 @@ window.pages.money = function(container) {
 
     window.api.call('sites.list', {})
       .then(function(res) {
-        var sites = (res && res.data && res.data.rows) ? res.data.rows : [];
+        var sites = (res && res.items) ? res.items : (res && res.rows ? res.rows : (res && res.data && res.data.rows ? res.data.rows : []));
         siteSel.innerHTML = '<option value="">-- Choose Site --</option>' +
           sites.map(function(s) {
             return '<option value="' + esc(s.site_id) + '">' + esc(s.site_name) + '</option>';
@@ -471,7 +473,7 @@ window.pages.money = function(container) {
     function loadExpList(siteId) {
       window.api.call('exp.list', { site_id: siteId })
         .then(function(res) {
-          var rows = (res && res.data && res.data.rows) ? res.data.rows : [];
+          var rows = (res && res.rows) ? res.rows : (res && res.items ? res.items : (res && res.data && res.data.rows ? res.data.rows : []));
           if (!rows.length) {
             tableContainer.innerHTML = '<p class="text-muted" style="font-size:0.85rem;">No expenses recorded for this site.</p>';
             return;
