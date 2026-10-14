@@ -6,7 +6,7 @@ window.pages = window.pages || {};
 
 window.pages.sites = async function(container) {
   var t = window.i18n.t;
-  var isOwner = window.auth.getUser() && window.auth.getUser().role === 'OWNER';
+  var isOwner = window.auth.isOwnerLike(window.auth.getUser() && window.auth.getUser().role);
 
   container.innerHTML = `
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:0.5rem;">
@@ -170,14 +170,29 @@ window.pages.sites = async function(container) {
   // Create Site Modal
   // ---------------------------------------------------------------------------
   newBtn.onclick = function() {
-    openCreateSiteDialog();
+    window.ui.withButtonLoading(newBtn, openCreateSiteDialog);
   };
 
-  function openCreateSiteDialog() {
+  async function openCreateSiteDialog() {
+    var canEnterContractValue = isOwner || (window.auth.getUser() && window.auth.getUser().role === 'MANAGER');
+    var siteUsers = [];
+    if (window.auth.can('users.list')) {
+      try {
+        var uRes = await window.api.call('users.list', {});
+        var allUsers = uRes.items || uRes.rows || [];
+        siteUsers = allUsers.filter(function(u) {
+          return u.role === 'SITE_USER' && u.is_active !== false;
+        });
+      } catch (e) {}
+    }
+
     var formHtml = `
       <form id="create-site-form" novalidate>
         <div class="form-field">
-          <label>Customer *</label>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.35rem;">
+            <label style="margin-bottom:0;">Customer *</label>
+            <button type="button" id="csf-new-cust-btn" class="btn btn-secondary" style="padding:0.2rem 0.5rem; font-size:0.75rem; min-height:28px;">+ New Customer</button>
+          </div>
           <select id="csf-customer" class="input" required>
             <option value="">Select Customer</option>
             ${customers.map(function(c) { return `<option value="${c.customer_id}">${window.ui.esc(c.name)} (${c.phone})</option>`; }).join('')}
@@ -205,10 +220,25 @@ window.pages.sites = async function(container) {
           <label>Target Completion Date</label>
           <input type="date" id="csf-target" class="input">
         </div>
-        ${isOwner ? `
+        ${canEnterContractValue ? `
           <div class="form-field">
             <label>Contract Value (₹)</label>
             <input type="number" step="0.01" id="csf-value" class="input" placeholder="Total client price">
+          </div>
+        ` : ''}
+        ${siteUsers.length ? `
+          <div class="form-field">
+            <label>Assign Site Users (optional)</label>
+            <div style="max-height:130px; overflow-y:auto; border:1px solid var(--border); border-radius:6px; padding:0.5rem; background:var(--bg-main);">
+              ${siteUsers.map(function(su) {
+                return `
+                  <label style="display:flex; align-items:center; gap:0.5rem; padding:0.25rem 0; font-size:0.875rem; cursor:pointer;">
+                    <input type="checkbox" class="csf-user-check" value="${su.user_id}">
+                    <span>${window.ui.esc(su.name)} <span class="text-muted" style="font-size:0.75rem;">(@${window.ui.esc(su.username)})</span></span>
+                  </label>
+                `;
+              }).join('')}
+            </div>
           </div>
         ` : ''}
         <div id="csf-error" class="text-error" style="display:none; margin-bottom:0.75rem;"></div>
@@ -217,6 +247,93 @@ window.pages.sites = async function(container) {
     `;
 
     window.ui.openBottomSheet('New Solar Site', formHtml, '');
+
+    var newCustBtn = document.getElementById('csf-new-cust-btn');
+    if (newCustBtn) {
+      newCustBtn.onclick = function() {
+        var custFormHtml = `
+          <form id="inline-cust-form" novalidate>
+            <div class="form-field">
+              <label>Customer Name *</label>
+              <input type="text" id="icf-name" class="input" required placeholder="e.g. Ramesh Sharma">
+            </div>
+            <div class="form-field">
+              <label>Phone Number (10 digits) *</label>
+              <input type="tel" id="icf-phone" class="input" required placeholder="e.g. 9876543210" maxlength="10">
+            </div>
+            <div class="form-field">
+              <label>Alternate Phone</label>
+              <input type="tel" id="icf-alt-phone" class="input" placeholder="Optional">
+            </div>
+            <div class="form-field">
+              <label>City</label>
+              <input type="text" id="icf-city" class="input" placeholder="e.g. Jaipur">
+            </div>
+            <div class="form-field">
+              <label>Address</label>
+              <textarea id="icf-address" class="input" rows="2" placeholder="Full address"></textarea>
+            </div>
+            <div id="icf-error" class="text-error" style="display:none; margin-bottom:0.75rem;"></div>
+            <button type="submit" id="icf-submit" class="btn btn-primary btn-full">Save Customer</button>
+          </form>
+        `;
+
+        window.ui.openBottomSheet('New Customer', custFormHtml, '');
+
+        document.getElementById('inline-cust-form').onsubmit = async function(ev) {
+          ev.preventDefault();
+          var errEl2 = document.getElementById('icf-error');
+          var submitBtn2 = document.getElementById('icf-submit');
+          errEl2.style.display = 'none';
+
+          var cName = document.getElementById('icf-name').value.trim();
+          var cPhone = document.getElementById('icf-phone').value.trim();
+          var cAltPhone = document.getElementById('icf-alt-phone').value.trim();
+          var cCity = document.getElementById('icf-city').value.trim();
+          var cAddress = document.getElementById('icf-address').value.trim();
+
+          if (!cName) {
+            errEl2.textContent = 'Name is required';
+            errEl2.style.display = 'block';
+            return;
+          }
+          if (!cPhone || cPhone.length < 10) {
+            errEl2.textContent = 'Valid 10-digit phone number is required';
+            errEl2.style.display = 'block';
+            return;
+          }
+
+          window.ui.withButtonLoading(submitBtn2, async function() {
+            try {
+              var newCust = await window.api.call('customers.create', {
+                name: cName,
+                phone: cPhone,
+                alt_phone: cAltPhone,
+                city: cCity,
+                address: cAddress
+              });
+
+              // Auto-select in parent dropdown
+              var select = document.getElementById('csf-customer');
+              if (select && newCust && newCust.customer_id) {
+                customers.push(newCust);
+                var opt = document.createElement('option');
+                opt.value = newCust.customer_id;
+                opt.textContent = newCust.name + ' (' + newCust.phone + ')';
+                select.appendChild(opt);
+                select.value = newCust.customer_id;
+              }
+
+              window.ui.closeBottomSheet();
+              window.ui.toast('Customer created', 'success');
+            } catch (err) {
+              errEl2.textContent = err.message || 'Failed to create customer';
+              errEl2.style.display = 'block';
+            }
+          });
+        };
+      };
+    }
 
     document.getElementById('create-site-form').onsubmit = async function(e) {
       e.preventDefault();
@@ -244,25 +361,33 @@ window.pages.sites = async function(container) {
         target_date:         document.getElementById('csf-target').value
       };
 
-      if (isOwner) {
-        var vVal = parseFloat(document.getElementById('csf-value').value);
-        if (vVal > 0) payload.contract_value_paise = Math.round(vVal * 100);
+      if (canEnterContractValue) {
+        var vEl = document.getElementById('csf-value');
+        if (vEl) {
+          var vVal = parseFloat(vEl.value);
+          if (vVal > 0) payload.contract_value_paise = Math.round(vVal * 100);
+        }
       }
 
-      submitBtn.disabled = true;
-      submitBtn.innerHTML = '<span class="spinner"></span> Creating…';
-
-      try {
-        await window.api.call('sites.create', payload);
-        window.ui.closeBottomSheet();
-        window.ui.toast('Site created with project timeline', 'success');
-        loadSites();
-      } catch(err) {
-        errEl.textContent = err.message || 'Creation failed';
-        errEl.style.display = 'block';
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Create Project Site';
+      var assignedUserIds = [];
+      document.querySelectorAll('.csf-user-check:checked').forEach(function(chk) {
+        assignedUserIds.push(chk.value);
+      });
+      if (assignedUserIds.length > 0) {
+        payload.assigned_user_ids = assignedUserIds;
       }
+
+      window.ui.withButtonLoading(submitBtn, async function() {
+        try {
+          await window.api.call('sites.create', payload);
+          window.ui.closeBottomSheet();
+          window.ui.toast('Site created with project timeline', 'success');
+          loadSites();
+        } catch(err) {
+          errEl.textContent = err.message || 'Creation failed';
+          errEl.style.display = 'block';
+        }
+      });
     };
   }
 

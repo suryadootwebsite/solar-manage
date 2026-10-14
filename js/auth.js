@@ -38,9 +38,13 @@ window.auth = (function() {
     }
   }
 
+  function isOwnerLike(role) {
+    return role === 'OWNER' || role === 'DEVELOPER';
+  }
+
   function can(action) {
     var role = getRole();
-    if (role === 'OWNER') return true;
+    if (isOwnerLike(role)) return true;
     var perms = getPermissions();
     return perms.indexOf(action) !== -1;
   }
@@ -99,6 +103,7 @@ window.auth = (function() {
     getUser: getUser,
     getPermissions: getPermissions,
     can: can,
+    isOwnerLike: isOwnerLike,
     setSession: setSession,
     setToken: setToken,
     clearToken: clearToken,

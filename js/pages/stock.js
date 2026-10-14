@@ -6,7 +6,7 @@ window.pages = window.pages || {};
 
 window.pages.stock = async function(container) {
   var t = window.i18n.t;
-  var isOwner = window.auth.getUser() && window.auth.getUser().role === 'OWNER';
+  var isOwner = window.auth.isOwnerLike(window.auth.getUser() && window.auth.getUser().role);
 
   container.innerHTML = `
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:0.5rem;">
@@ -247,20 +247,17 @@ window.pages.stock = async function(container) {
         return;
       }
 
-      submitBtn.disabled = true;
-      submitBtn.innerHTML = '<span class="spinner"></span> Applying…';
-
-      try {
-        await window.api.call('stock.adjust', payload);
-        window.ui.closeBottomSheet();
-        window.ui.toast('Stock adjusted successfully', 'success');
-        loadStock();
-      } catch(err) {
-        errEl.textContent = err.message || 'Adjustment failed';
-        errEl.style.display = 'block';
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Apply Adjustment';
-      }
+      window.ui.withButtonLoading(submitBtn, async function() {
+        try {
+          await window.api.call('stock.adjust', payload);
+          window.ui.closeBottomSheet();
+          window.ui.toast('Stock adjusted successfully', 'success');
+          loadStock();
+        } catch(err) {
+          errEl.textContent = err.message || 'Adjustment failed';
+          errEl.style.display = 'block';
+        }
+      });
     };
   }
 

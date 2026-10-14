@@ -144,21 +144,23 @@ window.pages.materialIssue = function(container) {
     window.ui.showBottomSheet(html);
 
     document.getElementById('btn-cancel-ret').addEventListener('click', window.ui.hideBottomSheet);
-    document.getElementById('btn-confirm-ret').addEventListener('click', function() {
+    var retBtn = document.getElementById('btn-confirm-ret');
+    retBtn.addEventListener('click', function() {
       var reason = document.getElementById('ret-reason').value.trim();
       if (!reason) {
         window.ui.toast(t('usage.reason_required') || 'Reason is required', 'error');
         return;
       }
-      window.api.call('usage.reverse', { usage_id: usageId, reason: reason })
-        .then(function() {
+      window.ui.withButtonLoading(retBtn, async function() {
+        try {
+          await window.api.call('usage.reverse', { usage_id: usageId, reason: reason });
           window.ui.hideBottomSheet();
           window.ui.toast(t('usage.return_success') || 'Material returned successfully', 'success');
           loadUsageHistory(siteId);
-        })
-        .catch(function(err) {
+        } catch(err) {
           window.ui.toast(err.message, 'error');
-        });
+        }
+      });
     });
   }
 
@@ -228,7 +230,8 @@ window.pages.materialIssue = function(container) {
     });
 
     document.getElementById('btn-cancel-issue').addEventListener('click', window.ui.hideBottomSheet);
-    document.getElementById('btn-submit-issue').addEventListener('click', function() {
+    var submitBtn = document.getElementById('btn-submit-issue');
+    submitBtn.addEventListener('click', function() {
       var prodId = prodSelect.value;
       if (!prodId) {
         window.ui.toast('Please select a product', 'error');
@@ -262,15 +265,16 @@ window.pages.materialIssue = function(container) {
         lines: [line]
       };
 
-      window.api.call('usage.issue', payload)
-        .then(function() {
+      window.ui.withButtonLoading(submitBtn, async function() {
+        try {
+          await window.api.call('usage.issue', payload);
           window.ui.hideBottomSheet();
           window.ui.toast(t('usage.issue_success') || 'Materials issued successfully', 'success');
           loadUsageHistory(siteId);
-        })
-        .catch(function(err) {
+        } catch(err) {
           window.ui.toast(err.message, 'error');
-        });
+        }
+      });
     });
   }
 };

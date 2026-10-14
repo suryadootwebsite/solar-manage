@@ -33,9 +33,13 @@ window.pages.serialRegister = function(container) {
   var btnSearch = document.getElementById('btn-serial-search');
   var tableContainer = document.getElementById('serials-table-container');
 
-  btnSearch.addEventListener('click', performSearch);
+  btnSearch.addEventListener('click', function() {
+    window.ui.withButtonLoading(btnSearch, performSearch);
+  });
   searchInput.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') performSearch();
+    if (e.key === 'Enter') {
+      window.ui.withButtonLoading(btnSearch, performSearch);
+    }
   });
 
   function performSearch() {
@@ -45,7 +49,7 @@ window.pages.serialRegister = function(container) {
     var action = q ? 'serials.search' : 'serials.list';
     var payload = q ? { q: q } : {};
 
-    window.api.call(action, payload)
+    return window.api.call(action, payload)
       .then(function(res) {
         var rows = (res && res.items) ? res.items : (res && res.rows ? res.rows : (res && res.data && res.data.rows ? res.data.rows : []));
         if (!rows.length) {
@@ -143,7 +147,8 @@ window.pages.serialRegister = function(container) {
       });
 
     document.getElementById('btn-cancel-repl').addEventListener('click', window.ui.hideBottomSheet);
-    document.getElementById('btn-confirm-repl').addEventListener('click', function() {
+    var replBtn = document.getElementById('btn-confirm-repl');
+    replBtn.addEventListener('click', function() {
       var newId = sel.value;
       var reason = document.getElementById('repl-reason-input').value.trim();
       if (!newId) {
@@ -155,23 +160,24 @@ window.pages.serialRegister = function(container) {
         return;
       }
 
-      window.api.call('serials.replace', {
-        old_serial_id: oldSerialId,
-        new_serial_id: newId,
-        reason: reason
-      })
-      .then(function(res) {
-        window.ui.hideBottomSheet();
-        var warningMsg = (res && res.warning) || (res && res.data && res.data.warning);
-        if (warningMsg) {
-          window.ui.toast(warningMsg, 'warning');
-        } else {
-          window.ui.toast(t('serials.replace_success') || 'Serial replaced successfully', 'success');
+      window.ui.withButtonLoading(replBtn, async function() {
+        try {
+          var res = await window.api.call('serials.replace', {
+            old_serial_id: oldSerialId,
+            new_serial_id: newId,
+            reason: reason
+          });
+          window.ui.hideBottomSheet();
+          var warningMsg = (res && res.warning) || (res && res.data && res.data.warning);
+          if (warningMsg) {
+            window.ui.toast(warningMsg, 'warning');
+          } else {
+            window.ui.toast(t('serials.replace_success') || 'Serial replaced successfully', 'success');
+          }
+          performSearch();
+        } catch(err) {
+          window.ui.toast(err.message, 'error');
         }
-        performSearch();
-      })
-      .catch(function(err) {
-        window.ui.toast(err.message, 'error');
       });
     });
   }

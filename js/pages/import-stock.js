@@ -32,7 +32,7 @@ window.pages.importStock = async function(container) {
   var dryrunBtn = document.getElementById('osi-dryrun-btn');
   var resultsView = document.getElementById('osi-results-view');
 
-  dryrunBtn.onclick = async function() {
+  dryrunBtn.onclick = function() {
     var raw = textarea.value.trim();
     if (!raw) {
       window.ui.toast('Please enter rows to validate', 'warning');
@@ -53,19 +53,14 @@ window.pages.importStock = async function(container) {
       };
     });
 
-    dryrunBtn.disabled = true;
-    dryrunBtn.innerHTML = '<span class="spinner"></span> Validating…';
-
-    try {
-      var res = await window.api.call('stock.import.dryRun', { rows: parsedRows });
-      dryrunBtn.disabled = false;
-      dryrunBtn.textContent = 'Run Dry-Run Validation';
-      renderResults(res);
-    } catch(err) {
-      dryrunBtn.disabled = false;
-      dryrunBtn.textContent = 'Run Dry-Run Validation';
-      resultsView.innerHTML = `<div class="card text-error">${window.ui.esc(err.message || 'Validation failed')}</div>`;
-    }
+    window.ui.withButtonLoading(dryrunBtn, async function() {
+      try {
+        var res = await window.api.call('stock.import.dryRun', { rows: parsedRows });
+        renderResults(res);
+      } catch(err) {
+        resultsView.innerHTML = `<div class="card text-error">${window.ui.esc(err.message || 'Validation failed')}</div>`;
+      }
+    });
   };
 
   function renderResults(res) {
@@ -122,29 +117,26 @@ window.pages.importStock = async function(container) {
       </div>
     `;
 
-    document.getElementById('osi-commit-btn').onclick = async function() {
+    document.getElementById('osi-commit-btn').onclick = function() {
       var commitBtn = document.getElementById('osi-commit-btn');
-      commitBtn.disabled = true;
-      commitBtn.innerHTML = '<span class="spinner"></span> Committing…';
-
-      try {
-        var cRes = await window.api.call('stock.import.commit', {
-          rows: validRows,
-          import_token: res.import_token
-        });
-        window.ui.toast('Opening stock committed successfully! Lot ID: ' + cRes.lot_id, 'success');
-        resultsView.innerHTML = `
-          <div class="card" style="text-align:center; padding:2rem 1rem;">
-            <h3 style="color:var(--success, #16a34a);">Import Complete</h3>
-            <p class="text-muted">Created Lot: <strong>${cRes.lot_id}</strong> (${cRes.batches_count} batches, ${cRes.serials_count} serials)</p>
-            <button class="btn btn-primary" onclick="window.location.hash='#/stock'">View Stock</button>
-          </div>
-        `;
-      } catch(err) {
-        commitBtn.disabled = false;
-        commitBtn.textContent = 'Commit Opening Stock to Database';
-        window.ui.toast(err.message || 'Commit failed', 'error');
-      }
+      window.ui.withButtonLoading(commitBtn, async function() {
+        try {
+          var cRes = await window.api.call('stock.import.commit', {
+            rows: validRows,
+            import_token: res.import_token
+          });
+          window.ui.toast('Opening stock committed successfully! Lot ID: ' + cRes.lot_id, 'success');
+          resultsView.innerHTML = `
+            <div class="card" style="text-align:center; padding:2rem 1rem;">
+              <h3 style="color:var(--success, #16a34a);">Import Complete</h3>
+              <p class="text-muted">Created Lot: <strong>${cRes.lot_id}</strong> (${cRes.batches_count} batches, ${cRes.serials_count} serials)</p>
+              <button class="btn btn-primary" onclick="window.location.hash='#/stock'">View Stock</button>
+            </div>
+          `;
+        } catch(err) {
+          window.ui.toast(err.message || 'Commit failed', 'error');
+        }
+      });
     };
   }
 };

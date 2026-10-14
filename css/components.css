@@ -744,3 +744,66 @@ body.is-offline .offline-pill {
   pointer-events: none;
   opacity: 0.85;
 }
+
+
+/* Phase P3 Polish: User avatar 44px round emblem */
+.user-menu-btn {
+  width: 44px !important;
+  height: 44px !important;
+  border-radius: 50% !important;
+  background-color: #ffffff !important;
+  border: 1px solid var(--border) !important;
+  padding: 4px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  flex-shrink: 0 !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+}
+
+.user-menu-btn img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+  display: block !important;
+}
+
+/* Phase P3 Polish: Watermark background logo */
+#app-watermark {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(80vw, 460px);
+  height: min(80vw, 460px);
+  background: url('../assets/logo-full-560.png') no-repeat center center;
+  background-size: contain;
+  opacity: 0.055;
+  pointer-events: none;
+  z-index: 0;
+}
+
+@media print {
+  #app-watermark {
+    display: none !important;
+  }
+}
+
+/* Phase P3 Polish: Lot chips container */
+.lot-chips-container {
+  display: flex;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+  overflow-x: auto;
+  white-space: nowrap;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding: 2px 0;
+}
+
+.lot-chips-container::-webkit-scrollbar {
+  display: none;
+}

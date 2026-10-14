@@ -174,25 +174,22 @@ window.pages.customers = async function(container) {
         return;
       }
 
-      submitBtn.disabled = true;
-      submitBtn.innerHTML = '<span class="spinner"></span> Saving…';
-
-      try {
-        if (isEdit) {
-          payload.customer_id = cust.customer_id;
-          await window.api.call('customers.update', payload);
-        } else {
-          await window.api.call('customers.create', payload);
+      window.ui.withButtonLoading(submitBtn, async function() {
+        try {
+          if (isEdit) {
+            payload.customer_id = cust.customer_id;
+            await window.api.call('customers.update', payload);
+          } else {
+            await window.api.call('customers.create', payload);
+          }
+          window.ui.closeBottomSheet();
+          window.ui.toast(isEdit ? 'Customer updated' : 'Customer created', 'success');
+          await loadCustomers();
+        } catch(err) {
+          errEl.textContent = err.message || 'Operation failed';
+          errEl.style.display = 'block';
         }
-        window.ui.closeBottomSheet();
-        window.ui.toast(isEdit ? 'Customer updated' : 'Customer created', 'success');
-        await loadCustomers();
-      } catch(err) {
-        errEl.textContent = err.message || 'Operation failed';
-        errEl.style.display = 'block';
-        submitBtn.disabled = false;
-        submitBtn.textContent = t('btn.save');
-      }
+      });
     };
   }
 

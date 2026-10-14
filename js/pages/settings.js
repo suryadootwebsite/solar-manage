@@ -11,7 +11,7 @@ window.pages = window.pages || {};
 window.pages.settings = function(container) {
   var t = window.i18n.t;
   var user = window.auth.getUser() || { name: 'Staff User', role: 'SITE_USER', lang: 'hi' };
-  var isOwner = window.auth.getRole() === 'OWNER';
+  var isOwner = window.auth.isOwnerLike(window.auth.getRole());
 
   container.innerHTML = `
     <div style="max-width: 600px; margin: 0 auto; padding: 1rem 0;">
@@ -106,15 +106,17 @@ window.pages.settings = function(container) {
       ui.confirmDialog(
         t('settings.logout_confirm_title') || 'Confirm Logout',
         t('settings.logout_confirm_msg') || 'Are you sure you want to log out of your session?',
-        async function() {
-          try {
-            await api.call('auth.logout');
-          } catch (e) {
-            // ignore network errors on logout
-          }
-          auth.clearToken();
-          ui.showToast(t('settings.logged_out') || 'Logged out successfully', 'info');
-          window.location.hash = '#/login';
+        function() {
+          ui.withButtonLoading(logoutBtn, async function() {
+            try {
+              await api.call('auth.logout');
+            } catch (e) {
+              // ignore network errors on logout
+            }
+            auth.clearToken();
+            ui.showToast(t('settings.logged_out') || 'Logged out successfully', 'info');
+            window.location.hash = '#/login';
+          });
         }
       );
     };
@@ -123,16 +125,18 @@ window.pages.settings = function(container) {
   // Language toggle
   var langBtn = document.getElementById('pref-lang-toggle');
   if (langBtn) {
-    langBtn.onclick = async function() {
-      var newLang = window.i18n.toggleLang();
-      langBtn.textContent = newLang === 'hi' ? 'हिंदी (HI)' : 'English (EN)';
-      if (auth.isAuthenticated()) {
-        try {
-          await api.call('auth.setLang', { lang: newLang });
-        } catch (e) {
-          // offline or background error
+    langBtn.onclick = function() {
+      ui.withButtonLoading(langBtn, async function() {
+        var newLang = window.i18n.toggleLang();
+        langBtn.textContent = newLang === 'hi' ? 'हिंदी (HI)' : 'English (EN)';
+        if (auth.isAuthenticated()) {
+          try {
+            await api.call('auth.setLang', { lang: newLang });
+          } catch (e) {
+            // offline or background error
+          }
         }
-      }
+      });
     };
   }
 
@@ -147,16 +151,24 @@ window.pages.settings = function(container) {
         if (listDiv) {
           listDiv.style.display = 'flex';
           var html = Object.keys(settingsMap).map(function(key) {
-            var label = t('settings.key.' + key) || key;
+            var label = t('settings.key.' + key);
+            if (!label || label === 'Information unavailable' || label === 'जानकारी उपलब्ध नहीं है') {
+              label = key;
+            }
+            var desc = t('settings.desc.' + key);
+            if (!desc || desc === 'Information unavailable' || desc === 'जानकारी उपलब्ध नहीं है') {
+              desc = '';
+            }
             var val = settingsMap[key];
             return `
               <div style="display:flex; justify-content:space-between; align-items:flex-start; padding:0.6rem 0; border-bottom:1px solid var(--border); flex-wrap:wrap; gap:0.5rem;">
                 <div style="flex:1; min-width:140px;">
                   <div style="font-weight:600; font-size:0.9rem; color:var(--text-main); word-break:break-word;">${ui.esc(label)}</div>
+                  ${desc ? `<div style="font-size:0.8rem; color:var(--text-muted); margin:0.15rem 0;">${ui.esc(desc)}</div>` : ''}
                   <code style="font-size:0.75rem; color:var(--text-muted);">${ui.esc(key)}</code>
                 </div>
                 <div style="text-align:right;">
-                  <span class="badge" style="background:var(--surface-sunken); color:var(--text-main); font-weight:700; font-size:0.9rem;">${ui.esc(String(val))}</span>
+                  <span class="badge" style="background:var(--surface-sunken); color:var(--text-main); font-weight:700; font-size:0.9rem; max-width:180px; overflow:hidden; text-overflow:ellipsis; display:inline-block;">${ui.esc(String(val))}</span>
                 </div>
               </div>
             `;

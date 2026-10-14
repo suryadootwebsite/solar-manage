@@ -7,7 +7,7 @@ window.pages = window.pages || {};
 
 window.pages.masters = async function(container) {
   var t = window.i18n.t;
-  var isOwner = window.auth.getUser() && window.auth.getUser().role === 'OWNER';
+  var isOwner = window.auth.isOwnerLike(window.auth.getUser() && window.auth.getUser().role);
 
   container.innerHTML = `
     <div style="margin-bottom:1rem;">
@@ -110,7 +110,7 @@ window.pages.masters = async function(container) {
                   ${p.model ? ` (${window.ui.esc(p.model)})` : ''}
                 </div>
                 <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.25rem;">
-                  Unit: ${window.ui.esc(p.unit)} | Track Serial: ${p.track_serial ? 'YES' : 'NO'} | Min Alert: ${p.low_stock_level || 0}
+                  Unit: ${window.ui.esc(p.unit)} | Track Serial: ${p.track_serial ? 'YES' : 'NO'} | Min Alert: ${p.low_stock_level !== undefined ? p.low_stock_level : 10}
                 </div>
               </div>
               <span class="badge ${p.is_active ? 'badge-success' : 'badge-disabled'}">${p.is_active ? 'ACTIVE' : 'INACTIVE'}</span>
@@ -189,11 +189,11 @@ window.pages.masters = async function(container) {
           </div>
           <div class="form-field">
             <label>${window.ui.esc(t('products.low_stock_label'))}</label>
-            <input id="pf-low" type="number" class="input" value="${p ? (p.low_stock_level || 10) : 10}">
+            <input id="pf-low" type="number" class="input" value="${p && p.low_stock_level !== undefined ? p.low_stock_level : 10}">
           </div>
           <div class="form-field">
             <label>${window.ui.esc(t('products.gst_label'))}</label>
-            <input id="pf-gst" type="number" class="input" value="${p ? (p.default_gst_rate || 12) : 12}">
+            <input id="pf-gst" type="number" class="input" value="${p && p.default_gst_rate !== undefined ? p.default_gst_rate : 12}">
           </div>
           <div id="pf-error" class="text-error" style="display:none; margin-bottom:0.75rem;"></div>
           <div class="sheet-footer" style="padding-top:0.75rem; border-top:1px solid var(--border);">
@@ -210,6 +210,9 @@ window.pages.masters = async function(container) {
         var submitBtn = document.getElementById('pf-submit');
         errEl.style.display = 'none';
 
+        var lowVal = document.getElementById('pf-low').value;
+        var gstVal = document.getElementById('pf-gst').value;
+
         var payload = {
           name: document.getElementById('pf-name').value.trim(),
           category: document.getElementById('pf-category').value,
@@ -218,8 +221,8 @@ window.pages.masters = async function(container) {
           capacity_watt: document.getElementById('pf-cap').value ? Number(document.getElementById('pf-cap').value) : null,
           unit: document.getElementById('pf-unit').value,
           track_serial: document.getElementById('pf-serial').checked,
-          low_stock_level: Number(document.getElementById('pf-low').value) || 10,
-          default_gst_rate: Number(document.getElementById('pf-gst').value) || 12
+          low_stock_level: lowVal !== '' ? Number(lowVal) : 10,
+          default_gst_rate: gstVal !== '' ? Number(gstVal) : 12
         };
 
         if (!payload.name) {
@@ -228,25 +231,22 @@ window.pages.masters = async function(container) {
           return;
         }
 
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<span class="spinner"></span> Saving…';
-
-        try {
-          if (isEdit) {
-            payload.product_id = p.product_id;
-            await window.api.call('products.update', payload);
-          } else {
-            await window.api.call('products.create', payload);
+        window.ui.withButtonLoading(submitBtn, async function() {
+          try {
+            if (isEdit) {
+              payload.product_id = p.product_id;
+              await window.api.call('products.update', payload);
+            } else {
+              await window.api.call('products.create', payload);
+            }
+            window.ui.closeBottomSheet();
+            window.ui.toast(isEdit ? 'Product updated' : 'Product created', 'success');
+            renderProductsSub(target);
+          } catch(err) {
+            errEl.textContent = err.message || 'Operation failed';
+            errEl.style.display = 'block';
           }
-          window.ui.closeBottomSheet();
-          window.ui.toast(isEdit ? 'Product updated' : 'Product created', 'success');
-          renderProductsSub(target);
-        } catch(err) {
-          errEl.textContent = err.message || 'Operation failed';
-          errEl.style.display = 'block';
-          submitBtn.disabled = false;
-          submitBtn.textContent = t('btn.save');
-        }
+        });
       };
     }
   }
@@ -373,25 +373,22 @@ window.pages.masters = async function(container) {
           return;
         }
 
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<span class="spinner"></span> Saving…';
-
-        try {
-          if (isEdit) {
-            payload.supplier_id = s.supplier_id;
-            await window.api.call('suppliers.update', payload);
-          } else {
-            await window.api.call('suppliers.create', payload);
+        window.ui.withButtonLoading(submitBtn, async function() {
+          try {
+            if (isEdit) {
+              payload.supplier_id = s.supplier_id;
+              await window.api.call('suppliers.update', payload);
+            } else {
+              await window.api.call('suppliers.create', payload);
+            }
+            window.ui.closeBottomSheet();
+            window.ui.toast(isEdit ? 'Supplier updated' : 'Supplier created', 'success');
+            renderSuppliersSub(target);
+          } catch(err) {
+            errEl.textContent = err.message || 'Operation failed';
+            errEl.style.display = 'block';
           }
-          window.ui.closeBottomSheet();
-          window.ui.toast(isEdit ? 'Supplier updated' : 'Supplier created', 'success');
-          renderSuppliersSub(target);
-        } catch(err) {
-          errEl.textContent = err.message || 'Operation failed';
-          errEl.style.display = 'block';
-          submitBtn.disabled = false;
-          submitBtn.textContent = t('btn.save');
-        }
+        });
       };
     }
   }
@@ -530,25 +527,22 @@ window.pages.masters = async function(container) {
           return;
         }
 
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<span class="spinner"></span> Saving…';
-
-        try {
-          if (isEdit) {
-            payload.location_id = loc.location_id;
-            await window.api.call('locations.update', payload);
-          } else {
-            await window.api.call('locations.create', payload);
+        window.ui.withButtonLoading(submitBtn, async function() {
+          try {
+            if (isEdit) {
+              payload.location_id = loc.location_id;
+              await window.api.call('locations.update', payload);
+            } else {
+              await window.api.call('locations.create', payload);
+            }
+            window.ui.closeBottomSheet();
+            window.ui.toast(isEdit ? 'Location updated' : 'Location created', 'success');
+            renderLocationsSub(target);
+          } catch(err) {
+            errEl.textContent = err.message || 'Operation failed';
+            errEl.style.display = 'block';
           }
-          window.ui.closeBottomSheet();
-          window.ui.toast(isEdit ? 'Location updated' : 'Location created', 'success');
-          renderLocationsSub(target);
-        } catch(err) {
-          errEl.textContent = err.message || 'Operation failed';
-          errEl.style.display = 'block';
-          submitBtn.disabled = false;
-          submitBtn.textContent = t('btn.save');
-        }
+        });
       };
     }
   }
@@ -692,23 +686,20 @@ window.pages.masters = async function(container) {
           return;
         }
 
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<span class="spinner"></span> Saving…';
-
-        try {
-          if (isEdit) {
-            payload.stage_id = stg.stage_id;
+        window.ui.withButtonLoading(submitBtn, async function() {
+          try {
+            if (isEdit) {
+              payload.stage_id = stg.stage_id;
+            }
+            await window.api.call('stageMaster.upsert', payload);
+            window.ui.closeBottomSheet();
+            window.ui.toast(isEdit ? 'Stage updated' : 'Stage created', 'success');
+            renderStagesSub(target);
+          } catch(err) {
+            errEl.textContent = err.message || 'Operation failed';
+            errEl.style.display = 'block';
           }
-          await window.api.call('stageMaster.upsert', payload);
-          window.ui.closeBottomSheet();
-          window.ui.toast(isEdit ? 'Stage updated' : 'Stage created', 'success');
-          renderStagesSub(target);
-        } catch(err) {
-          errEl.textContent = err.message || 'Operation failed';
-          errEl.style.display = 'block';
-          submitBtn.disabled = false;
-          submitBtn.textContent = t('btn.save');
-        }
+        });
       };
     }
   }

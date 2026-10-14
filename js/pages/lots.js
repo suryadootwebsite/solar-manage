@@ -7,7 +7,7 @@ window.pages = window.pages || {};
 
 window.pages.lots = async function(container) {
   var t = window.i18n.t;
-  var isOwner = window.auth.getUser() && window.auth.getUser().role === 'OWNER';
+  var isOwner = window.auth.isOwnerLike(window.auth.getUser() && window.auth.getUser().role);
 
   container.innerHTML = `
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:0.5rem;">
@@ -18,14 +18,14 @@ window.pages.lots = async function(container) {
       <button id="lot-new-btn" class="btn btn-primary" style="min-height:44px;">+ ${window.ui.esc(t('lots.new_btn'))}</button>
     </div>
 
-    <!-- Filter chips -->
-    <div style="display:flex; gap:0.5rem; margin-bottom:1rem; overflow-x:auto; padding-bottom:0.25rem;">
-      <button class="btn btn-primary lot-filter-btn active" data-status="">All</button>
-      <button class="btn btn-secondary lot-filter-btn" data-status="ORDER_CONFIRMED">CONFIRMED</button>
-      <button class="btn btn-secondary lot-filter-btn" data-status="DISPATCHED">DISPATCHED</button>
-      <button class="btn btn-secondary lot-filter-btn" data-status="DELIVERED">DELIVERED</button>
-      <button class="btn btn-secondary lot-filter-btn" data-status="RETURNED">RETURNED</button>
-      <button class="btn btn-secondary lot-filter-btn" data-status="PENDING_RATE">PENDING RATE</button>
+    <!-- Filter chips (Task P3-2) -->
+    <div class="lot-chips-container">
+      <button class="btn btn-primary lot-filter-btn active" data-status="" style="min-height:34px; height:34px; font-size:13px; padding:0 0.75rem; line-height:32px; border-radius:17px; flex-shrink:0;">All</button>
+      <button class="btn btn-secondary lot-filter-btn" data-status="ORDER_CONFIRMED" style="min-height:34px; height:34px; font-size:13px; padding:0 0.75rem; line-height:32px; border-radius:17px; flex-shrink:0;">Confirmed</button>
+      <button class="btn btn-secondary lot-filter-btn" data-status="DISPATCHED" style="min-height:34px; height:34px; font-size:13px; padding:0 0.75rem; line-height:32px; border-radius:17px; flex-shrink:0;">Dispatched</button>
+      <button class="btn btn-secondary lot-filter-btn" data-status="DELIVERED" style="min-height:34px; height:34px; font-size:13px; padding:0 0.75rem; line-height:32px; border-radius:17px; flex-shrink:0;">Delivered</button>
+      <button class="btn btn-secondary lot-filter-btn" data-status="RETURNED" style="min-height:34px; height:34px; font-size:13px; padding:0 0.75rem; line-height:32px; border-radius:17px; flex-shrink:0;">Returned</button>
+      <button class="btn btn-secondary lot-filter-btn" data-status="PENDING_RATE" style="min-height:34px; height:34px; font-size:13px; padding:0 0.75rem; line-height:32px; border-radius:17px; flex-shrink:0;">Pending Rate</button>
     </div>
 
     <div id="lot-list-view">
@@ -86,9 +86,19 @@ window.pages.lots = async function(container) {
     }
 
     listView.innerHTML = lots.map(function(l) {
-      var statusClass = l.status === 'CONFIRMED' ? 'badge-success' : (l.status === 'PENDING_RATE' ? 'badge-warning' : 'badge-disabled');
       var ordStatus = l.order_status || 'ORDER_CONFIRMED';
       var ordClass = ordStatus === 'DELIVERED' ? 'badge-success' : (ordStatus === 'DISPATCHED' ? 'badge-primary' : (ordStatus === 'RETURNED' ? 'badge-danger' : 'badge-warning'));
+      var localizedOrdStatus = t('lots.status_' + ordStatus.toLowerCase());
+      if (!localizedOrdStatus || localizedOrdStatus === 'Information unavailable') {
+        if (ordStatus === 'ORDER_CONFIRMED') localizedOrdStatus = t('lots.status_confirmed') || 'Order Confirmed';
+        else if (ordStatus === 'DISPATCHED') localizedOrdStatus = t('lots.status_dispatched') || 'Dispatched';
+        else if (ordStatus === 'DELIVERED') localizedOrdStatus = t('lots.status_delivered') || 'Delivered';
+        else if (ordStatus === 'RETURN_IN_PROGRESS') localizedOrdStatus = t('lots.status_return_in_progress') || 'Return in Progress';
+        else if (ordStatus === 'RETURNED') localizedOrdStatus = t('lots.status_returned') || 'Returned';
+        else if (ordStatus === 'CANCELLED') localizedOrdStatus = t('lots.status_cancelled') || 'Cancelled';
+        else localizedOrdStatus = ordStatus;
+      }
+      var isPendingRate = l.status === 'PENDING_RATE';
       var totalText = isOwner && l.grand_total_paise !== undefined ? `₹${(l.grand_total_paise / 100).toLocaleString('en-IN')}` : '';
 
       return `
@@ -96,19 +106,19 @@ window.pages.lots = async function(container) {
           <div style="display:flex; justify-content:space-between; align-items:flex-start;">
             <div>
               <div style="font-weight:700; font-size:1.05rem; color:var(--text-main);">
-                ${window.ui.esc(getSupplierName(l.supplier_id))}
+                ${window.ui.esc(l.items_summary || getSupplierName(l.supplier_id))}
               </div>
               <div style="font-size:0.875rem; color:var(--text-muted); margin-top:0.25rem;">
-                Inv: <strong>${window.ui.esc(l.invoice_no)}</strong> · Date: ${window.ui.esc(l.lot_date)}
+                ${window.ui.esc(getSupplierName(l.supplier_id))} · Inv: <strong>${window.ui.esc(l.invoice_no)}</strong> · Date: ${window.ui.esc(l.lot_date)}
               </div>
               <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.25rem;">
                 📍 ${window.ui.esc(getLocationName(l.location_id))}
               </div>
             </div>
             <div style="text-align:right;">
-              <div style="display:flex; gap:0.25rem; justify-content:flex-end; flex-wrap:wrap;">
-                <span class="badge ${ordClass}">${ordStatus}</span>
-                <span class="badge ${statusClass}">${l.status}</span>
+              <div style="display:flex; flex-direction:column; align-items:flex-end; gap:0.25rem;">
+                <span class="badge ${ordClass}">${window.ui.esc(localizedOrdStatus)}</span>
+                ${isPendingRate ? '<span class="badge badge-warning" style="font-size:0.7rem; padding:0.15rem 0.45rem;">Rate pending</span>' : ''}
               </div>
               ${totalText ? `<div style="font-weight:700; margin-top:0.5rem; color:var(--brand);">${totalText}</div>` : ''}
             </div>
@@ -239,7 +249,7 @@ window.pages.lots = async function(container) {
       if (canUpdateOrd) {
         document.getElementById('lot-update-status-btn').onclick = function() {
           window.ui.closeBottomSheet();
-          openUpdateOrderStatusDialog(lot);
+          openUpdateOrderStatusDialog(lot, items, batches);
         };
       }
 
@@ -251,18 +261,21 @@ window.pages.lots = async function(container) {
       }
 
       if (canCancel) {
-        document.getElementById('lot-cancel-btn').onclick = function() {
+        var cancelBtn = document.getElementById('lot-cancel-btn');
+        cancelBtn.onclick = function() {
           window.ui.confirmDialog(
             'Cancel Lot',
             'Are you sure you want to cancel lot ' + lot.invoice_no + '? Stock will be voided.',
-            async function() {
-              try {
-                await window.api.call('lots.cancel', { lot_id: lot.lot_id, reason: 'Cancelled by user' });
-                window.ui.toast('Lot cancelled', 'success');
-                loadLots();
-              } catch(e) {
-                window.ui.toast(e.message || 'Cancel failed', 'error');
-              }
+            function() {
+              window.ui.withButtonLoading(cancelBtn, async function() {
+                try {
+                  await window.api.call('lots.cancel', { lot_id: lot.lot_id, reason: 'Cancelled by user' });
+                  window.ui.toast('Lot cancelled', 'success');
+                  loadLots();
+                } catch(e) {
+                  window.ui.toast(e.message || 'Cancel failed', 'error');
+                }
+              });
             }
           );
         };
@@ -277,7 +290,7 @@ window.pages.lots = async function(container) {
   // ---------------------------------------------------------------------------
   // Update Order Status Dialog
   // ---------------------------------------------------------------------------
-  function openUpdateOrderStatusDialog(lot) {
+  function openUpdateOrderStatusDialog(lot, items, batches) {
     var cur = lot.order_status || 'ORDER_CONFIRMED';
     var nextOptions = [];
     if (cur === 'ORDER_CONFIRMED') {
@@ -307,6 +320,33 @@ window.pages.lots = async function(container) {
           <label>Action Date</label>
           <input type="date" id="uos-date" class="input" value="${new Date().toISOString().slice(0, 10)}">
         </div>
+
+        <div id="uos-return-details" style="display:none; margin:0.75rem 0; padding:0.75rem; background:var(--bg-card); border-radius:6px; border:1px solid var(--border);">
+          <div style="font-weight:600; font-size:0.85rem; margin-bottom:0.5rem;">Return Item Quantities</div>
+          ${(items || []).map(function(it) {
+            var prd = products.find(function(p) { return p.product_id === it.product_id; });
+            var b = (batches || []).find(function(batch) { return batch.lot_item_id === it.lot_item_id; });
+            var maxQty = b ? Number(b.qty_remaining || 0) : Number(it.qty || 0);
+            return `
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem; gap:0.5rem;">
+                <div style="font-size:0.8rem; flex:2;">
+                  <div style="font-weight:600;">${window.ui.esc(prd ? prd.name : it.product_id)}</div>
+                  <div class="text-muted" style="font-size:0.75rem;">Max avail: ${maxQty}</div>
+                </div>
+                <div style="flex:1; max-width:100px;">
+                  <input type="number" class="input uos-ret-qty" data-id="${it.lot_item_id}" data-max="${maxQty}" value="${maxQty}" min="0" max="${maxQty}" style="font-size:0.85rem; padding:0.25rem 0.5rem;">
+                </div>
+              </div>
+            `;
+          }).join('')}
+          ${isOwner ? `
+            <div class="form-field" style="margin-top:0.75rem; border-top:1px solid var(--border); padding-top:0.5rem;">
+              <label style="font-size:0.8rem;">Return Amount Credit (₹)</label>
+              <input type="number" step="0.01" id="uos-return-amount" class="input" placeholder="Amount to deduct from supplier ledger">
+            </div>
+          ` : ''}
+        </div>
+
         <div id="uos-error" class="text-error" style="display:none; margin-bottom:0.75rem;"></div>
         <button type="submit" id="uos-submit" class="btn btn-primary btn-full">Save Order Status</button>
       </form>
@@ -316,10 +356,17 @@ window.pages.lots = async function(container) {
 
     var statusSelect = document.getElementById('uos-status');
     var reasonWrap = document.getElementById('uos-reason-wrap');
+    var returnDetails = document.getElementById('uos-return-details');
 
-    statusSelect.onchange = function() {
-      reasonWrap.style.display = (statusSelect.value === 'CANCELLED' || statusSelect.value === 'RETURN_IN_PROGRESS' || statusSelect.value === 'RETURNED') ? 'block' : 'none';
-    };
+    function checkVisibility() {
+      var val = statusSelect.value;
+      reasonWrap.style.display = (val === 'CANCELLED' || val === 'RETURN_IN_PROGRESS' || val === 'RETURNED') ? 'block' : 'none';
+      if (returnDetails) {
+        returnDetails.style.display = (val === 'RETURNED') ? 'block' : 'none';
+      }
+    }
+    statusSelect.onchange = checkVisibility;
+    checkVisibility();
 
     document.getElementById('update-ord-status-form').onsubmit = async function(e) {
       e.preventDefault();
@@ -349,20 +396,47 @@ window.pages.lots = async function(container) {
       }
       if (toStatus === 'CANCELLED') payload.reason = reason;
 
-      submitBtn.disabled = true;
-      submitBtn.innerHTML = '<span class="spinner"></span> Saving…';
-
-      try {
-        await window.api.call('lots.updateOrderStatus', payload);
-        window.ui.closeBottomSheet();
-        window.ui.toast('Order status updated to ' + toStatus, 'success');
-        loadLots();
-      } catch(err) {
-        errEl.textContent = err.message || 'Update failed';
-        errEl.style.display = 'block';
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Save Order Status';
+      if (toStatus === 'RETURNED') {
+        var retInputs = document.querySelectorAll('.uos-ret-qty');
+        var retItems = [];
+        for (var i = 0; i < retInputs.length; i++) {
+          var q = parseInt(retInputs[i].value, 10) || 0;
+          var m = parseInt(retInputs[i].getAttribute('data-max'), 10) || 0;
+          if (q > m) {
+            errEl.textContent = 'Return quantity cannot exceed remaining stock (' + m + ')';
+            errEl.style.display = 'block';
+            return;
+          }
+          if (q > 0) {
+            retItems.push({
+              lot_item_id: retInputs[i].getAttribute('data-id'),
+              qty: q
+            });
+          }
+        }
+        if (retItems.length > 0) {
+          payload.items = retItems;
+        }
+        var retAmtEl = document.getElementById('uos-return-amount');
+        if (retAmtEl && retAmtEl.value !== '') {
+          var amt = parseFloat(retAmtEl.value);
+          if (!isNaN(amt) && amt > 0) {
+            payload.return_amount_paise = Math.round(amt * 100);
+          }
+        }
       }
+
+      window.ui.withButtonLoading(submitBtn, async function() {
+        try {
+          await window.api.call('lots.updateOrderStatus', payload);
+          window.ui.closeBottomSheet();
+          window.ui.toast('Order status updated to ' + toStatus, 'success');
+          loadLots();
+        } catch(err) {
+          errEl.textContent = err.message || 'Update failed';
+          errEl.style.display = 'block';
+        }
+      });
     };
   }
   function openSetRatesForm(lot, items) {
@@ -441,20 +515,17 @@ window.pages.lots = async function(container) {
         gst_in_cost: document.getElementById('srf-gst-cost').checked
       };
 
-      submitBtn.disabled = true;
-      submitBtn.innerHTML = '<span class="spinner"></span> Saving…';
-
-      try {
-        await window.api.call('lots.setRates', payload);
-        window.ui.closeBottomSheet();
-        window.ui.toast('Rates finalized successfully', 'success');
-        loadLots();
-      } catch(err) {
-        errEl.textContent = err.message || 'Operation failed';
-        errEl.style.display = 'block';
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Save & Finalize Rates';
-      }
+      window.ui.withButtonLoading(submitBtn, async function() {
+        try {
+          await window.api.call('lots.setRates', payload);
+          window.ui.closeBottomSheet();
+          window.ui.toast('Rates finalized successfully', 'success');
+          loadLots();
+        } catch(err) {
+          errEl.textContent = err.message || 'Operation failed';
+          errEl.style.display = 'block';
+        }
+      });
     };
   }
 
@@ -467,6 +538,8 @@ window.pages.lots = async function(container) {
 
   function openCreateLotForm() {
     var lineItems = [];
+
+    var canEnterAmounts = isOwner || (window.auth.getUser() && window.auth.getUser().role === 'MANAGER');
 
     function renderLines() {
       var linesContainer = document.getElementById('clf-lines-container');
@@ -493,14 +566,14 @@ window.pages.lots = async function(container) {
                 <label style="font-size:0.75rem;">Qty</label>
                 <input type="number" class="input clf-qty" data-idx="${idx}" value="${item.qty}" min="1" required>
               </div>
-              ${isOwner ? `
+              ${canEnterAmounts ? `
                 <div style="flex:2; min-width:100px;">
                   <label style="font-size:0.75rem;">Rate (₹)</label>
-                  <input type="number" step="0.01" class="input clf-rate" data-idx="${idx}" value="${item.rate || ''}" placeholder="Rate" required>
+                  <input type="number" step="0.01" class="input clf-rate" data-idx="${idx}" value="${item.rate || ''}" placeholder="Rate">
                 </div>
                 <div style="flex:1; min-width:70px;">
                   <label style="font-size:0.75rem;">GST %</label>
-                  <input type="number" class="input clf-gst" data-idx="${idx}" value="${item.gst_rate || 12}">
+                  <input type="number" class="input clf-gst" data-idx="${idx}" value="${item.gst_rate !== undefined ? item.gst_rate : 12}">
                 </div>
               ` : ''}
             </div>
@@ -531,7 +604,7 @@ window.pages.lots = async function(container) {
         };
       });
 
-      if (isOwner) {
+      if (canEnterAmounts) {
         linesContainer.querySelectorAll('.clf-rate').forEach(function(input) {
           input.onchange = function() {
             var idx = parseInt(input.getAttribute('data-idx'), 10);
@@ -565,7 +638,10 @@ window.pages.lots = async function(container) {
     var formHtml = `
       <form id="create-lot-form" novalidate>
         <div class="form-field">
-          <label>Supplier *</label>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.35rem;">
+            <label style="margin-bottom:0;">Supplier *</label>
+            <button type="button" id="clf-new-supp-btn" class="btn btn-secondary" style="padding:0.2rem 0.5rem; font-size:0.75rem; min-height:28px;">+ New Supplier</button>
+          </div>
           <select id="clf-supplier" class="input" required>
             <option value="">Select Supplier</option>
             ${suppliers.map(function(s) { return `<option value="${s.supplier_id}">${window.ui.esc(s.name)}</option>`; }).join('')}
@@ -598,7 +674,7 @@ window.pages.lots = async function(container) {
         <div id="clf-lines-container"></div>
         <button type="button" id="clf-add-line-btn" class="btn btn-secondary btn-full" style="margin-bottom:1rem;">+ Add Line Item</button>
 
-        ${isOwner ? `
+        ${canEnterAmounts ? `
           <div class="form-field">
             <label>Transport / Freight (₹)</label>
             <input type="number" step="0.01" id="clf-transport" class="input" value="0">
@@ -622,6 +698,81 @@ window.pages.lots = async function(container) {
 
     window.ui.openBottomSheet('Inward Purchase Lot', formHtml, '');
     renderLines();
+
+    var newSuppBtn = document.getElementById('clf-new-supp-btn');
+    if (newSuppBtn) {
+      newSuppBtn.onclick = function() {
+        var suppFormHtml = `
+          <form id="inline-supp-form" novalidate>
+            <div class="form-field">
+              <label>Supplier Name *</label>
+              <input type="text" id="isf-name" class="input" required placeholder="e.g. Adani Solar Ltd">
+            </div>
+            <div class="form-field">
+              <label>GST Number</label>
+              <input type="text" id="isf-gst" class="input" placeholder="e.g. 24AAAAA0000A1Z5">
+            </div>
+            <div class="form-field">
+              <label>Phone Number</label>
+              <input type="tel" id="isf-phone" class="input" placeholder="e.g. 9876543210">
+            </div>
+            <div class="form-field">
+              <label>Address</label>
+              <textarea id="isf-address" class="input" rows="2" placeholder="Full address"></textarea>
+            </div>
+            <div id="isf-error" class="text-error" style="display:none; margin-bottom:0.75rem;"></div>
+            <button type="submit" id="isf-submit" class="btn btn-primary btn-full">Save Supplier</button>
+          </form>
+        `;
+
+        window.ui.openBottomSheet('New Supplier', suppFormHtml, '');
+
+        document.getElementById('inline-supp-form').onsubmit = async function(ev) {
+          ev.preventDefault();
+          var errEl2 = document.getElementById('isf-error');
+          var submitBtn2 = document.getElementById('isf-submit');
+          errEl2.style.display = 'none';
+
+          var sName = document.getElementById('isf-name').value.trim();
+          var sGst = document.getElementById('isf-gst').value.trim();
+          var sPhone = document.getElementById('isf-phone').value.trim();
+          var sAddress = document.getElementById('isf-address').value.trim();
+
+          if (!sName) {
+            errEl2.textContent = 'Name is required';
+            errEl2.style.display = 'block';
+            return;
+          }
+
+          window.ui.withButtonLoading(submitBtn2, async function() {
+            try {
+              var newSup = await window.api.call('suppliers.create', {
+                name: sName,
+                gst_no: sGst,
+                phone: sPhone,
+                address: sAddress
+              });
+
+              var select = document.getElementById('clf-supplier');
+              if (select && newSup && newSup.supplier_id) {
+                suppliers.push(newSup);
+                var opt = document.createElement('option');
+                opt.value = newSup.supplier_id;
+                opt.textContent = newSup.name;
+                select.appendChild(opt);
+                select.value = newSup.supplier_id;
+              }
+
+              window.ui.closeBottomSheet();
+              window.ui.toast('Supplier created', 'success');
+            } catch(err) {
+              errEl2.textContent = err.message || 'Failed to create supplier';
+              errEl2.style.display = 'block';
+            }
+          });
+        };
+      };
+    }
 
     document.getElementById('clf-add-line-btn').onclick = function() {
       window.searchSelect.open({
@@ -676,7 +827,7 @@ window.pages.lots = async function(container) {
           qty: it.qty,
           serials: it.serials
         };
-        if (isOwner) {
+        if (canEnterAmounts && it.rate !== undefined && it.rate !== '') {
           res.rate_paise = Math.round((parseFloat(it.rate) || 0) * 100);
           res.gst_rate = parseFloat(it.gst_rate) || 0;
         }
@@ -694,26 +845,26 @@ window.pages.lots = async function(container) {
         items: itemsPayload
       };
 
-      if (isOwner) {
-        payload.transport_paise = Math.round((parseFloat(document.getElementById('clf-transport').value) || 0) * 100);
-        payload.loading_paise = Math.round((parseFloat(document.getElementById('clf-loading').value) || 0) * 100);
-        payload.gst_in_cost = document.getElementById('clf-gst-cost').checked;
+      if (canEnterAmounts) {
+        var tEl = document.getElementById('clf-transport');
+        if (tEl && tEl.value !== '') payload.transport_paise = Math.round((parseFloat(tEl.value) || 0) * 100);
+        var lEl = document.getElementById('clf-loading');
+        if (lEl && lEl.value !== '') payload.loading_paise = Math.round((parseFloat(lEl.value) || 0) * 100);
+        var gEl = document.getElementById('clf-gst-cost');
+        if (gEl) payload.gst_in_cost = gEl.checked;
       }
 
-      submitBtn.disabled = true;
-      submitBtn.innerHTML = '<span class="spinner"></span> Processing…';
-
-      try {
-        await window.api.call('lots.create', payload);
-        window.ui.closeAllBottomSheets();
-        window.ui.toast('Purchase lot recorded successfully', 'success');
-        loadLots();
-      } catch(err) {
-        errEl.textContent = err.message || 'Failed to create lot';
-        errEl.style.display = 'block';
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Submit Lot Intake';
-      }
+      window.ui.withButtonLoading(submitBtn, async function() {
+        try {
+          await window.api.call('lots.create', payload);
+          window.ui.closeAllBottomSheets();
+          window.ui.toast('Purchase lot recorded successfully', 'success');
+          loadLots();
+        } catch(err) {
+          errEl.textContent = err.message || 'Failed to create lot';
+          errEl.style.display = 'block';
+        }
+      });
     };
   }
 

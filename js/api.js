@@ -111,6 +111,20 @@ window.api = (function() {
         }
 
         if (data && data.ok) {
+          if (window.location && window.location.search && window.location.search.indexOf('debug=1') !== -1) {
+            var tm = data.meta && data.meta.timing;
+            if (tm) {
+              console.log('%c[API TIMING] ' + action, 'color:#2563eb;font-weight:bold;', {
+                total_ms:    tm.total_ms,
+                auth_ms:     tm.auth_ms,
+                handler_ms:  tm.handler_ms,
+                cache_hits:  tm.cache_hits,
+                sheets_read: tm.sheets_read
+              });
+            } else if (data.meta && data.meta.ms) {
+              console.log('[API TIMING] ' + action + ':', data.meta.ms + 'ms');
+            }
+          }
           return data.data;
         }
 

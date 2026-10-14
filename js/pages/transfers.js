@@ -173,30 +173,35 @@ window.pages.transfers = async function(container) {
 
       window.ui.openBottomSheet('Transfer: ' + transfer.transfer_id, bodyHtml, '');
 
-      if (isPending) {
-        document.getElementById('trfd-receive-btn').onclick = async function() {
-          try {
-            await window.api.call('stock.transfer.receive', { transfer_id: transfer.transfer_id });
-            window.ui.closeBottomSheet();
-            window.ui.toast('Transfer received successfully', 'success');
-            loadTransfers();
-          } catch(err) {
-            window.ui.toast(err.message || 'Receive failed', 'error');
-          }
+        var recBtn = document.getElementById('trfd-receive-btn');
+        recBtn.onclick = function() {
+          window.ui.withButtonLoading(recBtn, async function() {
+            try {
+              await window.api.call('stock.transfer.receive', { transfer_id: transfer.transfer_id });
+              window.ui.closeBottomSheet();
+              window.ui.toast('Transfer received successfully', 'success');
+              loadTransfers();
+            } catch(err) {
+              window.ui.toast(err.message || 'Receive failed', 'error');
+            }
+          });
         };
 
-        document.getElementById('trfd-cancel-btn').onclick = function() {
+        var cancelBtn = document.getElementById('trfd-cancel-btn');
+        cancelBtn.onclick = function() {
           window.ui.confirmDialog(
             'Cancel Transfer',
             'Are you sure you want to cancel transfer ' + transfer.transfer_id + '? Stock will be returned to source location.',
-            async function() {
-              try {
-                await window.api.call('stock.transfer.cancel', { transfer_id: transfer.transfer_id, reason: 'Cancelled by operator' });
-                window.ui.toast('Transfer cancelled', 'success');
-                loadTransfers();
-              } catch(e) {
-                window.ui.toast(e.message || 'Cancel failed', 'error');
-              }
+            function() {
+              window.ui.withButtonLoading(cancelBtn, async function() {
+                try {
+                  await window.api.call('stock.transfer.cancel', { transfer_id: transfer.transfer_id, reason: 'Cancelled by operator' });
+                  window.ui.toast('Transfer cancelled', 'success');
+                  loadTransfers();
+                } catch(e) {
+                  window.ui.toast(e.message || 'Cancel failed', 'error');
+                }
+              });
             }
           );
         };
@@ -287,20 +292,17 @@ window.pages.transfers = async function(container) {
         remark: remark
       };
 
-      submitBtn.disabled = true;
-      submitBtn.innerHTML = '<span class="spinner"></span> Dispatching…';
-
-      try {
-        await window.api.call('stock.transfer.create', payload);
-        window.ui.closeBottomSheet();
-        window.ui.toast('Transfer dispatched (IN_TRANSIT)', 'success');
-        loadTransfers();
-      } catch(err) {
-        errEl.textContent = err.message || 'Dispatch failed';
-        errEl.style.display = 'block';
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Dispatch Transfer';
-      }
+      window.ui.withButtonLoading(submitBtn, async function() {
+        try {
+          await window.api.call('stock.transfer.create', payload);
+          window.ui.closeBottomSheet();
+          window.ui.toast('Transfer dispatched (IN_TRANSIT)', 'success');
+          loadTransfers();
+        } catch(err) {
+          errEl.textContent = err.message || 'Dispatch failed';
+          errEl.style.display = 'block';
+        }
+      });
     };
   }
 

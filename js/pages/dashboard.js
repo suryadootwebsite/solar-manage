@@ -25,7 +25,7 @@
           '<p class="page-subtitle">' + ui.esc(t('dash.subtitle')) + '</p>' +
         '</div>' +
         '<div class="page-actions">' +
-          (role === 'OWNER' || role === 'MANAGER' ?
+          (window.auth.isOwnerLike(role) || role === 'MANAGER' ?
             '<a href="#/reports" class="btn btn-secondary" style="min-height:48px;display:inline-flex;align-items:center;">' +
               '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>' +
               ui.esc(t('dash.quick_reports')) +
@@ -102,15 +102,39 @@
     loadDashboard();
   }
 
+  var ownerView = 'financial'; // 'financial' or 'operations'
+
   function renderDashboardData(contentEl, dash, role) {
     var t = window.i18n.t;
     var ui = window.ui;
     var html = '';
 
+    var isOwner = window.auth.isOwnerLike(role);
+
+    // Toggle for OWNER/DEVELOPER
+    if (isOwner) {
+      html +=
+        '<div style="display:flex;gap:0.5rem;margin-bottom:1rem;">' +
+          '<button id="dash-view-financial" class="btn ' + (ownerView === 'financial' ? 'btn-primary' : 'btn-secondary') + '" style="min-height:38px;padding:0.4rem 0.8rem;font-size:0.85rem;">' +
+            ui.esc(t('dash.financial_overview') || 'Financial Overview') +
+          '</button>' +
+          '<button id="dash-view-operations" class="btn ' + (ownerView === 'operations' ? 'btn-primary' : 'btn-secondary') + '" style="min-height:38px;padding:0.4rem 0.8rem;font-size:0.85rem;">' +
+            ui.esc(t('dash.operations_overview') || 'Operations Overview') +
+          '</button>' +
+        '</div>';
+    }
+
     // KPI Cards Grid
     html += '<div class="kpi-grid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));gap:1rem;margin-bottom:1.5rem;">';
 
-    if (role === 'OWNER') {
+    if (isOwner && ownerView === 'operations') {
+      html +=
+        kpiCard(t('dash.active_sites'), dash.active_sites_count || 0, 'var(--brand)') +
+        kpiCard(t('dash.stuck_sites'), dash.stuck_count || 0, dash.stuck_count > 0 ? '#dc2626' : 'var(--text-muted)') +
+        kpiCard(t('dash.today_in'), dash.today_in_qty || 0, '#059669') +
+        kpiCard(t('dash.today_out'), dash.today_out_qty || 0, '#2563eb') +
+        kpiCard(t('dash.pending_transfers'), dash.pending_transfers_count || 0, '#d97706');
+    } else if (isOwner) {
       html +=
         kpiCard(t('dash.active_sites'), dash.active_sites_count || 0, 'var(--brand)') +
         kpiCard(t('dash.stuck_sites'), dash.stuck_count || 0, dash.stuck_count > 0 ? '#dc2626' : 'var(--text-muted)') +
@@ -147,7 +171,7 @@
                 '<tr>' +
                   '<th>Site</th>' +
                   '<th>Stage</th>' +
-                  '<th>Duration</th>' +
+                  '<th>Duration / Reason</th>' +
                   '<th>Capacity</th>' +
                 '</tr>' +
               '</thead>' +
@@ -156,7 +180,9 @@
                   return '<tr>' +
                     '<td><a href="#/sites/' + encodeURIComponent(s.site_id) + '" style="font-weight:600;color:var(--brand);">' + ui.esc(s.site_name) + '</a></td>' +
                     '<td><span class="badge badge-warning">' + ui.esc(s.current_stage) + '</span></td>' +
-                    '<td><strong style="color:#dc2626;">' + s.days_in_stage + ' ' + ui.esc(t('dash.days')) + '</strong></td>' +
+                    '<td><strong style="color:#dc2626;">' + s.days_in_stage + ' ' + ui.esc(t('dash.days')) + '</strong>' +
+                      (s.reason ? '<div style="font-size:0.75rem;color:#dc2626;margin-top:2px;">' + ui.esc(s.reason) + '</div>' : '') +
+                    '</td>' +
                     '<td>' + (s.system_kw ? s.system_kw + ' kW' : '-') + '</td>' +
                   '</tr>';
                 }).join('') +
@@ -244,6 +270,23 @@
     }
 
     contentEl.innerHTML = html;
+
+    if (isOwner) {
+      var finBtn = contentEl.querySelector('#dash-view-financial');
+      var opsBtn = contentEl.querySelector('#dash-view-operations');
+      if (finBtn) {
+        finBtn.onclick = function() {
+          ownerView = 'financial';
+          renderDashboardData(contentEl, dash, role);
+        };
+      }
+      if (opsBtn) {
+        opsBtn.onclick = function() {
+          ownerView = 'operations';
+          renderDashboardData(contentEl, dash, role);
+        };
+      }
+    }
   }
 
   function kpiCard(title, value, color) {

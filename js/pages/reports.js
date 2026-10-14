@@ -87,13 +87,13 @@
         '</div>';
       exportBtn.disabled = true;
 
-      api.call('reports.run', { report_id: repId })
-        .then(function(res) {
+      ui.withButtonLoading(runBtn, async function() {
+        try {
+          var res = await api.call('reports.run', { report_id: repId });
           currentData = res;
           renderReportResults(resultsEl, res);
           exportBtn.disabled = !(res.rows && res.rows.length > 0);
-        })
-        .catch(function(err) {
+        } catch(err) {
           currentData = null;
           resultsEl.innerHTML =
             '<div class="card card-error" style="padding:1.5rem;">' +
@@ -101,7 +101,8 @@
               '<p class="text-muted">' + ui.esc(err.message || 'Error running report') + '</p>' +
             '</div>';
           exportBtn.disabled = true;
-        });
+        }
+      });
     });
 
     exportBtn.addEventListener('click', function() {

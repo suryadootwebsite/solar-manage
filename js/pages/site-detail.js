@@ -58,8 +58,21 @@ window.pages.siteDetail = async function(container, params) {
       productsMap = {};
       (prdRes.items || []).forEach(function(p) { productsMap[p.product_id] = p; });
 
-      var statusClass = siteData.status === 'ACTIVE' ? 'badge-success' : (siteData.status === 'ON_HOLD' ? 'badge-warning' : 'badge-disabled');
-      badgeEl.innerHTML = `<span class="badge ${statusClass}">${siteData.status}</span>`;
+      var statusClass = siteData.status === 'ACTIVE' ? 'badge-success' : (siteData.status === 'ON_HOLD' ? 'badge-warning' : (siteData.status === 'COMPLETED' ? 'badge-success' : 'badge-disabled'));
+      var stuckHtml = siteData.is_stuck ? `<span class="badge badge-danger" style="margin-right:0.5rem;" title="${esc(siteData.stuck_reason || 'Site is stuck')}">⚠️ Stuck${siteData.stuck_reason ? ': ' + esc(siteData.stuck_reason) : ''}</span>` : '';
+      var canChangeStatus = isOwner || userRole === 'MANAGER';
+      badgeEl.innerHTML = `
+        ${stuckHtml}
+        <button id="sdt-status-btn" class="badge ${statusClass}" style="cursor:${canChangeStatus ? 'pointer' : 'default'}; border:none; outline:none; font-size:0.85rem; padding:0.35rem 0.65rem;" ${!canChangeStatus ? 'disabled' : ''}>
+          ${siteData.status} ${canChangeStatus ? '▾' : ''}
+        </button>
+      `;
+
+      if (canChangeStatus) {
+        document.getElementById('sdt-status-btn').onclick = function() {
+          openSiteStatusDialog();
+        };
+      }
 
       renderMainShell();
     } catch(err) {
@@ -76,7 +89,7 @@ window.pages.siteDetail = async function(container, params) {
       { id: 'material', label: t('sites.tab_material') || 'Material' },
       { id: 'serials', label: t('sites.tab_serials') || 'Serials' }
     ];
-    if (isOwner) {
+    if (isOwner || userRole === 'MANAGER') {
       tabs.push({ id: 'money', label: t('sites.tab_money') || 'Money' });
     }
     tabs.push({ id: 'info', label: t('sites.tab_info') || 'Info' });
@@ -267,71 +280,333 @@ window.pages.siteDetail = async function(container, params) {
   }
 
   // 4. Money Tab (OWNER / DEVELOPER only)
+  // 4. Money Tab (OWNER / DEVELOPER full P&L & expenses; MANAGER add-only expense)
   async function renderMoneyTab(pane) {
     pane.innerHTML = '<div id="sdt-money-content"><span class="spinner"></span></div>';
     var moneyEl = document.getElementById('sdt-money-content');
 
+    // MANAGER: Add-only interface (0 financial leaks)
+    if (!isOwner) {
+      moneyEl.innerHTML = `
+        <div class="card" style="margin-bottom:1rem; padding:1.25rem;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+            <div>
+              <h3 style="margin:0; font-size:1.1rem;">Site Expenses</h3>
+              <p class="text-muted" style="margin:0.25rem 0 0; font-size:0.85rem;">Record field expenses incurred for this site</p>
+            </div>
+            <button id="sdt-mgr-add-exp-btn" class="btn btn-primary" style="min-height:44px;">+ Add Expense</button>
+          </div>
+        </div>
+      `;
+      var mgrAddBtn = document.getElementById('sdt-mgr-add-exp-btn');
+      if (mgrAddBtn) {
+        mgrAddBtn.onclick = function() {
+          openAddExpenseSheet(siteId);
+        };
+      }
+      return;
+    }
+
     try {
-      var [pnlRes, payRes] = await Promise.all([
-        window.api.call('money.sitePnl', { site_id: siteId }).catch(function() { return {}; }),
-        window.api.call('cpay.list', { site_id: siteId }).catch(function() { return { items: [] }; })
+      var [pnlRes, payRes, expRes] = await Promise.all([
+        window.api.call('sites.pnl', { site_id: siteId }).catch(function() { return {}; }),
+        window.api.call('cpay.list', { site_id: siteId }).catch(function() { return { items: [] }; }),
+        window.api.call('exp.list', { site_id: siteId }).catch(function() { return { rows: [] }; })
       ]);
 
-      var pnl = pnlRes.pnl || pnlRes || {};
+      var pnl = (pnlRes && pnlRes.data) ? pnlRes.data : (pnlRes || {});
       var payments = payRes.items || payRes.rows || [];
+      var expenses = expRes.rows || expRes.items || [];
+
+      var marginPct = Number(pnl.profit_margin_pct) || 0;
+      var marginColor = marginPct >= 15 ? '#059669' : '#d97706';
 
       moneyEl.innerHTML = `
-        <div class="kpi-grid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:0.75rem; margin-bottom:1rem;">
+        <!-- KPI Cards Grid -->
+        <div class="kpi-grid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:0.75rem; margin-bottom:1rem;">
           <div class="card" style="padding:0.75rem; text-align:center;">
             <div style="font-size:0.75rem; color:var(--text-muted);">Contract Value</div>
-            <div style="font-weight:700; font-size:1.1rem; color:var(--brand);">₹${((pnl.contract_amount_paise || 0) / 100).toLocaleString('en-IN')}</div>
+            <div style="font-weight:700; font-size:1.05rem; color:var(--brand);">₹${((Number(pnl.contract_value_paise) || 0) / 100).toLocaleString('en-IN')}</div>
           </div>
           <div class="card" style="padding:0.75rem; text-align:center;">
             <div style="font-size:0.75rem; color:var(--text-muted);">Total Received</div>
-            <div style="font-weight:700; font-size:1.1rem; color:#059669;">₹${((pnl.received_paise || 0) / 100).toLocaleString('en-IN')}</div>
+            <div style="font-weight:700; font-size:1.05rem; color:#059669;">₹${((Number(pnl.received_paise) || 0) / 100).toLocaleString('en-IN')}</div>
           </div>
           <div class="card" style="padding:0.75rem; text-align:center;">
-            <div style="font-size:0.75rem; color:var(--text-muted);">Total Material Cost</div>
-            <div style="font-weight:700; font-size:1.1rem; color:#d97706;">₹${((pnl.cost_paise || 0) / 100).toLocaleString('en-IN')}</div>
+            <div style="font-size:0.75rem; color:var(--text-muted);">Material Cost</div>
+            <div style="font-weight:700; font-size:1.05rem; color:#d97706;">₹${((Number(pnl.material_cost_paise) || 0) / 100).toLocaleString('en-IN')}</div>
           </div>
           <div class="card" style="padding:0.75rem; text-align:center;">
-            <div style="font-size:0.75rem; color:var(--text-muted);">Site Net Profit</div>
-            <div style="font-weight:700; font-size:1.1rem; color:${(pnl.profit_paise || 0) >= 0 ? '#059669' : '#dc2626'};">
-              ₹${((pnl.profit_paise || 0) / 100).toLocaleString('en-IN')}
+            <div style="font-size:0.75rem; color:var(--text-muted);">Site Expenses</div>
+            <div style="font-weight:700; font-size:1.05rem; color:#d97706;">₹${((Number(pnl.expenses_paise) || 0) / 100).toLocaleString('en-IN')}</div>
+          </div>
+          <div class="card" style="padding:0.75rem; text-align:center;">
+            <div style="font-size:0.75rem; color:var(--text-muted);">Gross Profit</div>
+            <div style="font-weight:700; font-size:1.05rem; color:${(Number(pnl.gross_profit_paise) || 0) >= 0 ? '#059669' : '#dc2626'};">
+              ₹${((Number(pnl.gross_profit_paise) || 0) / 100).toLocaleString('en-IN')}
             </div>
+          </div>
+          <div class="card" style="padding:0.75rem; text-align:center;">
+            <div style="font-size:0.75rem; color:var(--text-muted);">Margin / Balance</div>
+            <div style="font-weight:700; font-size:1.05rem; color:${marginColor};">${marginPct}%</div>
+            <div style="font-size:0.75rem; color:#dc2626; margin-top:2px;">Due: ₹${((Number(pnl.balance_due_paise) || 0) / 100).toLocaleString('en-IN')}</div>
           </div>
         </div>
 
-        <div style="font-weight:700; margin-bottom:0.5rem;">Customer Payments (${payments.length}):</div>
-        ${payments.length ? payments.map(function(p) {
-          return `
-            <div class="card" style="margin-bottom:0.5rem; padding:0.75rem;">
-              <div style="display:flex; justify-content:space-between;">
-                <div>
-                  <div style="font-weight:600;">₹${((p.amount_paise || 0) / 100).toLocaleString('en-IN')}</div>
-                  <div style="font-size:0.8rem; color:var(--text-muted);">${esc(p.payment_type || 'PAYMENT')} · ${esc(p.payment_date || '')}</div>
-                </div>
-                <span class="badge badge-success">${esc(p.status || 'RECORDED')}</span>
-              </div>
+        <!-- Site Expenses Section -->
+        <div class="card" style="margin-bottom:1rem; padding:1rem;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem; flex-wrap:wrap; gap:0.5rem;">
+            <h3 style="margin:0; font-size:1rem;">Site Expenses (${expenses.length})</h3>
+            <button id="sdt-add-exp-btn" class="btn btn-primary" style="min-height:36px; padding:0.35rem 0.75rem; font-size:0.85rem;">+ Add Expense</button>
+          </div>
+          ${expenses.length ? `
+            <div style="overflow-x:auto;">
+              <table class="table" style="width:100%; font-size:0.85rem;">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Category</th>
+                    <th>Amount</th>
+                    <th>Paid To</th>
+                    <th>Mode</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${expenses.map(function(e) {
+                    var isRev = e.status === 'REVERSED';
+                    var amtFormatted = '₹' + ((Number(e.amount_paise) || 0) / 100).toLocaleString('en-IN');
+                    return `
+                      <tr>
+                        <td>${esc(e.exp_date || '')}</td>
+                        <td><span class="badge" style="background:var(--bg-main); border:1px solid var(--border);">${esc(e.category)}</span></td>
+                        <td style="font-weight:600;">${amtFormatted}</td>
+                        <td>${esc(e.paid_to || '-')}</td>
+                        <td>${esc(e.mode || '')}</td>
+                        <td><span class="badge ${isRev ? 'badge-danger' : 'badge-success'}">${esc(e.status)}</span></td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
             </div>
-          `;
-        }).join('') : '<div class="card text-muted" style="text-align:center; padding:1rem;">No payments recorded yet.</div>'}
+          ` : '<p class="text-muted" style="font-size:0.85rem; margin:0;">No expenses recorded for this site yet.</p>'}
+        </div>
+
+        <!-- Customer Payments Section -->
+        <div class="card" style="padding:1rem;">
+          <h3 style="margin:0 0 0.75rem 0; font-size:1rem;">Customer Payments (${payments.length})</h3>
+          ${payments.length ? payments.map(function(p) {
+            var isRev = p.status === 'REVERSED';
+            return `
+              <div class="card" style="margin-bottom:0.5rem; padding:0.75rem; background:var(--bg-main);">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                  <div>
+                    <div style="font-weight:600; font-size:0.95rem;">₹${((Number(p.amount_paise) || 0) / 100).toLocaleString('en-IN')}</div>
+                    <div style="font-size:0.8rem; color:var(--text-muted);">${esc(p.type || p.payment_type || 'PAYMENT')} · ${esc(p.mode || '')} · ${esc(p.pay_date || p.payment_date || '')}</div>
+                  </div>
+                  <span class="badge ${isRev ? 'badge-danger' : 'badge-success'}">${esc(p.status || 'ACTIVE')}</span>
+                </div>
+              </div>
+            `;
+          }).join('') : '<p class="text-muted" style="font-size:0.85rem; margin:0;">No payments received for this site yet.</p>'}
+        </div>
       `;
+
+      var addExpBtn = document.getElementById('sdt-add-exp-btn');
+      if (addExpBtn) {
+        addExpBtn.onclick = function() {
+          openAddExpenseSheet(siteId);
+        };
+      }
     } catch(e) {
       moneyEl.innerHTML = `<div class="card text-error">${esc(e.message || 'Failed to load financial data')}</div>`;
     }
   }
 
-  // 5. Info Tab
+  // ---------------------------------------------------------------------------
+  // Add Site Expense Bottom Sheet (P1-5)
+  // ---------------------------------------------------------------------------
+  function openAddExpenseSheet(siteId) {
+    var formHtml = `
+      <form id="sdt-exp-form" novalidate>
+        <div class="form-field">
+          <label>Category *</label>
+          <select id="sdt-ef-category" class="input" required>
+            <option value="LABOUR">LABOUR (Labour & Installation)</option>
+            <option value="TRANSPORT">TRANSPORT (Freight / Local)</option>
+            <option value="FOOD_TRAVEL">FOOD_TRAVEL (Food & Travel)</option>
+            <option value="DISCOM_FEES">DISCOM_FEES (Discom / Metering)</option>
+            <option value="CIVIL">CIVIL (Civil / Foundation Work)</option>
+            <option value="WARRANTY_REPLACEMENT">WARRANTY_REPLACEMENT</option>
+            <option value="OTHER" selected>OTHER (Miscellaneous)</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label>Amount (₹) *</label>
+          <input type="number" id="sdt-ef-amount" class="input" placeholder="e.g. 2500" min="1" step="0.01" required>
+        </div>
+        <div class="form-field">
+          <label>Expense Date *</label>
+          <input type="date" id="sdt-ef-date" class="input" value="${new Date().toISOString().slice(0, 10)}" required>
+        </div>
+        <div class="form-field">
+          <label>Paid To</label>
+          <input type="text" id="sdt-ef-paidto" class="input" placeholder="e.g. Raju Electrician">
+        </div>
+        <div class="form-field">
+          <label>Payment Mode</label>
+          <select id="sdt-ef-mode" class="input">
+            <option value="CASH" selected>CASH</option>
+            <option value="UPI">UPI</option>
+            <option value="BANK">BANK (NEFT/RTGS/IMPS)</option>
+            <option value="CHEQUE">CHEQUE</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label>Remark / Notes</label>
+          <textarea id="sdt-ef-remark" class="input" rows="2" placeholder="Details of expense"></textarea>
+        </div>
+        <div id="sdt-ef-error" class="text-error" style="display:none; margin-bottom:0.75rem;"></div>
+        <button type="submit" id="sdt-ef-submit" class="btn btn-primary btn-full">Save Expense</button>
+      </form>
+    `;
+
+    window.ui.openBottomSheet('Add Site Expense', formHtml, '');
+
+    document.getElementById('sdt-exp-form').onsubmit = async function(e) {
+      e.preventDefault();
+      var errEl = document.getElementById('sdt-ef-error');
+      var submitBtn = document.getElementById('sdt-ef-submit');
+      errEl.style.display = 'none';
+
+      var inr = parseFloat(document.getElementById('sdt-ef-amount').value);
+      if (!inr || inr <= 0) {
+        errEl.textContent = 'Please enter a valid amount greater than 0';
+        errEl.style.display = 'block';
+        return;
+      }
+
+      var payload = {
+        site_id: siteId,
+        category: document.getElementById('sdt-ef-category').value,
+        amount_paise: Math.round(inr * 100),
+        exp_date: document.getElementById('sdt-ef-date').value,
+        paid_to: document.getElementById('sdt-ef-paidto').value.trim(),
+        mode: document.getElementById('sdt-ef-mode').value,
+        remark: document.getElementById('sdt-ef-remark').value.trim()
+      };
+
+      window.ui.withButtonLoading(submitBtn, async function() {
+        try {
+          await window.api.call('exp.add', payload);
+          window.ui.closeBottomSheet();
+          window.ui.toast('Site expense recorded successfully', 'success');
+          if (currentTab === 'money') {
+            var pane = document.getElementById('sdt-tab-money');
+            if (pane) renderMoneyTab(pane);
+          }
+        } catch(err) {
+          errEl.textContent = err.message || 'Failed to save expense';
+          errEl.style.display = 'block';
+        }
+      });
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Manual Site Status Control Dialog (P2-4)
+  // ---------------------------------------------------------------------------
+  function openSiteStatusDialog() {
+    var formHtml = `
+      <form id="sdt-set-status-form" novalidate>
+        <p class="text-muted" style="margin:0 0 1rem 0;">Current Status: <strong>${siteData.status}</strong></p>
+        <div class="form-field">
+          <label>Target Status *</label>
+          <select id="ss-status" class="input" required>
+            <option value="ACTIVE" ${siteData.status === 'ACTIVE' ? 'selected' : ''}>ACTIVE (Ongoing project)</option>
+            <option value="ON_HOLD" ${siteData.status === 'ON_HOLD' ? 'selected' : ''}>ON_HOLD (Temporarily paused)</option>
+            <option value="COMPLETED" ${siteData.status === 'COMPLETED' ? 'selected' : ''}>COMPLETED (All work finished)</option>
+            <option value="CANCELLED" ${siteData.status === 'CANCELLED' ? 'selected' : ''}>CANCELLED (Terminated)</option>
+          </select>
+        </div>
+        <div class="form-field" id="ss-reason-wrap">
+          <label>Reason / Remark</label>
+          <input type="text" id="ss-reason" class="input" placeholder="e.g. Work paused awaiting client payment">
+        </div>
+        <div id="ss-error" class="text-error" style="display:none; margin-bottom:0.75rem;"></div>
+        <button type="submit" id="ss-submit" class="btn btn-primary btn-full">Save Site Status</button>
+      </form>
+    `;
+
+    window.ui.openBottomSheet('Change Status: ' + siteData.site_name, formHtml, '');
+
+    document.getElementById('sdt-set-status-form').onsubmit = async function(e) {
+      e.preventDefault();
+      var errEl = document.getElementById('ss-error');
+      var submitBtn = document.getElementById('ss-submit');
+      errEl.style.display = 'none';
+
+      var newStat = document.getElementById('ss-status').value;
+      var reason = document.getElementById('ss-reason').value.trim();
+
+      window.ui.withButtonLoading(submitBtn, async function() {
+        try {
+          await window.api.call('sites.setStatus', {
+            site_id: siteData.site_id,
+            status: newStat,
+            reason: reason
+          });
+          window.ui.closeBottomSheet();
+          window.ui.toast('Site status updated to ' + newStat, 'success');
+          await loadDetails();
+        } catch(err) {
+          errEl.textContent = err.message || 'Failed to update status';
+          errEl.style.display = 'block';
+        }
+      });
+    };
+  }
+
+  // 5. Info Tab (P2-5: Show names primary, raw IDs secondary)
   function renderInfoTab(pane) {
+    var custDisplayName = siteData.customer_name || (customerData ? customerData.name : '');
+    var custPhone = customerData ? customerData.phone : '';
+    var branchDisplayName = siteData.branch_name || siteData.branch_id || 'MAIN';
+    var locDisplayName = siteData.location_name || siteData.default_location_id || 'LOC-MAIN';
+
     pane.innerHTML = `
       <div class="card" style="padding:1rem;">
         <h3 style="margin-top:0; font-size:1.05rem;">Project Details</h3>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; font-size:0.875rem;">
-          <div><span class="text-muted">Site ID:</span><br><strong>${esc(siteData.site_id)}</strong></div>
-          <div><span class="text-muted">Target Date:</span><br><strong>${esc(siteData.target_date || 'N/A')}</strong></div>
-          <div><span class="text-muted">Branch:</span><br><strong>${esc(siteData.branch_id || 'MAIN')}</strong></div>
-          <div><span class="text-muted">Godown Location:</span><br><strong>${esc(siteData.default_location_id || 'LOC-MAIN')}</strong></div>
+          <div>
+            <span class="text-muted">Customer:</span><br>
+            <strong>${esc(custDisplayName || 'N/A')}</strong>
+            ${custPhone ? `<div style="font-size:0.75rem; color:var(--text-muted);">${esc(custPhone)}</div>` : ''}
+            ${siteData.customer_id ? `<div style="font-size:0.7rem; color:var(--text-muted);">${esc(siteData.customer_id)}</div>` : ''}
+          </div>
+          <div>
+            <span class="text-muted">Site ID:</span><br>
+            <strong>${esc(siteData.site_id)}</strong>
+          </div>
+          <div>
+            <span class="text-muted">Branch:</span><br>
+            <strong>${esc(branchDisplayName)}</strong>
+            ${siteData.branch_id && siteData.branch_id !== branchDisplayName ? `<div style="font-size:0.7rem; color:var(--text-muted);">${esc(siteData.branch_id)}</div>` : ''}
+          </div>
+          <div>
+            <span class="text-muted">Godown Location:</span><br>
+            <strong>${esc(locDisplayName)}</strong>
+            ${siteData.default_location_id && siteData.default_location_id !== locDisplayName ? `<div style="font-size:0.7rem; color:var(--text-muted);">${esc(siteData.default_location_id)}</div>` : ''}
+          </div>
+          <div>
+            <span class="text-muted">Capacity:</span><br>
+            <strong>${esc(siteData.system_kw || '0')} kW</strong>
+          </div>
+          <div>
+            <span class="text-muted">Target Date:</span><br>
+            <strong>${esc(siteData.target_date || 'N/A')}</strong>
+          </div>
           <div style="grid-column:1 / -1;"><span class="text-muted">Address:</span><br><strong>${esc(siteData.address || 'N/A')}</strong></div>
           <div style="grid-column:1 / -1;"><span class="text-muted">Created On:</span><br><strong>${esc(siteData.created_at || 'N/A')}</strong></div>
         </div>
@@ -419,25 +694,22 @@ window.pages.siteDetail = async function(container, params) {
         line.qty = qty;
       }
 
-      submitBtn.disabled = true;
-      submitBtn.innerHTML = '<span class="spinner"></span> Issuing…';
-
-      try {
-        await window.api.call('usage.issue', {
-          site_id: siteId,
-          location_id: siteData.default_location_id || 'LOC-MAIN',
-          used_on: document.getElementById('sdt-if-date').value,
-          lines: [line]
-        });
-        window.ui.closeBottomSheet();
-        window.ui.toast('Materials issued successfully', 'success');
-        if (currentTab === 'material') renderCurrentTab();
-      } catch(err) {
-        errEl.textContent = err.message || 'Failed to issue material';
-        errEl.style.display = 'block';
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Issue Materials';
-      }
+      window.ui.withButtonLoading(submitBtn, async function() {
+        try {
+          await window.api.call('usage.issue', {
+            site_id: siteId,
+            location_id: siteData.default_location_id || 'LOC-MAIN',
+            used_on: document.getElementById('sdt-if-date').value,
+            lines: [line]
+          });
+          window.ui.closeBottomSheet();
+          window.ui.toast('Materials issued successfully', 'success');
+          if (currentTab === 'material') renderCurrentTab();
+        } catch(err) {
+          errEl.textContent = err.message || 'Failed to issue material';
+          errEl.style.display = 'block';
+        }
+      });
     };
   }
 
@@ -523,31 +795,35 @@ window.pages.siteDetail = async function(container, params) {
         return;
       }
 
-      submitBtn.disabled = true;
-      submitBtn.innerHTML = '<span class="spinner"></span> Saving…';
-
-      try {
-        await window.api.call('stages.update', {
-          site_id:      site.site_id,
-          stage_id:     stg.stage_id,
-          status:       toStatus,
-          block_reason: reason,
-          remark:       remark
-        });
-        window.ui.closeBottomSheet();
-        window.ui.toast('Stage updated', 'success');
-        await loadDetails();
-
-        // Check if stage transition triggers stage-material prompt
-        if (toStatus === 'IN_PROGRESS' || toStatus === 'COMPLETED') {
-          promptStageMaterial(stageName);
-        }
-      } catch(err) {
-        errEl.textContent = err.message || 'Update failed';
+      if (stg.status === 'COMPLETED' && toStatus !== 'COMPLETED' && !remark) {
+        errEl.textContent = 'Remark is required when moving away from COMPLETED status';
         errEl.style.display = 'block';
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Save Stage Status';
+        return;
       }
+
+      window.ui.withButtonLoading(submitBtn, async function() {
+        try {
+          await window.api.call('stages.update', {
+            site_id:      site.site_id,
+            stage_id:     stg.stage_id,
+            status:       toStatus,
+            block_reason: reason,
+            remark:       remark
+          });
+          window.ui.closeBottomSheet();
+          window.ui.toast('Stage updated', 'success');
+          await loadDetails();
+
+          // P2-2: Prompt ONLY for "Material Dispatched" (seq 5)
+          var isSeq5 = Number(stg.seq) === 5 || Number(sm.seq) === 5 || stageName === 'Material Dispatched';
+          if (isSeq5 && (toStatus === 'IN_PROGRESS' || toStatus === 'COMPLETED')) {
+            promptStageMaterial(stageName);
+          }
+        } catch(err) {
+          errEl.textContent = err.message || 'Update failed';
+          errEl.style.display = 'block';
+        }
+      });
     };
   }
 

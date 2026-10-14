@@ -240,20 +240,21 @@ window.pages.users = function(container) {
   // Add User Button
   var addBtn = document.getElementById('add-user-btn');
   if (addBtn) {
-    addBtn.onclick = async function() {
-      // Fetch default password from settings (fallback: 1234567890)
-      var defaultPwd = '1234567890';
-      try {
-        var sRes = await api.call('settings.get', { key: 'default_new_user_password' });
-        if (sRes && sRes.value) defaultPwd = sRes.value;
-      } catch (e) {}
+    addBtn.onclick = function() {
+      ui.withButtonLoading(addBtn, async function() {
+        // Fetch default password from settings (fallback: 1234567890)
+        var defaultPwd = '1234567890';
+        try {
+          var sRes = await api.call('settings.get', { key: 'default_new_user_password' });
+          if (sRes && sRes.value) defaultPwd = sRes.value;
+        } catch (e) {}
 
-      // Fetch branches for selection
-      var branches = [];
-      try {
-        var bRes = await api.call('branches.list', {});
-        branches = bRes.items || [];
-      } catch (e) {}
+        // Fetch branches for selection
+        var branches = [];
+        try {
+          var bRes = await api.call('branches.list', {});
+          branches = bRes.items || [];
+        } catch (e) {}
 
       var branchOptions = branches.length ? branches.map(function(b) {
         return `<label style="display:inline-flex; align-items:center; gap:0.35rem; font-size:0.875rem; margin-right:0.75rem;">
@@ -374,6 +375,7 @@ window.pages.users = function(container) {
           });
         };
       }
+      });
     };
   }
 

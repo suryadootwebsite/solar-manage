@@ -179,21 +179,48 @@ window.ui = (function() {
   }
 
   /**
-   * Disables button during asynchronous action to prevent double-submissions.
+   * Disables button during asynchronous action to prevent double-submissions and show spinner feedback.
    */
   async function withButtonLoading(button, asyncFn) {
-    if (!button || button.disabled) return;
+    if (typeof button === 'string') {
+      button = document.querySelector(button);
+    }
+    if (!button) {
+      if (typeof asyncFn === 'function') return await asyncFn();
+      return;
+    }
+    if (button.disabled) return;
+
     var originalHtml = button.innerHTML;
     button.disabled = true;
-    button.innerHTML = '<span class="spinner" style="margin-right:0.5rem;"></span> ' + originalHtml;
+    button.classList.add('btn-loading');
+    button.innerHTML = '<span class="spinner" style="margin-right:0.5rem; display:inline-block; vertical-align:middle; width:14px; height:14px;"></span> ' + originalHtml;
 
     try {
       return await asyncFn();
     } finally {
       button.disabled = false;
+      button.classList.remove('btn-loading');
       button.innerHTML = originalHtml;
     }
   }
+
+  // Shared event delegation for buttons marked [data-async]
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('button[data-async]');
+    if (!btn || btn.disabled) return;
+    var orig = btn.innerHTML;
+    btn.disabled = true;
+    btn.classList.add('btn-loading');
+    btn.innerHTML = '<span class="spinner" style="margin-right:0.5rem; display:inline-block; vertical-align:middle; width:14px; height:14px;"></span> ' + orig;
+    setTimeout(function() {
+      if (btn.disabled) {
+        btn.disabled = false;
+        btn.classList.remove('btn-loading');
+        btn.innerHTML = orig;
+      }
+    }, 10000);
+  });
 
   return {
     esc: esc,
@@ -205,6 +232,9 @@ window.ui = (function() {
     closeBottomSheet: closeBottomSheet,
     closeAllBottomSheets: closeAllBottomSheets,
     getSheetStackCount: function() { return _sheetStack.length; },
+    showBottomSheet: function(html) { openBottomSheet('', html, ''); },
+    hideBottomSheet: closeBottomSheet,
+    showConfirm: function(msg, onOk) { confirmDialog('Confirm', msg, onOk); },
     confirmDialog: confirmDialog,
     withButtonLoading: withButtonLoading
   };

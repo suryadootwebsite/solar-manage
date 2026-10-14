@@ -169,10 +169,10 @@
       lots: window.auth.can('lots.list'),
       customers: window.auth.can('customers.list'),
       masters: window.auth.can('products.list') || window.auth.can('locations.list'),
-      money: role === 'OWNER' && window.auth.can('cpay.add'),
+      money: window.auth.isOwnerLike(role) && window.auth.can('cpay.add'),
       reports: role !== 'SITE_USER' && window.auth.can('reports.list'),
-      users: role === 'OWNER' && window.auth.can('users.list'),
-      settings: role === 'OWNER'
+      users: window.auth.isOwnerLike(role) && window.auth.can('users.list'),
+      settings: window.auth.isOwnerLike(role)
     };
 
     for (var tabKey in tabPermissions) {
@@ -201,6 +201,7 @@
 
     var roleBadges = {
       OWNER: '<span class="badge badge-success">OWNER</span>',
+      DEVELOPER: '<span class="badge badge-success">DEVELOPER</span>',
       MANAGER: '<span class="badge badge-info">MANAGER</span>',
       SITE_USER: '<span class="badge badge-warning">SITE USER</span>'
     };

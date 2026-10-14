@@ -116,22 +116,23 @@ window.pages.money = function(container) {
     function loadSitePnl(siteId) {
       window.api.call('sites.pnl', { site_id: siteId })
         .then(function(res) {
-          var pnl = res.data;
-          var marginColor = pnl.profit_margin_pct >= 15 ? 'var(--success, #065f46)' : 'var(--warning, #b45309)';
+          var pnl = (res && res.data) ? res.data : (res || {});
+          var marginPct = Number(pnl.profit_margin_pct) || 0;
+          var marginColor = marginPct >= 15 ? 'var(--success, #065f46)' : 'var(--warning, #b45309)';
 
           pnlContainer.innerHTML =
             '<div class="card" style="background:var(--surface, #fff); border-left:4px solid var(--brand);">' +
               '<h3 style="margin-top:0; font-size:1rem; display:flex; justify-content:space-between;">' +
                 '<span>' + esc(t('money.site_pnl') || 'Site Profit & Loss') + '</span>' +
-                '<span style="color:' + marginColor + '; font-weight:700;">' + pnl.profit_margin_pct + '% Margin</span>' +
+                '<span style="color:' + marginColor + '; font-weight:700;">' + marginPct + '% Margin</span>' +
               '</h3>' +
               '<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:0.75rem; font-size:0.85rem;">' +
-                '<div><span class="text-muted">Contract Value:</span><br><strong>₹' + (pnl.contract_value_paise / 100).toLocaleString('en-IN') + '</strong></div>' +
-                '<div><span class="text-muted">Material Cost:</span><br><strong>₹' + (pnl.material_cost_paise / 100).toLocaleString('en-IN') + '</strong></div>' +
-                '<div><span class="text-muted">Expenses:</span><br><strong>₹' + (pnl.expenses_paise / 100).toLocaleString('en-IN') + '</strong></div>' +
-                '<div><span class="text-muted">Gross Profit:</span><br><strong style="color:' + marginColor + ';">₹' + (pnl.gross_profit_paise / 100).toLocaleString('en-IN') + '</strong></div>' +
-                '<div><span class="text-muted">Received:</span><br><strong>₹' + (pnl.received_paise / 100).toLocaleString('en-IN') + '</strong></div>' +
-                '<div><span class="text-muted">Balance Due:</span><br><strong style="color:var(--danger, #dc2626);">₹' + (pnl.balance_due_paise / 100).toLocaleString('en-IN') + '</strong></div>' +
+                '<div><span class="text-muted">Contract Value:</span><br><strong>₹' + ((Number(pnl.contract_value_paise) || 0) / 100).toLocaleString('en-IN') + '</strong></div>' +
+                '<div><span class="text-muted">Material Cost:</span><br><strong>₹' + ((Number(pnl.material_cost_paise) || 0) / 100).toLocaleString('en-IN') + '</strong></div>' +
+                '<div><span class="text-muted">Expenses:</span><br><strong>₹' + ((Number(pnl.expenses_paise) || 0) / 100).toLocaleString('en-IN') + '</strong></div>' +
+                '<div><span class="text-muted">Gross Profit:</span><br><strong style="color:' + marginColor + ';">₹' + ((Number(pnl.gross_profit_paise) || 0) / 100).toLocaleString('en-IN') + '</strong></div>' +
+                '<div><span class="text-muted">Received:</span><br><strong>₹' + ((Number(pnl.received_paise) || 0) / 100).toLocaleString('en-IN') + '</strong></div>' +
+                '<div><span class="text-muted">Balance Due:</span><br><strong style="color:var(--danger, #dc2626);">₹' + ((Number(pnl.balance_due_paise) || 0) / 100).toLocaleString('en-IN') + '</strong></div>' +
               '</div>' +
             '</div>';
         })
@@ -185,15 +186,16 @@ window.pages.money = function(container) {
             btn.addEventListener('click', function() {
               var cpayId = btn.getAttribute('data-id');
               window.ui.showConfirm(t('money.confirm_cpay_reverse') || 'Reverse this payment entry?', function() {
-                window.api.call('cpay.reverse', { cpay_id: cpayId, reason: 'Reversed by owner' })
-                  .then(function() {
+                window.ui.withButtonLoading(btn, async function() {
+                  try {
+                    await window.api.call('cpay.reverse', { cpay_id: cpayId, reason: 'Reversed by owner' });
                     window.ui.toast(t('money.reverse_success') || 'Payment reversed', 'success');
                     loadSitePnl(siteId);
                     loadCpayList(siteId);
-                  })
-                  .catch(function(err) {
+                  } catch(err) {
                     window.ui.toast(err.message, 'error');
-                  });
+                  }
+                });
               });
             });
           });
@@ -241,7 +243,8 @@ window.pages.money = function(container) {
       window.ui.showBottomSheet(html);
 
       document.getElementById('btn-cancel-cpay').addEventListener('click', window.ui.hideBottomSheet);
-      document.getElementById('btn-submit-cpay').addEventListener('click', function() {
+      var submitCpayBtn = document.getElementById('btn-submit-cpay');
+      submitCpayBtn.addEventListener('click', function() {
         var inr = Number(document.getElementById('cpay-amt-input').value);
         if (!inr || inr <= 0) {
           window.ui.toast('Please enter a valid amount', 'error');
@@ -257,16 +260,17 @@ window.pages.money = function(container) {
           pay_date: document.getElementById('cpay-date-input').value
         };
 
-        window.api.call('cpay.add', payload)
-          .then(function() {
+        window.ui.withButtonLoading(submitCpayBtn, async function() {
+          try {
+            await window.api.call('cpay.add', payload);
             window.ui.hideBottomSheet();
             window.ui.toast(t('money.payment_saved') || 'Payment recorded successfully', 'success');
             loadSitePnl(siteId);
             loadCpayList(siteId);
-          })
-          .catch(function(err) {
+          } catch(err) {
             window.ui.toast(err.message, 'error');
-          });
+          }
+        });
       });
     }
   }
@@ -390,7 +394,8 @@ window.pages.money = function(container) {
 
       window.ui.showBottomSheet(html);
       document.getElementById('btn-cancel-spay').addEventListener('click', window.ui.hideBottomSheet);
-      document.getElementById('btn-submit-spay').addEventListener('click', function() {
+      var submitSpayBtn = document.getElementById('btn-submit-spay');
+      submitSpayBtn.addEventListener('click', function() {
         var inr = Number(document.getElementById('spay-amt-input').value);
         if (!inr || inr <= 0) {
           window.ui.toast('Enter valid amount', 'error');
@@ -404,15 +409,16 @@ window.pages.money = function(container) {
           pay_date: document.getElementById('spay-date-input').value
         };
 
-        window.api.call('spay.add', payload)
-          .then(function() {
+        window.ui.withButtonLoading(submitSpayBtn, async function() {
+          try {
+            await window.api.call('spay.add', payload);
             window.ui.hideBottomSheet();
             window.ui.toast('Supplier payment recorded', 'success');
             loadSpayLedger(supId);
-          })
-          .catch(function(err) {
+          } catch(err) {
             window.ui.toast(err.message, 'error');
-          });
+          }
+        });
       });
     }
   }
@@ -505,11 +511,15 @@ window.pages.money = function(container) {
             btn.addEventListener('click', function() {
               var expId = btn.getAttribute('data-id');
               window.ui.showConfirm('Reverse this expense entry?', function() {
-                window.api.call('exp.reverse', { exp_id: expId, reason: 'Reversed by owner' })
-                  .then(function() {
+                window.ui.withButtonLoading(btn, async function() {
+                  try {
+                    await window.api.call('exp.reverse', { exp_id: expId, reason: 'Reversed by owner' });
                     window.ui.toast('Expense reversed', 'success');
                     loadExpList(siteId);
-                  });
+                  } catch(err) {
+                    window.ui.toast(err.message, 'error');
+                  }
+                });
               });
             });
           });
@@ -550,7 +560,8 @@ window.pages.money = function(container) {
 
       window.ui.showBottomSheet(html);
       document.getElementById('btn-cancel-exp').addEventListener('click', window.ui.hideBottomSheet);
-      document.getElementById('btn-submit-exp').addEventListener('click', function() {
+      var submitExpBtn = document.getElementById('btn-submit-exp');
+      submitExpBtn.addEventListener('click', function() {
         var inr = Number(document.getElementById('exp-amt-input').value);
         if (!inr || inr <= 0) {
           window.ui.toast('Enter valid amount', 'error');
@@ -565,15 +576,16 @@ window.pages.money = function(container) {
           exp_date: document.getElementById('exp-date-input').value
         };
 
-        window.api.call('exp.add', payload)
-          .then(function() {
+        window.ui.withButtonLoading(submitExpBtn, async function() {
+          try {
+            await window.api.call('exp.add', payload);
             window.ui.hideBottomSheet();
             window.ui.toast('Expense recorded', 'success');
             loadExpList(siteId);
-          })
-          .catch(function(err) {
+          } catch(err) {
             window.ui.toast(err.message, 'error');
-          });
+          }
+        });
       });
     }
   }

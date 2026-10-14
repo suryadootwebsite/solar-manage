@@ -56,18 +56,19 @@
   <script src="js/app.js" defer></script>
 </head>
 <body>
+  <div id="app-watermark" aria-hidden="true"></div>
   <div id="top-progress-bar"></div>
 
   <!-- Top Header Bar (Task 10) -->
   <header class="app-header" id="app-header" style="display:none;">
     <div class="brand-wrapper" id="header-brand" style="cursor:pointer; flex:1; min-width:0; overflow:hidden;" title="Go to Dashboard">
-      <span id="app-header-title" style="font-size:clamp(0.95rem, 4vw, 1.15rem); font-weight:800; color:var(--brand-dark); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block;">Suryadoot Energy Solution</span>
+      <span id="app-header-title" style="font-size:1.25rem; font-weight:700; color:var(--brand-dark); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block;">Suryadoot Energy Solution</span>
       <span class="offline-pill" id="offline-indicator">Offline</span>
     </div>
 
     <div class="header-actions" style="flex-shrink:0;">
-      <button id="user-menu-btn" class="user-menu-btn" aria-label="User menu" style="padding:0; overflow:hidden; background:transparent; border:2px solid var(--brand-border);">
-        <img src="assets/logo-emblem-128.png" alt="User Menu" style="width:100%; height:100%; object-fit:cover; display:block;" />
+      <button id="user-menu-btn" class="user-menu-btn" aria-label="User menu" style="width:44px; height:44px; border-radius:50%; background:#ffffff; border:1px solid var(--border); padding:4px; display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; cursor:pointer; flex-shrink:0;">
+        <img src="assets/logo-emblem-128.png" alt="User Menu" style="width:100%; height:100%; object-fit:contain; display:block;" />
       </button>
     </div>
   </header>
