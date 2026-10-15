@@ -60,9 +60,17 @@ window.pages.masters = async function(container) {
   // ---------------------------------------------------------------------------
   async function renderProductsSub(target) {
     target.innerHTML = `
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; gap:0.5rem; flex-wrap:wrap;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem; gap:0.5rem; flex-wrap:wrap;">
         <input type="text" id="prd-search" class="input" style="flex:1; min-width:180px;" placeholder="${window.ui.esc(t('products.search_placeholder'))}">
         ${isOwner ? `<button id="prd-add-btn" class="btn btn-primary" style="min-height:44px;">+ ${window.ui.esc(t('products.new_btn'))}</button>` : ''}
+      </div>
+      <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.75rem;">
+        <label style="font-size:0.85rem;color:var(--text-muted);">Sort:</label>
+        <select id="prd-sort-select" class="input" style="width:auto;min-width:140px;font-size:0.85rem;padding:0.25rem 0.5rem;">
+          <option value="name_asc">Name A-Z</option>
+          <option value="name_desc">Name Z-A</option>
+          <option value="newest">Newest</option>
+        </select>
       </div>
       <div id="prd-list-container">
         <div style="text-align:center; padding:1.5rem 0;"><span class="spinner"></span></div>
@@ -72,6 +80,17 @@ window.pages.masters = async function(container) {
     var listEl = document.getElementById('prd-list-container');
     var searchEl = document.getElementById('prd-search');
     var addBtn = document.getElementById('prd-add-btn');
+    var sortEl = document.getElementById('prd-sort-select');
+
+    var currentSortPrd = localStorage.getItem('sms_sort_products') || 'name_asc';
+    if (sortEl) {
+      sortEl.value = currentSortPrd;
+      sortEl.onchange = function() {
+        currentSortPrd = sortEl.value;
+        localStorage.setItem('sms_sort_products', currentSortPrd);
+        renderProductItems(products, searchEl.value);
+      };
+    }
 
     var products = [];
     try {
@@ -92,6 +111,18 @@ window.pages.masters = async function(container) {
                (p.model || '').toLowerCase().indexOf(q) >= 0 ||
                (p.category || '').toLowerCase().indexOf(q) >= 0;
       });
+
+      if (currentSortPrd === 'name_desc') {
+        filtered.sort(function(a, b) { return (b.name || '').localeCompare(a.name || ''); });
+      } else if (currentSortPrd === 'newest') {
+        filtered.sort(function(a, b) {
+          var ia = a.product_id || '';
+          var ib = b.product_id || '';
+          return ia < ib ? 1 : (ia > ib ? -1 : 0);
+        });
+      } else {
+        filtered.sort(function(a, b) { return (a.name || '').localeCompare(b.name || ''); });
+      }
 
       if (!filtered.length) {
         listEl.innerHTML = `<div class="card" style="text-align:center; color:var(--text-muted); padding:1.5rem;">${window.ui.esc(t('products.empty'))}</div>`;
@@ -256,9 +287,17 @@ window.pages.masters = async function(container) {
   // ---------------------------------------------------------------------------
   async function renderSuppliersSub(target) {
     target.innerHTML = `
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; gap:0.5rem; flex-wrap:wrap;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem; gap:0.5rem; flex-wrap:wrap;">
         <input type="text" id="sup-search" class="input" style="flex:1; min-width:180px;" placeholder="${window.ui.esc(t('suppliers.search_placeholder'))}">
         <button id="sup-add-btn" class="btn btn-primary" style="min-height:44px;">+ ${window.ui.esc(t('suppliers.new_btn'))}</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.75rem;">
+        <label style="font-size:0.85rem;color:var(--text-muted);">Sort:</label>
+        <select id="sup-sort-select" class="input" style="width:auto;min-width:140px;font-size:0.85rem;padding:0.25rem 0.5rem;">
+          <option value="name_asc">Name A-Z</option>
+          <option value="name_desc">Name Z-A</option>
+          <option value="newest">Newest</option>
+        </select>
       </div>
       <div id="sup-list-container">
         <div style="text-align:center; padding:1.5rem 0;"><span class="spinner"></span></div>
@@ -268,6 +307,17 @@ window.pages.masters = async function(container) {
     var listEl = document.getElementById('sup-list-container');
     var searchEl = document.getElementById('sup-search');
     var addBtn = document.getElementById('sup-add-btn');
+    var sortEl = document.getElementById('sup-sort-select');
+
+    var currentSortSup = localStorage.getItem('sms_sort_suppliers') || 'name_asc';
+    if (sortEl) {
+      sortEl.value = currentSortSup;
+      sortEl.onchange = function() {
+        currentSortSup = sortEl.value;
+        localStorage.setItem('sms_sort_suppliers', currentSortSup);
+        renderSupplierItems(suppliers, searchEl.value);
+      };
+    }
 
     var suppliers = [];
     try {
@@ -285,6 +335,18 @@ window.pages.masters = async function(container) {
         if (!q) return true;
         return (s.name || '').toLowerCase().indexOf(q) >= 0 || (s.gst_no || '').toLowerCase().indexOf(q) >= 0;
       });
+
+      if (currentSortSup === 'name_desc') {
+        filtered.sort(function(a, b) { return (b.name || '').localeCompare(a.name || ''); });
+      } else if (currentSortSup === 'newest') {
+        filtered.sort(function(a, b) {
+          var ia = a.supplier_id || '';
+          var ib = b.supplier_id || '';
+          return ia < ib ? 1 : (ia > ib ? -1 : 0);
+        });
+      } else {
+        filtered.sort(function(a, b) { return (a.name || '').localeCompare(b.name || ''); });
+      }
 
       if (!filtered.length) {
         listEl.innerHTML = `<div class="card" style="text-align:center; color:var(--text-muted); padding:1.5rem;">${window.ui.esc(t('suppliers.empty'))}</div>`;

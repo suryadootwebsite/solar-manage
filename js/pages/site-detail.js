@@ -321,6 +321,20 @@ window.pages.siteDetail = async function(container, params) {
       var marginPct = Number(pnl.profit_margin_pct) || 0;
       var marginColor = marginPct >= 15 ? '#059669' : '#d97706';
 
+      function formatExpDate(d) {
+        if (!d) return '';
+        var parts = d.split('-');
+        if (parts.length === 3) return parts[2] + '-' + parts[1] + '-' + parts[0];
+        return d;
+      }
+      var EXP_CATEGORY_LABELS = { LABOUR:'Labour & Installation', TRANSPORT:'Freight / Local', FOOD_TRAVEL:'Food & Travel', DISCOM_FEES:'Discom / Metering', CIVIL:'Civil / Foundation', WARRANTY_REPLACEMENT:'Warranty Replacement', OTHER:'Other' };
+
+      var nonReversedTotalPaise = expenses.reduce(function(acc, e) {
+        var isRev = Boolean(e.is_reversed) || e.status === 'REVERSED';
+        return isRev ? acc : acc + (Number(e.amount_paise) || 0);
+      }, 0);
+      var nonReversedTotalFormatted = '₹' + Math.round(nonReversedTotalPaise / 100).toLocaleString('en-IN');
+
       moneyEl.innerHTML = `
         <!-- KPI Cards Grid -->
         <div class="kpi-grid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:0.75rem; margin-bottom:1rem;">
@@ -356,41 +370,34 @@ window.pages.siteDetail = async function(container, params) {
         <!-- Site Expenses Section -->
         <div class="card" style="margin-bottom:1rem; padding:1rem;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem; flex-wrap:wrap; gap:0.5rem;">
-            <h3 style="margin:0; font-size:1rem;">Site Expenses (${expenses.length})</h3>
+            <div>
+              <h3 style="margin:0; font-size:1rem;">Site Expenses (${expenses.length})</h3>
+              <div style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">Total: <strong style="color:var(--brand);">${nonReversedTotalFormatted}</strong></div>
+            </div>
             <button id="sdt-add-exp-btn" class="btn btn-primary" style="min-height:36px; padding:0.35rem 0.75rem; font-size:0.85rem;">+ Add Expense</button>
           </div>
-          ${expenses.length ? `
-            <div style="overflow-x:auto;">
-              <table class="table" style="width:100%; font-size:0.85rem;">
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Category</th>
-                    <th>Amount</th>
-                    <th>Paid To</th>
-                    <th>Mode</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${expenses.map(function(e) {
-                    var isRev = e.status === 'REVERSED';
-                    var amtFormatted = '₹' + ((Number(e.amount_paise) || 0) / 100).toLocaleString('en-IN');
-                    return `
-                      <tr>
-                        <td>${esc(e.exp_date || '')}</td>
-                        <td><span class="badge" style="background:var(--bg-main); border:1px solid var(--border);">${esc(e.category)}</span></td>
-                        <td style="font-weight:600;">${amtFormatted}</td>
-                        <td>${esc(e.paid_to || '-')}</td>
-                        <td>${esc(e.mode || '')}</td>
-                        <td><span class="badge ${isRev ? 'badge-danger' : 'badge-success'}">${esc(e.status)}</span></td>
-                      </tr>
-                    `;
-                  }).join('')}
-                </tbody>
-              </table>
-            </div>
-          ` : '<p class="text-muted" style="font-size:0.85rem; margin:0;">No expenses recorded for this site yet.</p>'}
+          ${expenses.length ? expenses.map(function(exp) {
+            var isRev = Boolean(exp.is_reversed) || exp.status === 'REVERSED';
+            exp.is_reversed = isRev;
+            var categoryLabel = esc(EXP_CATEGORY_LABELS[exp.category] || exp.category || 'Other');
+            var formattedDate = esc(formatExpDate(exp.exp_date || exp.expense_date || ''));
+            return `
+              <div class="card" style="padding:0.75rem;margin-bottom:0.5rem;${exp.is_reversed ? 'opacity:0.6;' : ''}">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                  <div>
+                    <div style="font-weight:600;font-size:0.9rem;${exp.is_reversed ? 'text-decoration:line-through;' : ''}">${categoryLabel} — ${formattedDate}</div>
+                    ${exp.paid_to ? '<div style="font-size:0.8rem;color:var(--text-muted);">Paid to: ' + esc(exp.paid_to) + '</div>' : ''}
+                    ${exp.mode ? '<div style="font-size:0.8rem;color:var(--text-muted);">Mode: ' + esc(exp.mode) + '</div>' : ''}
+                    ${exp.remark ? '<div style="font-size:0.8rem;color:var(--text-muted);">Note: ' + esc(exp.remark) + '</div>' : ''}
+                  </div>
+                  <div style="text-align:right;">
+                    <div style="font-weight:700;color:var(--brand);${exp.is_reversed ? 'text-decoration:line-through;' : ''}">₹${Math.round((Number(exp.amount_paise) || 0) / 100).toLocaleString('en-IN')}</div>
+                    ${exp.is_reversed ? '<span class="badge badge-disabled" style="font-size:0.7rem;">Reversed</span>' : ''}
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join('') : '<p class="text-muted" style="font-size:0.85rem; margin:0;">No expenses recorded for this site yet.</p>'}
         </div>
 
         <!-- Customer Payments Section -->
@@ -568,6 +575,57 @@ window.pages.siteDetail = async function(container, params) {
     };
   }
 
+  function openAssignUsersSheet() {
+    Promise.all([
+      window.api.call('users.list', {}),
+      window.api.call('sites.get', { site_id: siteId })
+    ]).then(function(results) {
+      var uRes = results[0];
+      var sRes = results[1];
+      var allUsers = (uRes && uRes.items || []).filter(function(u) { return u.role === 'SITE_USER' && u.is_active !== false; });
+      var assignedIds = ((sRes && sRes.assigned_users) || []).map(function(u) { return u.user_id; });
+      var formHtml = '<form id="sdt-assign-form" novalidate>' +
+        '<p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:0.75rem;">Select site users to assign to this site:</p>' +
+        '<div style="display:flex;flex-direction:column;gap:0.5rem;margin-bottom:1rem;">' +
+        allUsers.map(function(u) {
+          var isChecked = assignedIds.indexOf(u.user_id) !== -1 ? ' checked' : '';
+          return '<label style="display:flex;align-items:center;gap:0.5rem;font-size:0.9rem;">' +
+            '<input type="checkbox" value="' + window.ui.esc(u.user_id) + '"' + isChecked + ' style="width:18px;height:18px;"> ' +
+            window.ui.esc(u.name) + ' <span style="font-size:0.75rem;color:var(--text-muted);">@' + window.ui.esc(u.username || '') + '</span>' +
+            '</label>';
+        }).join('') +
+        '</div>' +
+        '<button type="submit" id="sdt-assign-submit" class="btn btn-primary btn-full">Save Assignments</button>' +
+        '</form>';
+      window.ui.openBottomSheet('Assign Site Users', formHtml, '');
+      var form = document.getElementById('sdt-assign-form');
+      if (form) form.onsubmit = function(e) {
+        e.preventDefault();
+        var checked = Array.from(document.querySelectorAll('#sdt-assign-form input[type=checkbox]:checked')).map(function(cb) { return cb.value; });
+        window.ui.withButtonLoading(document.getElementById('sdt-assign-submit'), async function() {
+          try {
+            await window.api.call('sites.assignUsers', { site_id: siteId, user_ids: checked });
+            window.ui.closeBottomSheet();
+            window.ui.toast('Users assigned', 'success');
+            var assignedEl = document.getElementById('sdt-assigned-list');
+            if (assignedEl) {
+              window.api.call('sites.get', { site_id: siteId }).then(function(res) {
+                var users = (res && res.assigned_users) || [];
+                if (!users.length) {
+                  assignedEl.innerHTML = '<span style="color:var(--text-muted);font-size:0.875rem;">No users assigned</span>';
+                } else {
+                  assignedEl.innerHTML = users.map(function(u) {
+                    return '<span class="badge" style="margin-right:0.35rem;">' + window.ui.esc(u.name || u.user_id) + '</span>';
+                  }).join('');
+                }
+              }).catch(function() {});
+            }
+          } catch(err) { window.ui.toast(err.message || 'Failed', 'error'); }
+        });
+      };
+    }).catch(function(err) { window.ui.toast(err.message || 'Could not load users', 'error'); });
+  }
+
   // 5. Info Tab (P2-5: Show names primary, raw IDs secondary)
   function renderInfoTab(pane) {
     var custDisplayName = siteData.customer_name || (customerData ? customerData.name : '');
@@ -612,7 +670,79 @@ window.pages.siteDetail = async function(container, params) {
         </div>
       </div>
     `;
+
+    // B1: Contract value edit (OWNER/DEVELOPER see current; MANAGER write-only)
+    if (isOwner || userRole === 'MANAGER') {
+      var cvDiv = document.createElement('div');
+      cvDiv.className = 'card';
+      cvDiv.style.cssText = 'padding:1rem;margin-top:1rem;';
+      var currentVal = isOwner ? ((Number(siteData.contract_value_paise) || 0) / 100) : null;
+      cvDiv.innerHTML = '<h3 style="margin:0 0 0.75rem;font-size:1.05rem;">Contract Value</h3>' +
+        '<form id="sdt-cv-form" novalidate>' +
+        '<div class="form-field">' +
+        (isOwner
+          ? '<label>Value (\u20b9) — current: <strong>\u20b9' + (currentVal ? currentVal.toLocaleString('en-IN') : '0') + '</strong></label>'
+          : '<label>Value (\u20b9) <span style="font-size:0.75rem;color:var(--text-muted);">(current amount hidden for your role)</span></label>') +
+        '<input type="number" id="sdt-cv-input" class="input" min="0" step="1" placeholder="Enter amount in rupees"' +
+        (isOwner && currentVal ? ' value="' + currentVal + '"' : '') + '>' +
+        '</div>' +
+        '<div id="sdt-cv-error" class="text-error" style="display:none;margin-bottom:0.5rem;"></div>' +
+        '<button type="submit" id="sdt-cv-submit" class="btn btn-primary" style="min-height:44px;">Save Contract Value</button>' +
+        '</form>';
+      pane.appendChild(cvDiv);
+      document.getElementById('sdt-cv-form').onsubmit = function(e) {
+        e.preventDefault();
+        var errEl = document.getElementById('sdt-cv-error');
+        var inp = document.getElementById('sdt-cv-input');
+        var rupees = parseFloat(inp.value);
+        if (isNaN(rupees) || rupees < 0) {
+          errEl.textContent = 'Enter a valid amount';
+          errEl.style.display = 'block';
+          return;
+        }
+        errEl.style.display = 'none';
+        var paise = Math.round(rupees * 100);
+        window.ui.withButtonLoading(document.getElementById('sdt-cv-submit'), function() {
+          return window.api.call('sites.update', { site_id: siteId, contract_value_paise: paise })
+            .then(function() {
+              window.ui.toast('Contract value saved', 'success');
+              if (isOwner) siteData.contract_value_paise = paise;
+            })
+            .catch(function(err) {
+              errEl.textContent = err.message || 'Failed to save';
+              errEl.style.display = 'block';
+            });
+        });
+      };
+    }
+
+    // B8: Assigned users section (OWNER/MANAGER/DEVELOPER only)
+    if (isOwner || userRole === 'MANAGER') {
+      var assignedDiv = document.createElement('div');
+      assignedDiv.className = 'card';
+      assignedDiv.style.cssText = 'padding:1rem;margin-top:1rem;';
+      assignedDiv.innerHTML = '<h3 style="margin:0 0 0.75rem;font-size:1.05rem;">Assigned Users</h3><div id="sdt-assigned-list"><span class="spinner"></span></div><button id="sdt-assign-btn" class="btn btn-secondary" style="margin-top:0.75rem;min-height:44px;">Manage Assignments</button>';
+      pane.appendChild(assignedDiv);
+      // Load assigned users
+      window.api.call('sites.get', { site_id: siteId }).then(function(res) {
+        var assignedEl = document.getElementById('sdt-assigned-list');
+        if (!assignedEl) return;
+        var users = (res && res.assigned_users) || [];
+        if (!users.length) {
+          assignedEl.innerHTML = '<span style="color:var(--text-muted);font-size:0.875rem;">No users assigned</span>';
+        } else {
+          assignedEl.innerHTML = users.map(function(u) {
+            return '<span class="badge" style="margin-right:0.35rem;">' + window.ui.esc(u.name || u.user_id) + '</span>';
+          }).join('');
+        }
+      }).catch(function() {});
+      var assignBtn = document.getElementById('sdt-assign-btn');
+      if (assignBtn) {
+        assignBtn.onclick = function() { openAssignUsersSheet(); };
+      }
+    }
   }
+
 
   // ---------------------------------------------------------------------------
   // Issue Material Bottom Sheet

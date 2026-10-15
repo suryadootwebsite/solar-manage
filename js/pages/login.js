@@ -123,6 +123,19 @@ window.pages.login = function(container) {
 
           auth.setSession(res.token, remember, res.user, res.permissions);
 
+          // B10: Fire app.bootstrap in background to pre-warm master-cache
+          api.call('app.bootstrap', {}).then(function(boot) {
+            if (boot && boot.masters && window.masterCache) {
+              try {
+                if (boot.masters.products) window.masterCache.set('products', boot.masters.products);
+                if (boot.masters.suppliers) window.masterCache.set('suppliers', boot.masters.suppliers);
+                if (boot.masters.customers) window.masterCache.set('customers', boot.masters.customers);
+                if (boot.masters.locations) window.masterCache.set('locations', boot.masters.locations);
+                if (boot.masters.stage_master) window.masterCache.set('stage_master', boot.masters.stage_master);
+              } catch(e) {}
+            }
+          }).catch(function() {});
+
           if (res.user.must_change_password) {
             ui.showToast(t('login.must_change_pwd_notice') || 'Please update your password to proceed', 'warning', 4000);
             window.showPasswordChangeModal(true);

@@ -34,6 +34,14 @@ window.router = (function() {
       }
     }
 
+    // B7: Block SITE_USER from /sites/new
+    var currentUser = window.auth && window.auth.getUser();
+    var currentRole = currentUser ? currentUser.role : '';
+    if (path === '/sites/new' && currentRole === 'SITE_USER') {
+      window.location.hash = '#/sites';
+      return;
+    }
+
     // Update bottom nav active state
     var navTabs = document.querySelectorAll('.nav-tab');
     navTabs.forEach(function(tab) {

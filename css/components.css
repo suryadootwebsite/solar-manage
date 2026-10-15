@@ -770,25 +770,25 @@ body.is-offline .offline-pill {
   display: block !important;
 }
 
-/* Phase P3 Polish: Watermark background logo */
+/* B2: Watermark - emblem only (icon-512.png), no text, mix-blend-mode multiply */
 #app-watermark {
   position: fixed;
-  top: 50%;
+  top: 55%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: min(80vw, 460px);
-  height: min(80vw, 460px);
-  background: url('../assets/logo-full-560.png') no-repeat center center;
-  background-size: contain;
-  opacity: 0.055;
+  width: min(70vw, 480px);
+  height: min(70vw, 480px);
+  background: url('../assets/icons/icon-512.png') no-repeat center center / contain;
+  opacity: 0.04;
   pointer-events: none;
   z-index: 0;
+  mix-blend-mode: multiply;
 }
-
 @media print {
-  #app-watermark {
-    display: none !important;
-  }
+  #app-watermark { display: none !important; }
+}
+@media (prefers-color-scheme: dark) {
+  #app-watermark { mix-blend-mode: screen; opacity: 0.04; }
 }
 
 /* Phase P3 Polish: Lot chips container */

@@ -62,6 +62,10 @@ window.i18n = (function() {
 
     var text = dict[key] || fallback[key];
     if (!text) {
+      var currentLang = _currentLang;
+      if (typeof window !== 'undefined' && window.location && window.location.search.indexOf('debug=1') !== -1) {
+        console.warn('[i18n] Missing key:', key, 'lang:', currentLang);
+      }
       // A raw key like 'login.title' or 'nav.dashboard' must never reach the screen
       if (typeof key === 'string' && key.indexOf('.') !== -1) {
         text = _currentLang === 'hi' ? 'जानकारी उपलब्ध नहीं है' : 'Information unavailable';

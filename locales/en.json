@@ -339,6 +339,8 @@
   "dash.month_profit": "This Month Profit",
   "dash.today_in": "Today Stock IN",
   "dash.today_out": "Today Stock OUT",
+  "dash.financial_overview": "Financial Overview",
+  "dash.operations_overview": "Operations Overview",
   "dash.pending_transfers": "In-Transit Transfers",
   "dash.my_sites": "My Assigned Sites",
   "dash.pending_stages": "My Pending Stages",

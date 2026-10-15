@@ -18,6 +18,16 @@ window.pages.lots = async function(container) {
       <button id="lot-new-btn" class="btn btn-primary" style="min-height:44px;">+ ${window.ui.esc(t('lots.new_btn'))}</button>
     </div>
 
+    <!-- Sort control (B4/B5) -->
+    <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem;">
+      <label style="font-size:0.85rem;color:var(--text-muted);">Sort:</label>
+      <select id="lots-sort-select" class="input" style="width:auto;min-width:140px;font-size:0.85rem;padding:0.25rem 0.5rem;">
+        <option value="newest">Newest</option>
+        <option value="oldest">Oldest</option>
+        <option value="supplier">Supplier A-Z</option>
+      </select>
+    </div>
+
     <!-- Filter chips (Task P3-2) -->
     <div class="lot-chips-container">
       <button class="btn btn-primary lot-filter-btn active" data-status="" style="min-height:34px; height:34px; font-size:13px; padding:0 0.75rem; line-height:32px; border-radius:17px; flex-shrink:0;">All</button>
@@ -36,6 +46,17 @@ window.pages.lots = async function(container) {
   var listView = document.getElementById('lot-list-view');
   var newBtn = document.getElementById('lot-new-btn');
   var filterButtons = container.querySelectorAll('.lot-filter-btn');
+  var sortSelect = document.getElementById('lots-sort-select');
+
+  var currentSortLots = localStorage.getItem('sms_sort_lots') || 'newest';
+  if (sortSelect) {
+    sortSelect.value = currentSortLots;
+    sortSelect.onchange = function() {
+      currentSortLots = sortSelect.value;
+      localStorage.setItem('sms_sort_lots', currentSortLots);
+      renderLots();
+    };
+  }
 
   var currentStatusFilter = '';
   var lots = [];
@@ -79,25 +100,38 @@ window.pages.lots = async function(container) {
     }
   }
 
+  function sortLotsList(list, sortVal) {
+    var arr = list.slice();
+    if (sortVal === 'newest') {
+      return arr;
+    } else if (sortVal === 'oldest') {
+      return arr.reverse();
+    } else if (sortVal === 'supplier') {
+      arr.sort(function(a, b) {
+        var sa = getSupplierName(a.supplier_id) || '';
+        var sb = getSupplierName(b.supplier_id) || '';
+        return sa.localeCompare(sb);
+      });
+      return arr;
+    }
+    return arr;
+  }
+
   function renderLots() {
     if (!lots.length) {
       listView.innerHTML = `<div class="card" style="text-align:center; color:var(--text-muted); padding:2rem 1rem;">${window.ui.esc(t('lots.empty'))}</div>`;
       return;
     }
 
-    listView.innerHTML = lots.map(function(l) {
-      var ordStatus = l.order_status || 'ORDER_CONFIRMED';
-      var ordClass = ordStatus === 'DELIVERED' ? 'badge-success' : (ordStatus === 'DISPATCHED' ? 'badge-primary' : (ordStatus === 'RETURNED' ? 'badge-danger' : 'badge-warning'));
-      var localizedOrdStatus = t('lots.status_' + ordStatus.toLowerCase());
-      if (!localizedOrdStatus || localizedOrdStatus === 'Information unavailable') {
-        if (ordStatus === 'ORDER_CONFIRMED') localizedOrdStatus = t('lots.status_confirmed') || 'Order Confirmed';
-        else if (ordStatus === 'DISPATCHED') localizedOrdStatus = t('lots.status_dispatched') || 'Dispatched';
-        else if (ordStatus === 'DELIVERED') localizedOrdStatus = t('lots.status_delivered') || 'Delivered';
-        else if (ordStatus === 'RETURN_IN_PROGRESS') localizedOrdStatus = t('lots.status_return_in_progress') || 'Return in Progress';
-        else if (ordStatus === 'RETURNED') localizedOrdStatus = t('lots.status_returned') || 'Returned';
-        else if (ordStatus === 'CANCELLED') localizedOrdStatus = t('lots.status_cancelled') || 'Cancelled';
-        else localizedOrdStatus = ordStatus;
+    var displayLots = sortLotsList(lots, currentSortLots);
+
+    listView.innerHTML = displayLots.map(function(l) {
+      var ordStatus = l.order_status || '';
+      if (!ordStatus) {
+        console.warn('[lots] Missing order_status for lot', l.lot_id);
       }
+      var ordClass = ordStatus === 'DELIVERED' ? 'badge-success' : (ordStatus === 'DISPATCHED' ? 'badge-primary' : (ordStatus === 'RETURNED' ? 'badge-danger' : (ordStatus ? 'badge-warning' : 'badge-disabled')));
+      var localizedOrdStatus = ordStatus ? (t('lots.status_' + ordStatus.toLowerCase()) || ordStatus) : 'Unknown';
       var isPendingRate = l.status === 'PENDING_RATE';
       var totalText = isOwner && l.grand_total_paise !== undefined ? `₹${(l.grand_total_paise / 100).toLocaleString('en-IN')}` : '';
 
@@ -155,6 +189,7 @@ window.pages.lots = async function(container) {
       var lot = res.lot;
       var items = res.items || [];
       var batches = res.batches || [];
+      if (res.allowed_next) lot.allowed_next = res.allowed_next;
       window.ui.hideSpinner();
 
       var itemsHtml = items.map(function(it) {
@@ -174,8 +209,8 @@ window.pages.lots = async function(container) {
 
       var canSetRate = isOwner && lot.status === 'PENDING_RATE';
       var canCancel = isOwner && lot.status !== 'CANCELLED';
-      var curOrd = lot.order_status || 'ORDER_CONFIRMED';
-      var canUpdateOrd = curOrd !== 'DELIVERED' && curOrd !== 'RETURNED' && curOrd !== 'CANCELLED';
+      var curOrd = lot.order_status || '';
+      var canUpdateOrd = curOrd !== 'DELIVERED' && curOrd !== 'RETURNED' && curOrd !== 'CANCELLED' && Boolean(curOrd);
 
       // Timeline HTML
       var timelineSteps = [
@@ -291,25 +326,28 @@ window.pages.lots = async function(container) {
   // Update Order Status Dialog
   // ---------------------------------------------------------------------------
   function openUpdateOrderStatusDialog(lot, items, batches) {
-    var cur = lot.order_status || 'ORDER_CONFIRMED';
-    var nextOptions = [];
-    if (cur === 'ORDER_CONFIRMED') {
-      nextOptions = ['DISPATCHED', 'DELIVERED', 'CANCELLED'];
-    } else if (cur === 'DISPATCHED') {
-      nextOptions = ['DELIVERED', 'RETURN_IN_PROGRESS', 'CANCELLED'];
-    } else if (cur === 'DELIVERED') {
-      nextOptions = ['RETURN_IN_PROGRESS'];
-    } else if (cur === 'RETURN_IN_PROGRESS') {
-      nextOptions = ['RETURNED'];
+    var lotDetail = lot;
+    if (!lotDetail.allowed_next) {
+      var transitions = {
+        'ORDER_CONFIRMED': ['DISPATCHED', 'DELIVERED'],
+        'DISPATCHED': ['DELIVERED'],
+        'DELIVERED': ['RETURN_IN_PROGRESS'],
+        'RETURN_IN_PROGRESS': ['RETURNED']
+      };
+      lotDetail.allowed_next = transitions[lotDetail.order_status] || [];
     }
+    var cur = lotDetail.order_status || '';
+    var nextOpts = (lotDetail.allowed_next || []).map(function(s) {
+      return '<option value="' + s + '">' + s.replace(/_/g,' ') + '</option>';
+    }).join('');
 
     var formHtml = `
       <form id="update-ord-status-form" novalidate>
-        <p class="text-muted" style="margin:0 0 1rem 0;">Current Status: <strong>${cur}</strong></p>
+        <p class="text-muted" style="margin:0 0 1rem 0;">Current Status: <strong>${cur || 'None'}</strong></p>
         <div class="form-field">
           <label>Target Status *</label>
           <select id="uos-status" class="input" required>
-            ${nextOptions.map(function(o) { return `<option value="${o}">${o}</option>`; }).join('')}
+            ${nextOpts}
           </select>
         </div>
         <div class="form-field" id="uos-reason-wrap" style="display:none;">

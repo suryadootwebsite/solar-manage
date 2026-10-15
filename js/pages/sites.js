@@ -6,7 +6,10 @@ window.pages = window.pages || {};
 
 window.pages.sites = async function(container) {
   var t = window.i18n.t;
-  var isOwner = window.auth.isOwnerLike(window.auth.getUser() && window.auth.getUser().role);
+  var role = (window.auth.getUser() && window.auth.getUser().role) || 'SITE_USER';
+  var isOwner = window.auth.isOwnerLike(role);
+  var canCreate = window.auth.isOwnerLike(role) || role === 'MANAGER';
+  var currentSort = localStorage.getItem('sms_sort_sites') || 'newest';
 
   container.innerHTML = `
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:0.5rem;">
@@ -14,7 +17,7 @@ window.pages.sites = async function(container) {
         <h2 style="margin:0; font-size:1.35rem; line-height:1.2;">Solar Sites</h2>
         <p class="text-muted" style="margin:0.25rem 0 0; font-size:0.8rem;">Active installations and stage progress</p>
       </div>
-      <button id="site-new-btn" class="btn btn-primary" style="min-height:42px; line-height:1.2; padding:0.5rem 0.85rem; font-size:0.875rem; white-space:nowrap; align-self:center;">+ New Site</button>
+      ${canCreate ? '<button id="site-new-btn" class="btn btn-primary" style="min-height:42px; line-height:1.2; padding:0.5rem 0.85rem; font-size:0.875rem; white-space:nowrap; align-self:center;">+ New Site</button>' : ''}
     </div>
 
     <!-- Filter chips (horizontal scroll with no wrap and smooth touch) -->
@@ -26,6 +29,16 @@ window.pages.sites = async function(container) {
       <button class="btn btn-secondary" id="site-stuck-toggle" style="padding:0.35rem 0.75rem; font-size:0.8rem; min-height:36px; white-space:nowrap;">Stuck</button>
     </div>
 
+    <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.75rem;">
+      <label style="font-size:0.85rem;color:var(--text-muted);">Sort:</label>
+      <select id="sites-sort-select" class="input" style="width:auto;min-width:140px;font-size:0.85rem;padding:0.25rem 0.5rem;">
+        <option value="newest">Newest Created</option>
+        <option value="oldest">Oldest Created</option>
+        <option value="start_date">Start Date</option>
+        <option value="name">Name A-Z</option>
+      </select>
+    </div>
+
     <div id="site-list-view">
       <div style="text-align:center; padding:2rem 0;"><span class="spinner"></span></div>
     </div>
@@ -35,6 +48,16 @@ window.pages.sites = async function(container) {
   var newBtn = document.getElementById('site-new-btn');
   var stuckToggle = document.getElementById('site-stuck-toggle');
   var filterButtons = container.querySelectorAll('.site-filter-btn');
+  var sortSelect = document.getElementById('sites-sort-select');
+
+  if (sortSelect) {
+    sortSelect.value = currentSort;
+    sortSelect.onchange = function() {
+      currentSort = sortSelect.value;
+      localStorage.setItem('sms_sort_sites', currentSort);
+      loadSites(true);
+    };
+  }
 
   var currentStatus = '';
   var stuckOnly = false;
@@ -66,6 +89,34 @@ window.pages.sites = async function(container) {
     return st ? st.name_en : id;
   }
 
+  function sortSitesList(list, sortVal) {
+    if (!list || !list.length) return list;
+    if (sortVal === 'newest') {
+      list.sort(function(a, b) {
+        var ia = a.site_id || '';
+        var ib = b.site_id || '';
+        return ia < ib ? 1 : (ia > ib ? -1 : 0);
+      });
+    } else if (sortVal === 'oldest') {
+      list.sort(function(a, b) {
+        var ia = a.site_id || '';
+        var ib = b.site_id || '';
+        return ia > ib ? 1 : (ia < ib ? -1 : 0);
+      });
+    } else if (sortVal === 'start_date') {
+      list.sort(function(a, b) {
+        var da = a.start_date || '';
+        var db = b.start_date || '';
+        return da < db ? 1 : (da > db ? -1 : 0);
+      });
+    } else if (sortVal === 'name') {
+      list.sort(function(a, b) {
+        return (a.site_name || '').localeCompare(b.site_name || '');
+      });
+    }
+    return list;
+  }
+
   var SITES_CACHE_KEY = 'sms_cache_sites';
 
   async function loadSites(forceRefresh) {
@@ -78,7 +129,7 @@ window.pages.sites = async function(container) {
     }
 
     if (cached) {
-      sites = cached;
+      sites = sortSitesList(cached.slice(), currentSort);
       renderSites();
     } else {
       listView.innerHTML = '<div class="kpi-grid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(300px, 1fr));gap:0.75rem;">' +
@@ -86,11 +137,12 @@ window.pages.sites = async function(container) {
     }
 
     try {
-      var payload = {};
+      var payload = { sort: currentSort };
       if (currentStatus) payload.status = currentStatus;
       if (stuckOnly) payload.stuck_only = true;
       var res = await window.api.call('sites.list', payload);
       sites = res.items || [];
+      sortSitesList(sites, currentSort);
       try { sessionStorage.setItem(SITES_CACHE_KEY, JSON.stringify(sites)); } catch (e) {}
       renderSites();
     } catch(err) {
@@ -169,9 +221,11 @@ window.pages.sites = async function(container) {
   // ---------------------------------------------------------------------------
   // Create Site Modal
   // ---------------------------------------------------------------------------
-  newBtn.onclick = function() {
-    window.ui.withButtonLoading(newBtn, openCreateSiteDialog);
-  };
+  if (newBtn) {
+    newBtn.onclick = function() {
+      window.ui.withButtonLoading(newBtn, openCreateSiteDialog);
+    };
+  }
 
   async function openCreateSiteDialog() {
     var canEnterContractValue = isOwner || (window.auth.getUser() && window.auth.getUser().role === 'MANAGER');

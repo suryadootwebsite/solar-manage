@@ -19,8 +19,17 @@ window.pages.customers = async function(container) {
       ${canCreate ? `<button id="cst-add-btn" class="btn btn-primary" style="min-height:44px;">+ ${window.ui.esc(t('customers.new_btn'))}</button>` : ''}
     </div>
 
-    <div style="margin-bottom:1rem;">
+    <div style="margin-bottom:0.75rem;">
       <input type="text" id="cst-search" class="input" placeholder="${window.ui.esc(t('customers.search_placeholder'))}">
+    </div>
+
+    <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.75rem;">
+      <label style="font-size:0.85rem;color:var(--text-muted);">Sort:</label>
+      <select id="cst-sort-select" class="input" style="width:auto;min-width:140px;font-size:0.85rem;padding:0.25rem 0.5rem;">
+        <option value="name_asc">Name A-Z</option>
+        <option value="name_desc">Name Z-A</option>
+        <option value="newest">Newest</option>
+      </select>
     </div>
 
     <div id="cst-list-view">
@@ -31,6 +40,17 @@ window.pages.customers = async function(container) {
   var listView = document.getElementById('cst-list-view');
   var searchInput = document.getElementById('cst-search');
   var addBtn = document.getElementById('cst-add-btn');
+  var sortSelect = document.getElementById('cst-sort-select');
+
+  var currentSortCst = localStorage.getItem('sms_sort_customers') || 'name_asc';
+  if (sortSelect) {
+    sortSelect.value = currentSortCst;
+    sortSelect.onchange = function() {
+      currentSortCst = sortSelect.value;
+      localStorage.setItem('sms_sort_customers', currentSortCst);
+      renderList(searchInput.value);
+    };
+  }
 
   var customers = [];
 
@@ -73,6 +93,18 @@ window.pages.customers = async function(container) {
       if (!q) return true;
       return (c.name || '').toLowerCase().indexOf(q) >= 0 || (c.phone || '').indexOf(q) >= 0;
     });
+
+    if (currentSortCst === 'name_desc') {
+      filtered.sort(function(a, b) { return (b.name || '').localeCompare(a.name || ''); });
+    } else if (currentSortCst === 'newest') {
+      filtered.sort(function(a, b) {
+        var ia = a.customer_id || '';
+        var ib = b.customer_id || '';
+        return ia < ib ? 1 : (ia > ib ? -1 : 0);
+      });
+    } else {
+      filtered.sort(function(a, b) { return (a.name || '').localeCompare(b.name || ''); });
+    }
 
     if (!filtered.length) {
       listView.innerHTML = `<div class="card" style="text-align:center; color:var(--text-muted); padding:2rem 1rem;">${window.ui.esc(t('customers.empty'))}</div>`;

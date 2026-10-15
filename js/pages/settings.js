@@ -150,6 +150,24 @@ window.pages.settings = function(container) {
         if (loader) loader.style.display = 'none';
         if (listDiv) {
           listDiv.style.display = 'flex';
+          function renderSettingValue(key, val) {
+            if (typeof val === 'boolean' || val === 'true' || val === 'false') {
+              var boolVal = String(val) === 'true';
+              return '<span class="badge" style="background:' + (boolVal ? 'var(--brand)' : '#6b7280') + ';color:#fff;">' + (boolVal ? 'ON' : 'OFF') + '</span>';
+            }
+            if (key === 'stage_material_hints') {
+              try {
+                var parsed = JSON.parse(val);
+                if (typeof parsed === 'object') {
+                  return '<span style="font-size:0.8rem;color:var(--text-muted);">Configured (' + Object.keys(parsed).length + ' stages)</span>';
+                }
+              } catch(e) {}
+              return val === 'true' ? '<span class="badge" style="background:var(--brand);color:#fff;">ON (all stages)</span>' :
+                     val === 'false' ? '<span class="badge" style="background:#6b7280;color:#fff;">OFF</span>' :
+                     '<span style="font-size:0.8rem;color:var(--text-muted);">Custom config</span>';
+            }
+            return '<span>' + window.ui.esc(String(val)) + '</span>';
+          }
           var html = Object.keys(settingsMap).map(function(key) {
             var label = t('settings.key.' + key);
             if (!label || label === 'Information unavailable' || label === 'जानकारी उपलब्ध नहीं है') {
@@ -168,7 +186,7 @@ window.pages.settings = function(container) {
                   <code style="font-size:0.75rem; color:var(--text-muted);">${ui.esc(key)}</code>
                 </div>
                 <div style="text-align:right;">
-                  <span class="badge" style="background:var(--surface-sunken); color:var(--text-main); font-weight:700; font-size:0.9rem; max-width:180px; overflow:hidden; text-overflow:ellipsis; display:inline-block;">${ui.esc(String(val))}</span>
+                  ${renderSettingValue(key, val)}
                 </div>
               </div>
             `;
@@ -177,6 +195,39 @@ window.pages.settings = function(container) {
         }
       } catch (err) {
         if (loader) loader.innerHTML = `<span style="color:var(--text-muted); font-size:0.875rem;">Settings unavailable in offline mode.</span>`;
+      }
+    })();
+
+    // B10: Performance card — slow requests (OWNER/DEVELOPER only)
+    (async function() {
+      var perfCard = document.createElement('div');
+      perfCard.className = 'card';
+      perfCard.style.cssText = 'padding:1rem;margin-top:1rem;';
+      perfCard.innerHTML = '<h3 style="margin:0 0 0.75rem;font-size:1.05rem;">\u26a1 Performance \u2014 Slow Requests</h3><div id="settings-slowlog"><span class="spinner"></span></div>';
+      var cont = document.getElementById('settings-list-container');
+      if (cont && cont.parentNode) cont.parentNode.appendChild(perfCard);
+      try {
+        var slowRes = await api.call('system.slowLog', {});
+        var rows = (slowRes && slowRes.items) || [];
+        var el = document.getElementById('settings-slowlog');
+        if (!el) return;
+        if (!rows.length) {
+          el.innerHTML = '<span style="color:var(--text-muted);font-size:0.875rem;">No slow requests recorded yet.</span>';
+        } else {
+          el.innerHTML = '<table style="width:100%;font-size:0.8rem;border-collapse:collapse;">' +
+            '<tr style="border-bottom:1px solid var(--border);"><th style="text-align:left;padding:0.25rem 0.1rem;">Action</th><th style="text-align:right;padding:0.25rem 0.1rem;">ms</th><th style="text-align:right;padding:0.25rem 0.1rem;">Sheets</th><th style="text-align:right;padding:0.25rem 0.1rem;">Time</th></tr>' +
+            rows.map(function(r) {
+              return '<tr style="border-bottom:1px solid var(--border);">' +
+                '<td style="padding:0.25rem 0.1rem;">' + ui.esc(r.action || '') + '</td>' +
+                '<td style="text-align:right;padding:0.25rem 0.1rem;color:' + ((r.total_ms || 0) > 3000 ? '#dc2626' : '#d97706') + ';">' + (r.total_ms || '') + '</td>' +
+                '<td style="text-align:right;padding:0.25rem 0.1rem;">' + (Array.isArray(r.sheets_read) ? r.sheets_read.length : (r.sheets_read || '')) + '</td>' +
+                '<td style="text-align:right;padding:0.25rem 0.1rem;color:var(--text-muted);">' + ui.esc((r.logged_at || r.created_at || '').substring(0, 16)) + '</td>' +
+                '</tr>';
+            }).join('') + '</table>';
+        }
+      } catch (e) {
+        var el2 = document.getElementById('settings-slowlog');
+        if (el2) el2.innerHTML = '<span style="color:var(--text-muted);font-size:0.875rem;">Slow log unavailable.</span>';
       }
     })();
   }
