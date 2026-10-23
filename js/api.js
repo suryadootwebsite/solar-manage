@@ -7,6 +7,7 @@
  *   - Doc 03 F-30 Retry Handling (2 retries on network error or LOCKED with 1s, 3s backoff).
  *   - If LOCKED persists after all retries, throws LOCKED error (not NETWORK_ERROR).
  *   - Unauthorized handling -> automatic redirect to login.
+ *   - In-flight deduplication & short-term read cache.
  */
 
 window.api = (function() {
@@ -40,6 +41,37 @@ window.api = (function() {
     }
   }
 
+  // C1: In-flight deduplication — same action+payload shares one promise
+  var _inFlight = {};
+  // C1: Short read-only cache (20s) for idempotent GET-like actions
+  var _readCache = {};
+  var READ_ACTIONS = ['sites.list','sites.get','lots.list','lots.get','dashboard.get',
+    'users.list','products.list','suppliers.list','customers.list','locations.list',
+    'masters.list','reports.get','stock.summary','stages.list','serials.list',
+    'usage.list','app.bootstrap','sites.getFull'];
+  var READ_CACHE_TTL = 20000; // 20 seconds
+
+  function _cacheKey(action, payload) {
+    return action + ':' + JSON.stringify(payload || {});
+  }
+
+  function _isReadAction(action) {
+    return READ_ACTIONS.indexOf(action) !== -1;
+  }
+
+  function invalidate(action) {
+    if (!action) {
+      _readCache = {};
+      return;
+    }
+    var prefix = action + ':';
+    for (var k in _readCache) {
+      if (Object.prototype.hasOwnProperty.call(_readCache, k) && k.indexOf(prefix) === 0) {
+        delete _readCache[k];
+      }
+    }
+  }
+
   /**
    * Calls an API action on the Google Apps Script backend.
    *
@@ -48,11 +80,38 @@ window.api = (function() {
    * @param {Object} [options]  { requestId: string, skipAuth: boolean }
    * @returns {Promise<Object>} Resolves with response.data on success
    */
-  async function call(action, payload, options) {
+  function call(action, payload, options) {
+    var key = _cacheKey(action, payload);
+    if (_isReadAction(action)) {
+      // Check short-term cache
+      var cached = _readCache[key];
+      if (cached && (Date.now() - cached.ts) < READ_CACHE_TTL) {
+        return Promise.resolve(cached.data);
+      }
+      // Single-flight dedup
+      if (_inFlight[key]) return _inFlight[key];
+    }
+
+    var p = _fetchWithRetry(action, payload, options);
+    if (_isReadAction(action)) {
+      _inFlight[key] = p;
+      p.then(function(data) {
+        _readCache[key] = { data: data, ts: Date.now() };
+        delete _inFlight[key];
+        return data;
+      }, function(err) {
+        delete _inFlight[key];
+        throw err;
+      });
+    }
+    return p;
+  }
+
+  async function _fetchWithRetry(action, payload, options) {
     options = options || {};
     var requestId = options.requestId || _generateUUID();
-    var token = options.skipAuth ? '' : window.auth.getToken();
-    var lang = window.i18n.getLang();
+    var token = options.skipAuth ? '' : (window.auth && window.auth.getToken ? window.auth.getToken() : '');
+    var lang = (window.i18n && window.i18n.getLang ? window.i18n.getLang() : 'hi');
     var apiUrl = window.APP_CONFIG.API_BASE_URL;
 
     var envelope = {
@@ -64,15 +123,26 @@ window.api = (function() {
       payload: payload || {}
     };
 
-    var maxRetries = window.APP_CONFIG.MAX_RETRIES || 2;
+    var maxRetries = window.APP_CONFIG.MAX_RETRIES !== undefined ? window.APP_CONFIG.MAX_RETRIES : 2;
     var backoffs = window.APP_CONFIG.RETRY_BACKOFF_MS || [1000, 3000];
+    var timeoutMs = window.APP_CONFIG.API_TIMEOUT_MS || 45000;
 
     _activeRequests++;
     _updateProgress();
+
+    // After 8s elapsed, if still pending, show a toast/status update "Still loading..."
+    var slowTimer = setTimeout(function() {
+      if (window.ui && window.ui.showToast) {
+        window.ui.showToast('Still loading...', 'info');
+      } else {
+        console.warn('Still loading...');
+      }
+    }, 8000);
+
     try {
       for (var attempt = 0; attempt <= maxRetries; attempt++) {
         var controller = new AbortController();
-        var timeoutId = setTimeout(function() { controller.abort(); }, window.APP_CONFIG.API_TIMEOUT_MS || 15000);
+        var timeoutId = setTimeout(function() { controller.abort(); }, timeoutMs);
 
         var response;
         try {
@@ -98,7 +168,7 @@ window.api = (function() {
           // Network retries exhausted
           throw {
             code: 'NETWORK_ERROR',
-            message: window.i18n.t('err.NETWORK_ERROR') || 'Network connection failed. Please check your internet.'
+            message: (window.i18n && window.i18n.t && window.i18n.t('err.NETWORK_ERROR')) || 'Network connection failed. Please check your internet.'
           };
         }
 
@@ -141,7 +211,7 @@ window.api = (function() {
 
         // Handle UNAUTHORIZED
         if (err.code === 'UNAUTHORIZED') {
-          window.auth.clearToken();
+          if (window.auth && window.auth.clearToken) window.auth.clearToken();
           window.location.hash = '#/login';
           throw err;
         }
@@ -150,13 +220,15 @@ window.api = (function() {
         throw err;
       }
     } finally {
+      clearTimeout(slowTimer);
       _activeRequests--;
       _updateProgress();
     }
   }
 
   return {
-    call: call
+    call: call,
+    invalidate: invalidate
   };
 
 })();

@@ -22,7 +22,7 @@ window.APP_CONFIG = {
   DEFAULT_LANG: 'hi',
 
   // Network timeouts & retries (Doc 03 F-30)
-  API_TIMEOUT_MS: 15000,
+  API_TIMEOUT_MS: 45000,
   MAX_RETRIES: 2,
   RETRY_BACKOFF_MS: [1000, 3000]
 };

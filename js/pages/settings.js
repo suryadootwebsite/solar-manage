@@ -1,5 +1,5 @@
 /**
- * settings.js — System Settings & User Profile Screen.
+ * settings.js â€” System Settings & User Profile Screen.
  *
  * Implements:
  *   - Doc 03 F-04 (Settings view, system parameters, language switcher, logout).
@@ -32,10 +32,10 @@ window.pages.settings = function(container) {
 
         <div style="margin-top:1rem; border-top:1px solid var(--border); padding-top:0.75rem; display:flex; gap:0.5rem; flex-wrap:wrap;">
           <button id="open-change-pwd-btn" class="btn btn-secondary" style="min-height:44px; font-size:0.875rem;">
-            🔒 ${ui.esc(t('settings.change_pwd') || 'Change Password')}
+            ðŸ”’ ${ui.esc(t('settings.change_pwd') || 'Change Password')}
           </button>
           <button id="logout-btn" class="btn btn-danger" style="min-height:44px; font-size:0.875rem;">
-            🚪 ${ui.esc(t('settings.logout') || 'Log Out')}
+            ðŸšª ${ui.esc(t('settings.logout') || 'Log Out')}
           </button>
         </div>
       </div>
@@ -50,7 +50,7 @@ window.pages.settings = function(container) {
             <div style="font-size:0.8rem; color:var(--text-muted);">${ui.esc(t('settings.lang_sub') || 'Switch between Hindi and English')}</div>
           </div>
           <button id="pref-lang-toggle" class="btn btn-secondary" style="min-height:44px; min-width:80px;">
-            ${window.i18n.getLang() === 'hi' ? 'हिंदी (HI)' : 'English (EN)'}
+            ${window.i18n.getLang() === 'hi' ? 'à¤¹à¤¿à¤‚à¤¦à¥€ (HI)' : 'English (EN)'}
           </button>
         </div>
       </div>
@@ -128,7 +128,7 @@ window.pages.settings = function(container) {
     langBtn.onclick = function() {
       ui.withButtonLoading(langBtn, async function() {
         var newLang = window.i18n.toggleLang();
-        langBtn.textContent = newLang === 'hi' ? 'हिंदी (HI)' : 'English (EN)';
+        langBtn.textContent = newLang === 'hi' ? 'à¤¹à¤¿à¤‚à¤¦à¥€ (HI)' : 'English (EN)';
         if (auth.isAuthenticated()) {
           try {
             await api.call('auth.setLang', { lang: newLang });
@@ -170,11 +170,11 @@ window.pages.settings = function(container) {
           }
           var html = Object.keys(settingsMap).map(function(key) {
             var label = t('settings.key.' + key);
-            if (!label || label === 'Information unavailable' || label === 'जानकारी उपलब्ध नहीं है') {
+            if (!label || label === 'Information unavailable' || label === 'à¤œà¤¾à¤¨à¤•à¤¾à¤°à¥€ à¤‰à¤ªà¤²à¤¬à¥à¤§ à¤¨à¤¹à¥€à¤‚ à¤¹à¥ˆ') {
               label = key;
             }
             var desc = t('settings.desc.' + key);
-            if (!desc || desc === 'Information unavailable' || desc === 'जानकारी उपलब्ध नहीं है') {
+            if (!desc || desc === 'Information unavailable' || desc === 'à¤œà¤¾à¤¨à¤•à¤¾à¤°à¥€ à¤‰à¤ªà¤²à¤¬à¥à¤§ à¤¨à¤¹à¥€à¤‚ à¤¹à¥ˆ') {
               desc = '';
             }
             var val = settingsMap[key];
@@ -198,7 +198,7 @@ window.pages.settings = function(container) {
       }
     })();
 
-    // B10: Performance card — slow requests (OWNER/DEVELOPER only)
+    // B10: Performance card â€” slow requests (OWNER/DEVELOPER only)
     (async function() {
       var perfCard = document.createElement('div');
       perfCard.className = 'card';
@@ -219,9 +219,9 @@ window.pages.settings = function(container) {
             rows.map(function(r) {
               return '<tr style="border-bottom:1px solid var(--border);">' +
                 '<td style="padding:0.25rem 0.1rem;">' + ui.esc(r.action || '') + '</td>' +
-                '<td style="text-align:right;padding:0.25rem 0.1rem;color:' + ((r.total_ms || 0) > 3000 ? '#dc2626' : '#d97706') + ';">' + (r.total_ms || '') + '</td>' +
-                '<td style="text-align:right;padding:0.25rem 0.1rem;">' + (Array.isArray(r.sheets_read) ? r.sheets_read.length : (r.sheets_read || '')) + '</td>' +
-                '<td style="text-align:right;padding:0.25rem 0.1rem;color:var(--text-muted);">' + ui.esc((r.logged_at || r.created_at || '').substring(0, 16)) + '</td>' +
+                '<td style="text-align:right;padding:0.25rem 0.1rem;color:' + ((r.ms || 0) > 3000 ? '#dc2626' : '#d97706') + ';">' + (r.ms || "") + '</td>' +
+                '<td style="text-align:right;padding:0.25rem 0.1rem;">' + (ui.esc((r.message||'').replace(/^.*sheets: /,'').substring(0,30))) + '</td>' +
+                '<td style="text-align:right;padding:0.25rem 0.1rem;color:var(--text-muted);">' + ui.esc((r.timestamp||'').substring(0,16)) + '</td>' +
                 '</tr>';
             }).join('') + '</table>';
         }

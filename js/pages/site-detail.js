@@ -37,26 +37,34 @@ window.pages.siteDetail = async function(container, params) {
   var siteData = null;
   var stagesData = [];
   var customerData = null;
+  var assignedUsersData = [];
   var smMap = {};
   var productsMap = {};
+  var _tabLoaded = {};
+  var _tabData = {};
+
+  async function ensureProductsLoaded() {
+    if (Object.keys(productsMap).length > 0) return productsMap;
+    try {
+      var prdRes = await window.api.call('products.list', {});
+      (prdRes.items || []).forEach(function(p) { productsMap[p.product_id] = p; });
+    } catch(e) {}
+    return productsMap;
+  }
 
   async function loadDetails() {
+    _tabLoaded = {};
+    _tabData = {};
     try {
-      var [res, smRes, prdRes] = await Promise.all([
-        window.api.call('sites.get', { site_id: siteId }),
-        window.api.call('stageMaster.list', {}),
-        window.api.call('products.list', {})
-      ]);
+      var res = await window.api.call('sites.getFull', { site_id: siteId });
 
       siteData = res.site;
       stagesData = res.stages || [];
       customerData = res.customer;
+      assignedUsersData = res.assigned_users || [];
 
       smMap = {};
-      (smRes.items || []).forEach(function(sm) { smMap[sm.stage_id] = sm; });
-
-      productsMap = {};
-      (prdRes.items || []).forEach(function(p) { productsMap[p.product_id] = p; });
+      stagesData.forEach(function(sm) { smMap[sm.stage_id] = sm; });
 
       var statusClass = siteData.status === 'ACTIVE' ? 'badge-success' : (siteData.status === 'ON_HOLD' ? 'badge-warning' : (siteData.status === 'COMPLETED' ? 'badge-success' : 'badge-disabled'));
       var stuckHtml = siteData.is_stuck ? `<span class="badge badge-danger" style="margin-right:0.5rem;" title="${esc(siteData.stuck_reason || 'Site is stuck')}">⚠️ Stuck${siteData.stuck_reason ? ': ' + esc(siteData.stuck_reason) : ''}</span>` : '';
@@ -128,8 +136,17 @@ window.pages.siteDetail = async function(container, params) {
 
     contentEl.querySelectorAll('.sdt-tab-btn').forEach(function(btn) {
       btn.onclick = function() {
-        currentTab = btn.getAttribute('data-tab');
-        renderMainShell();
+        var nextTab = btn.getAttribute('data-tab');
+        if (nextTab === currentTab) return;
+        currentTab = nextTab;
+        contentEl.querySelectorAll('.sdt-tab-btn').forEach(function(b) {
+          if (b.getAttribute('data-tab') === currentTab) {
+            b.className = 'btn btn-primary active sdt-tab-btn';
+          } else {
+            b.className = 'btn btn-secondary sdt-tab-btn';
+          }
+        });
+        renderCurrentTab();
       };
     });
 
@@ -195,6 +212,12 @@ window.pages.siteDetail = async function(container, params) {
 
   // 2. Material Tab
   async function renderMaterialTab(pane) {
+    if (_tabLoaded['material'] && _tabData['material']) {
+      pane.innerHTML = _tabData['material'];
+      _bindMaterialEvents(pane);
+      return;
+    }
+
     pane.innerHTML = `
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
         <h3 style="margin:0; font-size:1.05rem;">Site Materials</h3>
@@ -203,85 +226,107 @@ window.pages.siteDetail = async function(container, params) {
       <div id="sdt-material-list"><span class="spinner"></span></div>
     `;
 
-    document.getElementById('sdt-issue-material-btn').onclick = function() {
-      openIssueMaterialSheet();
-    };
+    _bindMaterialEvents(pane);
 
     var listEl = document.getElementById('sdt-material-list');
     try {
+      await ensureProductsLoaded();
       var res = await window.api.call('usage.list', { site_id: siteId });
       var rows = res.items || res.rows || [];
       if (!rows.length) {
         listEl.innerHTML = '<div class="card text-muted" style="text-align:center; padding:1.5rem;">No materials issued to this site yet.</div>';
-        return;
-      }
+      } else {
+        listEl.innerHTML = rows.map(function(r) {
+          var prd = productsMap[r.product_id] || {};
+          var prdName = prd.name || r.product_id;
+          var costInfo = isOwner && r.cost_paise ? `· Cost: ₹${(r.cost_paise / 100).toLocaleString('en-IN')}` : '';
+          var badgeClass = r.type === 'ISSUE' ? 'badge-primary' : 'badge-warning';
 
-      listEl.innerHTML = rows.map(function(r) {
-        var prd = productsMap[r.product_id] || {};
-        var prdName = prd.name || r.product_id;
-        var costInfo = isOwner && r.cost_paise ? `· Cost: ₹${(r.cost_paise / 100).toLocaleString('en-IN')}` : '';
-        var badgeClass = r.type === 'ISSUE' ? 'badge-primary' : 'badge-warning';
-
-        return `
-          <div class="card" style="margin-bottom:0.5rem; padding:0.75rem;">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-              <div>
-                <div style="font-weight:600;">${esc(prdName)}</div>
-                <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.25rem;">
-                  Date: ${esc(r.used_on || r.created_at || '')} · Qty: <strong>${r.qty}</strong> ${costInfo}
+          return `
+            <div class="card" style="margin-bottom:0.5rem; padding:0.75rem;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                  <div style="font-weight:600;">${esc(prdName)}</div>
+                  <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.25rem;">
+                    Date: ${esc(r.used_on || r.created_at || '')} · Qty: <strong>${r.qty}</strong> ${costInfo}
+                  </div>
+                  ${r.serial_no ? `<div style="font-size:0.75rem; font-family:monospace; color:var(--text-muted);">S/N: ${esc(r.serial_no)}</div>` : ''}
                 </div>
-                ${r.serial_no ? `<div style="font-size:0.75rem; font-family:monospace; color:var(--text-muted);">S/N: ${esc(r.serial_no)}</div>` : ''}
+                <span class="badge ${badgeClass}">${esc(r.type || 'ISSUE')}</span>
               </div>
-              <span class="badge ${badgeClass}">${esc(r.type || 'ISSUE')}</span>
             </div>
-          </div>
-        `;
-      }).join('');
+          `;
+        }).join('');
+      }
+      _tabData['material'] = pane.innerHTML;
+      _tabLoaded['material'] = true;
     } catch(e) {
-      listEl.innerHTML = `<div class="card text-error">${esc(e.message || 'Failed to load materials')}</div>`;
+      if (listEl) listEl.innerHTML = `<div class="card text-error">${esc(e.message || 'Failed to load materials')}</div>`;
+    }
+  }
+
+  function _bindMaterialEvents(pane) {
+    var btn = pane.querySelector('#sdt-issue-material-btn');
+    if (btn) {
+      btn.onclick = function() {
+        openIssueMaterialSheet();
+      };
     }
   }
 
   // 3. Serials Tab
   async function renderSerialsTab(pane) {
+    if (_tabLoaded['serials'] && _tabData['serials']) {
+      pane.innerHTML = _tabData['serials'];
+      return;
+    }
+
     pane.innerHTML = '<div id="sdt-serials-list"><span class="spinner"></span></div>';
     var listEl = document.getElementById('sdt-serials-list');
 
     try {
+      await ensureProductsLoaded();
       var res = await window.api.call('serials.list', { site_id: siteId });
       var rows = (res.items || res.rows || []).filter(function(s) { return s.site_id === siteId; });
       if (!rows.length) {
         listEl.innerHTML = '<div class="card text-muted" style="text-align:center; padding:1.5rem;">No serial numbers tracked on this site.</div>';
-        return;
-      }
+      } else {
+        listEl.innerHTML = rows.map(function(s) {
+          var prd = productsMap[s.product_id] || {};
+          var prdName = prd.name || s.product_id;
+          var badgeClass = s.status === 'ISSUED' ? 'badge-primary' : (s.status === 'DEFECTIVE' ? 'badge-danger' : 'badge-disabled');
 
-      listEl.innerHTML = rows.map(function(s) {
-        var prd = productsMap[s.product_id] || {};
-        var prdName = prd.name || s.product_id;
-        var badgeClass = s.status === 'ISSUED' ? 'badge-primary' : (s.status === 'DEFECTIVE' ? 'badge-danger' : 'badge-disabled');
-
-        return `
-          <div class="card" style="margin-bottom:0.5rem; padding:0.75rem;">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-              <div>
-                <div style="font-weight:600; font-family:monospace;">${esc(s.serial_no)}</div>
-                <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.25rem;">
-                  ${esc(prdName)} · Warranty: ${esc(s.warranty_end || 'N/A')}
+          return `
+            <div class="card" style="margin-bottom:0.5rem; padding:0.75rem;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                  <div style="font-weight:600; font-family:monospace;">${esc(s.serial_no)}</div>
+                  <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.25rem;">
+                    ${esc(prdName)} · Warranty: ${esc(s.warranty_end || 'N/A')}
+                  </div>
                 </div>
+                <span class="badge ${badgeClass}">${esc(s.status)}</span>
               </div>
-              <span class="badge ${badgeClass}">${esc(s.status)}</span>
             </div>
-          </div>
-        `;
-      }).join('');
+          `;
+        }).join('');
+      }
+      _tabData['serials'] = pane.innerHTML;
+      _tabLoaded['serials'] = true;
     } catch(e) {
-      listEl.innerHTML = `<div class="card text-error">${esc(e.message || 'Failed to load serials')}</div>`;
+      if (listEl) listEl.innerHTML = `<div class="card text-error">${esc(e.message || 'Failed to load serials')}</div>`;
     }
   }
 
   // 4. Money Tab (OWNER / DEVELOPER only)
   // 4. Money Tab (OWNER / DEVELOPER full P&L & expenses; MANAGER add-only expense)
   async function renderMoneyTab(pane) {
+    if (_tabLoaded['money'] && _tabData['money']) {
+      pane.innerHTML = _tabData['money'];
+      _bindMoneyEvents(pane);
+      return;
+    }
+
     pane.innerHTML = '<div id="sdt-money-content"><span class="spinner"></span></div>';
     var moneyEl = document.getElementById('sdt-money-content');
 
@@ -298,12 +343,9 @@ window.pages.siteDetail = async function(container, params) {
           </div>
         </div>
       `;
-      var mgrAddBtn = document.getElementById('sdt-mgr-add-exp-btn');
-      if (mgrAddBtn) {
-        mgrAddBtn.onclick = function() {
-          openAddExpenseSheet(siteId);
-        };
-      }
+      _bindMoneyEvents(pane);
+      _tabData['money'] = pane.innerHTML;
+      _tabLoaded['money'] = true;
       return;
     }
 
@@ -420,14 +462,26 @@ window.pages.siteDetail = async function(container, params) {
         </div>
       `;
 
-      var addExpBtn = document.getElementById('sdt-add-exp-btn');
-      if (addExpBtn) {
-        addExpBtn.onclick = function() {
-          openAddExpenseSheet(siteId);
-        };
-      }
+      _bindMoneyEvents(pane);
+      _tabData['money'] = pane.innerHTML;
+      _tabLoaded['money'] = true;
     } catch(e) {
-      moneyEl.innerHTML = `<div class="card text-error">${esc(e.message || 'Failed to load financial data')}</div>`;
+      if (moneyEl) moneyEl.innerHTML = `<div class="card text-error">${esc(e.message || 'Failed to load financial data')}</div>`;
+    }
+  }
+
+  function _bindMoneyEvents(pane) {
+    var mgrAddBtn = pane.querySelector('#sdt-mgr-add-exp-btn');
+    if (mgrAddBtn) {
+      mgrAddBtn.onclick = function() {
+        openAddExpenseSheet(siteId);
+      };
+    }
+    var addExpBtn = pane.querySelector('#sdt-add-exp-btn');
+    if (addExpBtn) {
+      addExpBtn.onclick = function() {
+        openAddExpenseSheet(siteId);
+      };
     }
   }
 
@@ -509,10 +563,9 @@ window.pages.siteDetail = async function(container, params) {
           await window.api.call('exp.add', payload);
           window.ui.closeBottomSheet();
           window.ui.toast('Site expense recorded successfully', 'success');
-          if (currentTab === 'money') {
-            var pane = document.getElementById('sdt-tab-money');
-            if (pane) renderMoneyTab(pane);
-          }
+          delete _tabLoaded['money'];
+          delete _tabData['money'];
+          if (currentTab === 'money') renderCurrentTab();
         } catch(err) {
           errEl.textContent = err.message || 'Failed to save expense';
           errEl.style.display = 'block';
@@ -576,14 +629,9 @@ window.pages.siteDetail = async function(container, params) {
   }
 
   function openAssignUsersSheet() {
-    Promise.all([
-      window.api.call('users.list', {}),
-      window.api.call('sites.get', { site_id: siteId })
-    ]).then(function(results) {
-      var uRes = results[0];
-      var sRes = results[1];
+    window.api.call('users.list', {}).then(function(uRes) {
       var allUsers = (uRes && uRes.items || []).filter(function(u) { return u.role === 'SITE_USER' && u.is_active !== false; });
-      var assignedIds = ((sRes && sRes.assigned_users) || []).map(function(u) { return u.user_id; });
+      var assignedIds = (assignedUsersData || []).map(function(u) { return u.user_id; });
       var formHtml = '<form id="sdt-assign-form" novalidate>' +
         '<p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:0.75rem;">Select site users to assign to this site:</p>' +
         '<div style="display:flex;flex-direction:column;gap:0.5rem;margin-bottom:1rem;">' +
@@ -607,18 +655,16 @@ window.pages.siteDetail = async function(container, params) {
             await window.api.call('sites.assignUsers', { site_id: siteId, user_ids: checked });
             window.ui.closeBottomSheet();
             window.ui.toast('Users assigned', 'success');
+            assignedUsersData = allUsers.filter(function(u) { return checked.indexOf(u.user_id) !== -1; });
             var assignedEl = document.getElementById('sdt-assigned-list');
             if (assignedEl) {
-              window.api.call('sites.get', { site_id: siteId }).then(function(res) {
-                var users = (res && res.assigned_users) || [];
-                if (!users.length) {
-                  assignedEl.innerHTML = '<span style="color:var(--text-muted);font-size:0.875rem;">No users assigned</span>';
-                } else {
-                  assignedEl.innerHTML = users.map(function(u) {
-                    return '<span class="badge" style="margin-right:0.35rem;">' + window.ui.esc(u.name || u.user_id) + '</span>';
-                  }).join('');
-                }
-              }).catch(function() {});
+              if (!assignedUsersData.length) {
+                assignedEl.innerHTML = '<span style="color:var(--text-muted);font-size:0.875rem;">No users assigned</span>';
+              } else {
+                assignedEl.innerHTML = assignedUsersData.map(function(u) {
+                  return '<span class="badge" style="margin-right:0.35rem;">' + window.ui.esc(u.name || u.user_id) + '</span>';
+                }).join('');
+              }
             }
           } catch(err) { window.ui.toast(err.message || 'Failed', 'error'); }
         });
@@ -723,19 +769,16 @@ window.pages.siteDetail = async function(container, params) {
       assignedDiv.style.cssText = 'padding:1rem;margin-top:1rem;';
       assignedDiv.innerHTML = '<h3 style="margin:0 0 0.75rem;font-size:1.05rem;">Assigned Users</h3><div id="sdt-assigned-list"><span class="spinner"></span></div><button id="sdt-assign-btn" class="btn btn-secondary" style="margin-top:0.75rem;min-height:44px;">Manage Assignments</button>';
       pane.appendChild(assignedDiv);
-      // Load assigned users
-      window.api.call('sites.get', { site_id: siteId }).then(function(res) {
-        var assignedEl = document.getElementById('sdt-assigned-list');
-        if (!assignedEl) return;
-        var users = (res && res.assigned_users) || [];
-        if (!users.length) {
+      var assignedEl = document.getElementById('sdt-assigned-list');
+      if (assignedEl) {
+        if (!assignedUsersData.length) {
           assignedEl.innerHTML = '<span style="color:var(--text-muted);font-size:0.875rem;">No users assigned</span>';
         } else {
-          assignedEl.innerHTML = users.map(function(u) {
+          assignedEl.innerHTML = assignedUsersData.map(function(u) {
             return '<span class="badge" style="margin-right:0.35rem;">' + window.ui.esc(u.name || u.user_id) + '</span>';
           }).join('');
         }
-      }).catch(function() {});
+      }
       var assignBtn = document.getElementById('sdt-assign-btn');
       if (assignBtn) {
         assignBtn.onclick = function() { openAssignUsersSheet(); };
@@ -747,7 +790,8 @@ window.pages.siteDetail = async function(container, params) {
   // ---------------------------------------------------------------------------
   // Issue Material Bottom Sheet
   // ---------------------------------------------------------------------------
-  function openIssueMaterialSheet() {
+  async function openIssueMaterialSheet() {
+    await ensureProductsLoaded();
     var prodsList = Object.values(productsMap);
     var formHtml = `
       <form id="sdt-issue-form" novalidate>
@@ -834,7 +878,11 @@ window.pages.siteDetail = async function(container, params) {
           });
           window.ui.closeBottomSheet();
           window.ui.toast('Materials issued successfully', 'success');
-          if (currentTab === 'material') renderCurrentTab();
+          delete _tabLoaded['material'];
+          delete _tabData['material'];
+          delete _tabLoaded['serials'];
+          delete _tabData['serials'];
+          if (currentTab === 'material' || currentTab === 'serials') renderCurrentTab();
         } catch(err) {
           errEl.textContent = err.message || 'Failed to issue material';
           errEl.style.display = 'block';
