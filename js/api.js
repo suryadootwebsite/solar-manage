@@ -45,6 +45,7 @@ window.api = (function() {
   var _inFlight = {};
   // C1: Short read-only cache (20s) for idempotent GET-like actions
   var _readCache = {};
+  var _cacheEpoch = 0;
   var READ_ACTIONS = ['sites.list','sites.get','lots.list','lots.get','dashboard.get',
     'users.list','products.list','suppliers.list','customers.list','locations.list',
     'masters.list','reports.get','stock.summary','stages.list','serials.list',
@@ -59,9 +60,73 @@ window.api = (function() {
     return READ_ACTIONS.indexOf(action) !== -1;
   }
 
+  function _clearEntityStorage(action) {
+    var prefix = (action || '').split('.')[0].toLowerCase();
+    var related = [prefix];
+
+    if (prefix === 'stages' || prefix === 'usage' || prefix === 'serials') {
+      related.push('sites', 'stock', 'dashboard');
+    } else if (prefix === 'sites') {
+      related.push('dashboard');
+    } else if (prefix === 'lots' || prefix === 'transfers' || prefix === 'stock' || prefix === 'openingimport') {
+      related.push('stock', 'lots', 'dashboard');
+    } else if (prefix === 'cpay' || prefix === 'spay' || prefix === 'exp' || prefix === 'subsidy') {
+      related.push('money', 'dashboard', 'sites');
+    } else if (prefix === 'customers') {
+      related.push('customers', 'dashboard');
+    } else if (prefix === 'suppliers') {
+      related.push('suppliers');
+    } else if (prefix === 'products') {
+      related.push('products', 'stock');
+    } else if (prefix === 'users' || prefix === 'auth') {
+      related.push('users');
+    }
+
+    if (related.indexOf('dashboard') === -1) {
+      related.push('dashboard');
+    }
+
+    try {
+      if (typeof sessionStorage !== 'undefined') {
+        var toRemove = [];
+        for (var i = 0; i < sessionStorage.length; i++) {
+          var k = sessionStorage.key(i);
+          if (!k) continue;
+          if (k.indexOf('sms_auth_') === 0 || k === 'auth_token' || k === 'auth_user' || k === 'auth_perms') {
+            continue;
+          }
+          var lower = k.toLowerCase();
+          for (var r = 0; r < related.length; r++) {
+            if (lower.indexOf(related[r]) !== -1) {
+              toRemove.push(k);
+              break;
+            }
+          }
+        }
+        for (var j = 0; j < toRemove.length; j++) {
+          sessionStorage.removeItem(toRemove[j]);
+        }
+      }
+    } catch (e) {}
+
+    try {
+      if (typeof window !== 'undefined' && window.masterCache && typeof window.masterCache.invalidate === 'function') {
+        for (var m = 0; m < related.length; m++) {
+          window.masterCache.invalidate(related[m]);
+        }
+      }
+    } catch (e) {}
+  }
+
   function invalidate(action) {
+    _cacheEpoch++;
     if (!action) {
       _readCache = {};
+      for (var ifk in _inFlight) {
+        if (_isReadAction(ifk.split(':')[0])) {
+          delete _inFlight[ifk];
+        }
+      }
       return;
     }
     var prefix = action + ':';
@@ -70,6 +135,12 @@ window.api = (function() {
         delete _readCache[k];
       }
     }
+    for (var k2 in _inFlight) {
+      if (k2.indexOf(prefix) === 0) {
+        delete _inFlight[k2];
+      }
+    }
+    _clearEntityStorage(action);
   }
 
   /**
@@ -94,17 +165,33 @@ window.api = (function() {
 
     var p = _fetchWithRetry(action, payload, options);
     if (_isReadAction(action)) {
+      var readEpoch = _cacheEpoch;
       _inFlight[key] = p;
       p.then(function(data) {
-        _readCache[key] = { data: data, ts: Date.now() };
+        if (_cacheEpoch === readEpoch) {
+          _readCache[key] = { data: data, ts: Date.now() };
+        }
         delete _inFlight[key];
         return data;
       }, function(err) {
         delete _inFlight[key];
         throw err;
       });
+      return p;
     }
-    return p;
+
+    // After ANY successful non-read call, clear read cache, in-flight reads, and related entity storage
+    return p.then(function(data) {
+      _cacheEpoch++;
+      _readCache = {};
+      for (var ifk in _inFlight) {
+        if (_isReadAction(ifk.split(':')[0])) {
+          delete _inFlight[ifk];
+        }
+      }
+      _clearEntityStorage(action);
+      return data;
+    });
   }
 
   async function _fetchWithRetry(action, payload, options) {

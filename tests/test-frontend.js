@@ -121,7 +121,7 @@ const sandbox = {
     addEventListener: () => {}
   },
   document: {
-    getElementById: () => null,
+    getElementById: () => null, querySelector: () => null, querySelectorAll: () => [], addEventListener: () => {}, removeEventListener: () => {},
     createElement: () => ({ appendChild: () => {}, querySelector: () => null, addEventListener: () => {} }),
     body: { classList: { add: () => {}, remove: () => {} } }
   }
