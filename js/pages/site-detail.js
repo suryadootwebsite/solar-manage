@@ -1275,6 +1275,9 @@ window.pages.siteDetail = async function(container, params) {
             <button type="button" id="usf-btn-gallery" class="btn btn-secondary btn-sm" style="display:flex; align-items:center; gap:0.35rem;">
               📁 <span>Gallery / Multi-Select</span>
             </button>
+            <button type="button" id="usf-btn-upload-now" class="btn btn-primary btn-sm" style="display:none; align-items:center; gap:0.35rem; background:var(--brand,#059669); color:#fff;" title="Upload without changing stage status">
+              📤 <span>Upload Photos Now</span>
+            </button>
           </div>
 
           <!-- Staged Previews Grid -->
@@ -1294,6 +1297,7 @@ window.pages.siteDetail = async function(container, params) {
     var cameraInput = document.getElementById('usf-camera-input');
     var btnCamera = document.getElementById('usf-btn-camera');
     var btnGallery = document.getElementById('usf-btn-gallery');
+    var btnUploadNow = document.getElementById('usf-btn-upload-now');
     var existingGrid = document.getElementById('usf-existing-grid');
     var existingBadge = document.getElementById('usf-existing-count-badge');
     var stagedGrid = document.getElementById('usf-staged-grid');
@@ -1316,10 +1320,11 @@ window.pages.siteDetail = async function(container, params) {
 
       existingGrid.innerHTML = existingPhotos.map(function(p) {
         var thumbUrl = 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(p.drive_file_id) + '&sz=w200';
+        var altThumb = 'https://lh3.googleusercontent.com/d/' + encodeURIComponent(p.drive_file_id) + '=w200';
         var viewUrl = 'https://drive.google.com/file/d/' + encodeURIComponent(p.drive_file_id) + '/view';
         return `
           <div style="position:relative; width:80px; height:80px; flex-shrink:0; border-radius:6px; overflow:hidden; border:1px solid var(--border,#cbd5e1); cursor:pointer; background:#f1f5f9;" title="${esc(p.caption || 'Stage Photo')}" onclick="window.open('${viewUrl}', '_blank')">
-            <img src="${thumbUrl}" alt="Photo" style="width:100%; height:100%; object-fit:cover;" onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'32\' height=\'32\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%2394a3b8\' stroke-width=\'2\'><rect width=\'18\' height=\'18\' x=\'3\' y=\'3\' rx=\'2\'/><circle cx=\'9\' cy=\'9\' r=\'2\'/><path d=\'m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21\'/></svg>';" />
+            <img src="${thumbUrl}" alt="Photo" style="width:100%; height:100%; object-fit:cover;" onerror="this.onerror=null; this.src='${altThumb}';" />
             <span style="position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,0.65); color:#fff; font-size:0.6rem; text-align:center; padding:1px 0;">View ↗</span>
           </div>
         `;
@@ -1349,9 +1354,11 @@ window.pages.siteDetail = async function(container, params) {
         stagedGrid.style.display = 'none';
         stagedGrid.innerHTML = '';
         if (stagedBadge) stagedBadge.textContent = '';
+        if (btnUploadNow) btnUploadNow.style.display = 'none';
         return;
       }
       stagedGrid.style.display = 'flex';
+      if (btnUploadNow) btnUploadNow.style.display = 'inline-flex';
       if (stagedBadge) stagedBadge.textContent = stagedPhotos.length + ' photo' + (stagedPhotos.length > 1 ? 's' : '') + ' ready';
 
       stagedGrid.innerHTML = stagedPhotos.map(function(p, idx) {
@@ -1410,6 +1417,50 @@ window.pages.siteDetail = async function(container, params) {
 
     btnCamera.onclick = function() { cameraInput.click(); };
     btnGallery.onclick = function() { galleryInput.click(); };
+
+    if (btnUploadNow) {
+      btnUploadNow.onclick = async function() {
+        if (!stagedPhotos.length) return;
+        window.ui.withButtonLoading(btnUploadNow, async function() {
+          try {
+            errEl.style.display = 'none';
+            for (var i = 0; i < stagedPhotos.length; i++) {
+              var p = stagedPhotos[i];
+              btnUploadNow.textContent = 'Uploading (' + (i + 1) + '/' + stagedPhotos.length + ')...';
+              await window.api.call('photos.upload', {
+                site_id:     site.site_id,
+                stage_id:    stg.stage_id,
+                caption:     (sm.name_en || stg.stage_id) + ' proof (' + (i + 1) + '/' + stagedPhotos.length + ')',
+                data_base64: p.base64,
+                mime_type:   p.mimeType,
+                file_name:   p.fileName
+              });
+            }
+            var count = stagedPhotos.length;
+            stagedPhotos = [];
+            renderStaged();
+            _tabLoaded['photos'] = false;
+            window.ui.toast(count + ' photo(s) uploaded successfully! 📸', 'success');
+
+            // Refresh existing photos immediately
+            var freshRes = await window.api.call('photos.list', { site_id: site.site_id });
+            if (freshRes && freshRes.photos) {
+              sitePhotosData = freshRes.photos;
+              var freshMatches = freshRes.photos.filter(function(p) {
+                return p.stage_id === stg.stage_id && !p.archived && p.is_active !== false;
+              });
+              renderExisting(freshMatches);
+            }
+            loadDetails();
+          } catch(uploadErr) {
+            errEl.textContent = 'Upload failed: ' + (uploadErr.message || uploadErr);
+            errEl.style.display = 'block';
+          } finally {
+            btnUploadNow.innerHTML = '📤 <span>Upload Photos Now</span>';
+          }
+        });
+      };
+    }
 
     cameraInput.onchange = function() { handleFilesSelected(cameraInput.files); };
     galleryInput.onchange = function() { handleFilesSelected(galleryInput.files); };
