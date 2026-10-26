@@ -140,7 +140,8 @@ window.pages.siteDetail = async function(container, params) {
     var tabs = [
       { id: 'stages', label: t('sites.tab_stages') || 'Stages' },
       { id: 'material', label: t('sites.tab_material') || 'Material' },
-      { id: 'serials', label: t('sites.tab_serials') || 'Serials' }
+      { id: 'serials', label: t('sites.tab_serials') || 'Serials' },
+      { id: 'photos', label: t('sites.tab_photos') || 'Photos' }
     ];
     if (isOwner || userRole === 'MANAGER') {
       tabs.push({ id: 'money', label: t('sites.tab_money') || 'Money' });
@@ -208,6 +209,8 @@ window.pages.siteDetail = async function(container, params) {
       renderMaterialTab(pane);
     } else if (currentTab === 'serials') {
       renderSerialsTab(pane);
+    } else if (currentTab === 'photos') {
+      renderPhotosTab(pane);
     } else if (currentTab === 'money') {
       renderMoneyTab(pane);
     } else if (currentTab === 'info') {
@@ -220,6 +223,7 @@ window.pages.siteDetail = async function(container, params) {
     var stagesHtml = stagesData.map(function(stg) {
       var sm = smMap[stg.stage_id] || {};
       var stgClass = stg.status === 'COMPLETED' ? 'badge-success' : (stg.status === 'IN_PROGRESS' ? 'badge-warning' : (stg.status === 'BLOCKED' ? 'badge-danger' : 'badge-disabled'));
+      var isReqPhoto = sm.requires_photo === true || sm.requires_photo === 'TRUE' || sm.requires_photo === 1;
 
       return `
         <div class="card sdt-stage-card" data-sid="${stg.stage_id}" style="margin-bottom:0.5rem; padding:0.75rem; cursor:pointer;">
@@ -227,7 +231,10 @@ window.pages.siteDetail = async function(container, params) {
             <div style="display:flex; align-items:center; gap:0.5rem;">
               <span class="badge" style="background:#f1f5f9; font-weight:700;">${stg.seq}</span>
               <div>
-                <div style="font-weight:600;">${esc(sm.name_en || stg.stage_id)}</div>
+                <div style="font-weight:600; display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap;">
+                  <span>${esc(sm.name_en || stg.stage_id)}</span>
+                  ${isReqPhoto ? '<span class="badge" style="background:#fef3c7; color:#92400e; font-size:0.68rem; font-weight:600; padding:0.15rem 0.4rem; border:1px solid #fde68a;">📷 Photo Required</span>' : ''}
+                </div>
                 <div style="font-size:0.8rem; color:var(--text-muted);">${esc(sm.name_hi || '')}</div>
               </div>
             </div>
@@ -1182,10 +1189,12 @@ window.pages.siteDetail = async function(container, params) {
   }
 
   // ---------------------------------------------------------------------------
-  // Update Stage Bottom Sheet (Doc 06 S07)
+  // Update Stage Bottom Sheet (Doc 06 S07 + S12 Photo Proof Integration)
   // ---------------------------------------------------------------------------
   function openUpdateStageDialog(site, stg, sm) {
     var stageName = sm.name_en || stg.stage_id;
+    var isReqPhoto = sm.requires_photo === true || sm.requires_photo === 'TRUE' || sm.requires_photo === 1;
+
     var formHtml = `
       <form id="update-stage-form" novalidate>
         <p class="text-muted" style="margin:0 0 1rem 0;">Current Status: <strong>${stg.status}</strong></p>
@@ -1207,7 +1216,33 @@ window.pages.siteDetail = async function(container, params) {
           <label>Remark / Notes</label>
           <textarea id="usf-remark" class="input" rows="2">${esc(stg.remark || '')}</textarea>
         </div>
-        <div id="usf-error" class="text-error" style="display:none; margin-bottom:0.75rem;"></div>
+
+        <!-- S12 Photo Proof for Stage -->
+        <div class="form-field" style="margin-top:0.75rem; padding:0.75rem; background:var(--card-bg,#f8fafc); border:1px solid var(--border,#e2e8f0); border-radius:6px;">
+          <label style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.35rem; font-weight:600;">
+            <span>Stage Photo Proof ${isReqPhoto ? '<span class="text-error" style="font-weight:700;">* (Mandatory)</span>' : '<span class="text-muted">(Optional)</span>'}</span>
+            <span id="usf-photo-badge" style="font-size:0.75rem; color:var(--text-muted);"></span>
+          </label>
+          <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.5rem;">
+            ${isReqPhoto ? 'This stage requires photo proof before it can be marked COMPLETED.' : 'Capture or upload site photo for this stage.'}
+          </div>
+
+          <input type="file" id="usf-photo-input" accept="image/*" capture="environment" style="display:none;">
+
+          <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+            <button type="button" id="usf-btn-attach" class="btn btn-secondary btn-sm" style="display:flex; align-items:center; gap:0.35rem;">
+              📷 <span>Attach / Take Photo</span>
+            </button>
+            <span id="usf-file-name" style="font-size:0.8rem; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:180px;"></span>
+          </div>
+
+          <div id="usf-preview-wrap" style="display:none; margin-top:0.5rem; position:relative; width:110px; height:110px; border-radius:6px; overflow:hidden; border:1px solid var(--border,#cbd5e1);">
+            <img id="usf-preview-img" style="width:100%; height:100%; object-fit:cover;" alt="Stage proof">
+            <button type="button" id="usf-btn-clear" style="position:absolute; top:3px; right:3px; background:rgba(0,0,0,0.65); color:#fff; border:none; border-radius:50%; width:22px; height:22px; font-size:12px; cursor:pointer; line-height:22px; text-align:center;">✕</button>
+          </div>
+        </div>
+
+        <div id="usf-error" class="text-error" style="display:none; margin-bottom:0.75rem; margin-top:0.5rem;"></div>
         <button type="submit" id="usf-submit" class="btn btn-primary btn-full">Save Stage Status</button>
       </form>
     `;
@@ -1216,15 +1251,72 @@ window.pages.siteDetail = async function(container, params) {
 
     var statusSelect = document.getElementById('usf-status');
     var reasonWrap = document.getElementById('usf-reason-wrap');
+    var photoInput = document.getElementById('usf-photo-input');
+    var btnAttach = document.getElementById('usf-btn-attach');
+    var btnClear = document.getElementById('usf-btn-clear');
+    var fileNameEl = document.getElementById('usf-file-name');
+    var previewWrap = document.getElementById('usf-preview-wrap');
+    var previewImg = document.getElementById('usf-preview-img');
+    var photoBadge = document.getElementById('usf-photo-badge');
+    var errEl = document.getElementById('usf-error');
+    var submitBtn = document.getElementById('usf-submit');
+
+    var stagedPhoto = null;
+    var existingPhotosCount = 0;
+
+    // Check if stage already has photos recorded
+    try {
+      window.api.call('photos.list', { site_id: site.site_id }).then(function(res) {
+        if (res && res.photos) {
+          var matching = res.photos.filter(function(p) { return p.stage_id === stg.stage_id && !p.archived; });
+          existingPhotosCount = matching.length;
+          if (photoBadge && existingPhotosCount > 0) {
+            photoBadge.innerHTML = '✓ ' + existingPhotosCount + ' photo' + (existingPhotosCount > 1 ? 's' : '') + ' on record';
+            photoBadge.style.color = 'var(--brand, #059669)';
+          }
+        }
+      }).catch(function() {});
+    } catch(e) {}
 
     statusSelect.onchange = function() {
       reasonWrap.style.display = statusSelect.value === 'BLOCKED' ? 'block' : 'none';
     };
 
+    btnAttach.onclick = function() {
+      photoInput.click();
+    };
+
+    photoInput.onchange = async function() {
+      if (!photoInput.files || !photoInput.files[0]) return;
+      var file = photoInput.files[0];
+      try {
+        btnAttach.disabled = true;
+        btnAttach.textContent = 'Compressing...';
+        stagedPhoto = await compressImage(file, 1280, 0.8);
+        if (stagedPhoto) {
+          previewImg.src = 'data:' + stagedPhoto.mimeType + ';base64,' + stagedPhoto.base64;
+          previewWrap.style.display = 'block';
+          fileNameEl.textContent = stagedPhoto.fileName;
+          btnAttach.innerHTML = '📷 <span>Change Photo</span>';
+        }
+      } catch (err) {
+        errEl.textContent = 'Failed to process image: ' + (err.message || err);
+        errEl.style.display = 'block';
+      } finally {
+        btnAttach.disabled = false;
+      }
+    };
+
+    btnClear.onclick = function() {
+      stagedPhoto = null;
+      photoInput.value = '';
+      previewWrap.style.display = 'none';
+      fileNameEl.textContent = '';
+      btnAttach.innerHTML = '📷 <span>Attach / Take Photo</span>';
+    };
+
     document.getElementById('update-stage-form').onsubmit = async function(e) {
       e.preventDefault();
-      var errEl = document.getElementById('usf-error');
-      var submitBtn = document.getElementById('usf-submit');
       errEl.style.display = 'none';
 
       var toStatus = statusSelect.value;
@@ -1243,8 +1335,29 @@ window.pages.siteDetail = async function(container, params) {
         return;
       }
 
+      // Enforce requires_photo when marking stage COMPLETED
+      if (toStatus === 'COMPLETED' && isReqPhoto) {
+        if (!stagedPhoto && existingPhotosCount === 0) {
+          errEl.textContent = 'Photo proof is required to mark this stage as COMPLETED. Please attach or capture a photo.';
+          errEl.style.display = 'block';
+          return;
+        }
+      }
+
       window.ui.withButtonLoading(submitBtn, async function() {
         try {
+          if (stagedPhoto) {
+            await window.api.call('photos.upload', {
+              site_id:     site.site_id,
+              stage_id:    stg.stage_id,
+              caption:     'Stage proof: ' + stageName,
+              data_base64: stagedPhoto.base64,
+              mime_type:   stagedPhoto.mimeType,
+              file_name:   stagedPhoto.fileName
+            });
+            _tabLoaded['photos'] = false;
+          }
+
           await window.api.call('stages.update', {
             site_id:      site.site_id,
             stage_id:     stg.stage_id,
@@ -1253,7 +1366,7 @@ window.pages.siteDetail = async function(container, params) {
             remark:       remark
           });
           window.ui.closeBottomSheet();
-          window.ui.toast('Stage updated', 'success');
+          window.ui.toast(stagedPhoto ? 'Stage updated and photo uploaded!' : 'Stage updated', 'success');
           await loadDetails();
 
           // P2-2: Prompt ONLY for "Material Dispatched" (seq 5)
