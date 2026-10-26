@@ -54,12 +54,10 @@
   "err.VERSION_MISMATCH": "एप्लिकेशन वर्शन बेमेल। कृपया पेज रीलोड करें।",
   "err.DEV_ONLY": "यह क्रिया केवल डेवलपर वातावरण तक सीमित है।",
   "err.GENERIC": "एक त्रुटि हुई। कृपया पुनः प्रयास करें।",
-
   "btn.copy": "कॉपी करें",
   "btn.copied": "कॉपी हो गया!",
   "btn.close": "बंद करें",
   "btn.retry": "पुनः प्रयास करें",
-
   "login.title": "सूर्यदूत एनर्जी सॉल्यूशन",
   "login.subtitle": "जारी रखने के लिए साइन इन करें",
   "login.username_label": "उपयोगकर्ता नाम",
@@ -70,7 +68,6 @@
   "login.submit_btn": "साइन इन करें",
   "login.welcome": "स्वागत है, {name}",
   "login.must_change_pwd_notice": "जारी रखने से पहले आपको नया पासवर्ड सेट करना होगा।",
-
   "change_pwd.title": "पासवर्ड बदलें",
   "change_pwd.forced_title": "नया पासवर्ड सेट करें",
   "change_pwd.forced_notice": "जारी रखने से पहले आपको नया पासवर्ड सेट करना होगा।",
@@ -80,7 +77,6 @@
   "change_pwd.submit_btn": "पासवर्ड बदलें",
   "change_pwd.mismatch": "पासवर्ड मेल नहीं खाते।",
   "change_pwd.success": "पासवर्ड सफलतापूर्वक बदला गया।",
-
   "users.title": "उपयोगकर्ता",
   "users.subtitle": "टीम पहुंच प्रबंधित करें",
   "users.new_btn": "उपयोगकर्ता जोड़ें",
@@ -95,7 +91,6 @@
   "users.temp_pwd_notice": "इस पासवर्ड को सुरक्षित तरीके से साझा करें। पहले लॉगिन पर उपयोगकर्ता को इसे बदलना होगा।",
   "users.reset_pwd_confirm_title": "पासवर्ड रीसेट करें?",
   "users.disable_confirm_title": "उपयोगकर्ता अक्षम करें?",
-
   "settings.title": "सेटिंग्स",
   "settings.change_pwd": "पासवर्ड बदलें",
   "settings.logout": "साइन आउट",
@@ -149,16 +144,11 @@
   "settings.desc.env": "वर्तमान एप्लिकेशन परिनियोजन रनटाइम वातावरण",
   "settings.key.currency": "सिस्टम मुद्रा",
   "settings.desc.currency": "मूल मुद्रा कोड और प्रारूप प्रतीक",
-
-  "nav.masters": "मास्टर्स",
-  "nav.customers": "ग्राहक",
-
   "masters.title": "मास्टर्स",
   "masters.tab_products": "उत्पाद",
   "masters.tab_suppliers": "आपूर्तिकर्ता",
   "masters.tab_locations": "गोदाम",
   "masters.tab_stages": "चरण",
-
   "products.title": "उत्पाद",
   "products.new_btn": "उत्पाद जोड़ें",
   "products.search_placeholder": "उत्पाद खोजें…",
@@ -174,7 +164,6 @@
   "products.low_stock_label": "कम स्टॉक अलर्ट स्तर",
   "products.hsn_label": "एचएसएन कोड",
   "products.gst_label": "डिफ़ॉल्ट जीएसटी दर (%)",
-
   "suppliers.title": "आपूर्तिकर्ता",
   "suppliers.new_btn": "आपूर्तिकर्ता जोड़ें",
   "suppliers.search_placeholder": "आपूर्तिकर्ता खोजें…",
@@ -183,7 +172,6 @@
   "suppliers.gst_label": "जीएसटी नंबर",
   "suppliers.phone_label": "फ़ोन नंबर",
   "suppliers.address_label": "पता",
-
   "customers.title": "ग्राहक",
   "customers.subtitle": "सौर परियोजना ग्राहकों की सूची",
   "customers.new_btn": "ग्राहक जोड़ें",
@@ -195,7 +183,6 @@
   "customers.city_label": "शहर",
   "customers.pincode_label": "पिनकोड",
   "customers.address_label": "पता",
-
   "locations.title": "गोदाम / स्थान",
   "locations.new_btn": "स्थान जोड़ें",
   "locations.search_placeholder": "स्थान खोजें…",
@@ -203,7 +190,6 @@
   "locations.name_label": "गोदाम / स्थान का नाम",
   "locations.branch_label": "शाखा",
   "locations.address_label": "पता",
-
   "stages.title": "प्रोजेक्ट चरण",
   "stages.new_btn": "चरण जोड़ें",
   "stages.empty": "कोई चरण परिभाषित नहीं है।",
@@ -213,7 +199,6 @@
   "stages.photo_req_label": "फ़ोटो प्रमाण आवश्यक",
   "stages.mandatory_label": "अनिवार्य चरण",
   "stages.milestone_label": "मील का पत्थर (माइलस्टोन)",
-
   "nav.lots": "खरीद (Lots)",
   "lots.title": "खरीद लॉट (Purchase Lots)",
   "lots.subtitle": "आवक स्टॉक खरीद एवं लागत मूल्यांकन",
@@ -228,11 +213,9 @@
   "lots.status_return_in_progress": "वापसी प्रगति पर",
   "lots.status_returned": "वापस हुआ",
   "lots.status_cancelled": "रद्द किया गया",
-
   "stock.title": "स्टॉक इन्वेंटरी",
   "stock.subtitle": "गोदाम स्तर, बैच और इन-ट्रांजिट स्टॉक ट्रैकिंग",
   "stock.empty": "कोई स्टॉक रिकॉर्ड नहीं मिला।",
-
   "common.loading": "लोड हो रहा है...",
   "common.search": "खोजें",
   "sites.tab_stages": "स्टेज (Stages)",
@@ -249,7 +232,6 @@
   "sites.subtitle": "सक्रिय स्थापना एवं चरणबद्ध प्रगति",
   "sites.new_btn": "नई साइट जोड़ें",
   "sites.empty": "कोई सौर साइट नहीं मिली।",
-
   "usage.title": "सामग्री निकासी (Material Issue)",
   "usage.subtitle": "सामग्री जारी करें और साइट खपत ट्रैक करें",
   "usage.new_issue": "नई निकासी",
@@ -270,7 +252,6 @@
   "usage.submit_issue": "सामग्री जारी करें",
   "usage.issue_success": "सामग्री सफलतापूर्वक जारी की गई",
   "usage.return_success": "सामग्री सफलतापूर्वक वापस ली गई",
-
   "serials.title": "सीरियल रजिस्टर",
   "serials.subtitle": "सीरियल नंबर खोजें, वारंटी और प्रतिस्थापन प्रबंधित करें",
   "serials.search_placeholder": "सीरियल नंबर खोजें...",
@@ -284,7 +265,6 @@
   "serials.reason": "खराबी का कारण",
   "serials.confirm_replace": "प्रतिस्थापन की पुष्टि करें",
   "serials.replace_success": "सीरियल सफलतापूर्वक बदला गया",
-
   "money.title": "वित्तीय प्रबंधन (Financial)",
   "money.subtitle": "ग्राहक भुगतान, खर्च, सप्लायर खाता और साइट लाभ-हानि",
   "money.tab_cpay": "ग्राहक भुगतान एवं लाभ-हानि",
@@ -321,7 +301,6 @@
   "money.add_spay_title": "सप्लायर भुगतान दर्ज करें",
   "money.add_exp": "खर्च दर्ज करें",
   "money.expense_log": "साइट खर्च लॉग",
-
   "dash.title": "डैशबोर्ड (Dashboard)",
   "dash.loading": "डैशबोर्ड डेटा लोड हो रहा है...",
   "dash.failed": "डैशबोर्ड लोड करने में विफल",
@@ -346,7 +325,6 @@
   "dash.pending_stages": "लंबित चरण",
   "dash.stage_breakdown": "स्टेज अनुसार साइटें",
   "dash.quick_reports": "रिपोर्ट्स एवं विश्लेषण",
-
   "rep.title": "रिपोर्ट्स एवं विश्लेषण (Reports)",
   "rep.subtitle": "12 मानक रिपोर्ट एवं CSV डाउनलोड",
   "rep.select_report": "रिपोर्ट चुनें:",
@@ -355,34 +333,29 @@
   "rep.no_data": "इस रिपोर्ट के लिए कोई डेटा नहीं मिला।",
   "rep.loading": "रिपोर्ट डेटा लोड हो रहा है...",
   "rep.rows_count": "{count} रिकॉर्ड मिले",
-
   "usage.no_sites": "कोई सक्रिय साइट उपलब्ध नहीं है।",
   "usage.no_records": "कोई सामग्री निकासी रिकॉर्ड नहीं मिला।",
   "usage.reason_required": "कारण दर्ज करना अनिवार्य है।",
   "usage.select_site_first": "कृपया पहले एक साइट चुनें।",
   "usage.serial_nos": "सीरियल नंबर",
   "usage.select_product": "उत्पाद चुनें",
-
   "common.actions": "कार्रवाई (Actions)",
   "common.cancel": "रद्द करें",
   "common.confirm": "पुष्टि करें",
-
   "serials.search_hint": "सीरियल नंबर या साइट द्वारा खोजें...",
   "serials.no_results": "कोई सीरियल नहीं मिला।",
   "serials.replace_notice": "प्रतिस्थापन सूचना (Replacement)",
   "serials.no_avail": "स्टॉक में कोई सीरियल उपलब्ध नहीं है।",
   "serials.choose_new": "नया सीरियल चुनें",
-
   "err.DUPLICATE_USERNAME": "यह यूज़रनेम पहले से मौजूद है। कृपया दूसरा चुनें।",
   "err.INVALID_ROLE": "अमान्य भूमिका चुनी गई है।",
   "err.DEVELOPER_PROTECTED": "डेवलपर खाते को API के माध्यम से बदला नहीं जा सकता।",
-
   "nav.page_not_found": "पेज नहीं मिला (404)",
   "nav.page_not_found_msg": "जिस पेज को आप ढूंढ रहे हैं वह मौजूद नहीं है या हटा दिया गया है।",
   "nav.back_to_dashboard": "डैशबोर्ड पर वापस जाएं",
-
   "role.OWNER": "मालिक (Owner)",
   "role.MANAGER": "प्रबंधक (Manager)",
   "role.SITE_USER": "साइट यूज़र (Site User)",
-  "role.DEVELOPER": "डेवलपर (Developer)"
+  "role.DEVELOPER": "डेवलपर (Developer)",
+  "sites.tab_photos": "फ़ोटो (Photos)"
 }

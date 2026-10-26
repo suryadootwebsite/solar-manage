@@ -54,12 +54,10 @@
   "err.VERSION_MISMATCH": "Application version mismatch. Please reload.",
   "err.DEV_ONLY": "Diagnostic action restricted to dev environment.",
   "err.GENERIC": "An error occurred. Please try again.",
-
   "btn.copy": "Copy",
   "btn.copied": "Copied!",
   "btn.close": "Close",
   "btn.retry": "Retry",
-
   "login.title": "Suryadoot Energy Solution",
   "login.subtitle": "Sign in to continue",
   "login.username_label": "Username",
@@ -70,7 +68,6 @@
   "login.submit_btn": "Sign In",
   "login.welcome": "Welcome, {name}",
   "login.must_change_pwd_notice": "You must set a new password before continuing.",
-
   "change_pwd.title": "Change Password",
   "change_pwd.forced_title": "Set New Password",
   "change_pwd.forced_notice": "You must set a new password before continuing.",
@@ -80,7 +77,6 @@
   "change_pwd.submit_btn": "Change Password",
   "change_pwd.mismatch": "Passwords do not match.",
   "change_pwd.success": "Password changed successfully.",
-
   "users.title": "Users",
   "users.subtitle": "Manage team access",
   "users.new_btn": "Add User",
@@ -95,7 +91,6 @@
   "users.temp_pwd_notice": "Share this password securely. The user must change it on first login.",
   "users.reset_pwd_confirm_title": "Reset Password?",
   "users.disable_confirm_title": "Disable User?",
-
   "settings.title": "Settings",
   "settings.change_pwd": "Change Password",
   "settings.logout": "Sign Out",
@@ -149,16 +144,11 @@
   "settings.desc.env": "Current application deployment runtime environment",
   "settings.key.currency": "System Currency",
   "settings.desc.currency": "Base currency code and formatting symbol",
-
-  "nav.masters": "Masters",
-  "nav.customers": "Customers",
-
   "masters.title": "Masters",
   "masters.tab_products": "Products",
   "masters.tab_suppliers": "Suppliers",
   "masters.tab_locations": "Locations",
   "masters.tab_stages": "Stages",
-
   "products.title": "Products",
   "products.new_btn": "Add Product",
   "products.search_placeholder": "Search products…",
@@ -174,7 +164,6 @@
   "products.low_stock_label": "Low Stock Alert Level",
   "products.hsn_label": "HSN Code",
   "products.gst_label": "Default GST Rate (%)",
-
   "suppliers.title": "Suppliers",
   "suppliers.new_btn": "Add Supplier",
   "suppliers.search_placeholder": "Search suppliers…",
@@ -183,7 +172,6 @@
   "suppliers.gst_label": "GST Number",
   "suppliers.phone_label": "Phone Number",
   "suppliers.address_label": "Address",
-
   "customers.title": "Customers",
   "customers.subtitle": "Directory of solar clients",
   "customers.new_btn": "Add Customer",
@@ -195,7 +183,6 @@
   "customers.city_label": "City",
   "customers.pincode_label": "Pincode",
   "customers.address_label": "Address",
-
   "locations.title": "Locations (Godowns)",
   "locations.new_btn": "Add Location",
   "locations.search_placeholder": "Search locations…",
@@ -203,7 +190,6 @@
   "locations.name_label": "Godown / Location Name",
   "locations.branch_label": "Branch",
   "locations.address_label": "Address",
-
   "stages.title": "Project Stages",
   "stages.new_btn": "Add Stage",
   "stages.empty": "No stages defined.",
@@ -213,7 +199,6 @@
   "stages.photo_req_label": "Requires Photo Proof",
   "stages.mandatory_label": "Mandatory Stage",
   "stages.milestone_label": "Milestone Stage",
-
   "nav.lots": "Purchase",
   "lots.title": "Purchase Lots",
   "lots.subtitle": "Inward stock purchases & landed valuation",
@@ -228,11 +213,9 @@
   "lots.status_return_in_progress": "Return in Progress",
   "lots.status_returned": "Returned",
   "lots.status_cancelled": "Cancelled",
-
   "stock.title": "Stock Inventory",
   "stock.subtitle": "Warehouse levels, batches and in-transit tracking",
   "stock.empty": "No stock inventory records found.",
-
   "common.loading": "Loading...",
   "common.search": "Search",
   "sites.tab_stages": "Stages",
@@ -249,7 +232,6 @@
   "sites.subtitle": "Active installations and stage progress",
   "sites.new_btn": "New Site",
   "sites.empty": "No solar project sites found.",
-
   "usage.title": "Material Issue",
   "usage.subtitle": "Issue materials and track site consumption",
   "usage.new_issue": "New Issue",
@@ -270,7 +252,6 @@
   "usage.submit_issue": "Issue Materials",
   "usage.issue_success": "Materials issued successfully",
   "usage.return_success": "Material returned successfully",
-
   "serials.title": "Serial Register",
   "serials.subtitle": "Search serial numbers, manage warranties & replacements",
   "serials.search_placeholder": "Search serial number...",
@@ -284,7 +265,6 @@
   "serials.reason": "Fault Reason",
   "serials.confirm_replace": "Confirm Replacement",
   "serials.replace_success": "Serial replaced successfully",
-
   "money.title": "Financial Management",
   "money.subtitle": "Customer payments, expenses, supplier ledger & site profitability",
   "money.tab_cpay": "Customer Payments & P&L",
@@ -321,7 +301,6 @@
   "money.add_spay_title": "Record Supplier Payment",
   "money.add_exp": "Record Expense",
   "money.expense_log": "Site Expenses Log",
-
   "dash.title": "Dashboard",
   "dash.loading": "Loading dashboard data...",
   "dash.failed": "Failed to load dashboard data",
@@ -346,7 +325,6 @@
   "dash.pending_stages": "My Pending Stages",
   "dash.stage_breakdown": "Sites by Stage",
   "dash.quick_reports": "Reports & Analytics",
-
   "rep.title": "Reports & Analytics",
   "rep.subtitle": "12 standard system reports with CSV export",
   "rep.select_report": "Select Report:",
@@ -355,34 +333,29 @@
   "rep.no_data": "No rows found for this report.",
   "rep.loading": "Loading report data...",
   "rep.rows_count": "{count} records found",
-
   "usage.no_sites": "No active sites available.",
   "usage.no_records": "No material issue records found.",
   "usage.reason_required": "Reason is required.",
   "usage.select_site_first": "Please select a site first.",
   "usage.serial_nos": "Serial Numbers",
   "usage.select_product": "Select Product",
-
   "common.actions": "Actions",
   "common.cancel": "Cancel",
   "common.confirm": "Confirm",
-
   "serials.search_hint": "Search by serial number or site...",
   "serials.no_results": "No serials found matching query.",
   "serials.replace_notice": "Replacement Notice",
   "serials.no_avail": "No available serials in stock.",
   "serials.choose_new": "Choose new serial",
-
   "err.DUPLICATE_USERNAME": "This username is already taken. Please choose another.",
   "err.INVALID_ROLE": "Invalid role selected.",
   "err.DEVELOPER_PROTECTED": "Developer account cannot be modified via API.",
-
   "nav.page_not_found": "Page Not Found",
   "nav.page_not_found_msg": "The page you are looking for does not exist or has been moved.",
   "nav.back_to_dashboard": "Back to Dashboard",
-
   "role.OWNER": "Owner",
   "role.MANAGER": "Manager",
   "role.SITE_USER": "Site User",
-  "role.DEVELOPER": "Developer"
+  "role.DEVELOPER": "Developer",
+  "sites.tab_photos": "Photos"
 }

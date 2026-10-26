@@ -43,6 +43,51 @@ window.pages.siteDetail = async function(container, params) {
   var _tabLoaded = {};
   var _tabData = {};
 
+  function compressImage(file, maxDimension, quality) {
+    return new Promise(function(resolve, reject) {
+      if (!file || !file.type.startsWith('image/')) {
+        return resolve(null);
+      }
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        var img = new Image();
+        img.onload = function() {
+          var w = img.width;
+          var h = img.height;
+          var maxD = maxDimension || 1280;
+          if (w > maxD || h > maxD) {
+            if (w > h) {
+              h = Math.round((h * maxD) / w);
+              w = maxD;
+            } else {
+              w = Math.round((w * maxD) / h);
+              h = maxD;
+            }
+          }
+          var canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          var ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          var dataUrl = canvas.toDataURL('image/jpeg', quality || 0.8);
+          var base64 = dataUrl.split(',')[1];
+          resolve({
+            base64: base64,
+            mimeType: 'image/jpeg',
+            fileName: (file.name || 'photo.jpg').replace(/\.[^.]+$/, '') + '.jpg'
+          });
+        };
+        img.onerror = function() {
+          var rawBase64 = String(e.target.result).split(',')[1];
+          resolve({ base64: rawBase64, mimeType: file.type || 'image/jpeg', fileName: file.name });
+        };
+        img.src = e.target.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
   async function ensureProductsLoaded() {
     if (Object.keys(productsMap).length > 0) return productsMap;
     try {
@@ -316,6 +361,225 @@ window.pages.siteDetail = async function(container, params) {
     } catch(e) {
       if (listEl) listEl.innerHTML = `<div class="card text-error">${esc(e.message || 'Failed to load serials')}</div>`;
     }
+  }
+
+  // 3b. Photos Tab (S12)
+  async function renderPhotosTab(pane) {
+    if (_tabLoaded['photos'] && _tabData['photos']) {
+      pane.innerHTML = _tabData['photos'];
+      attachPhotosEventListeners();
+      return;
+    }
+
+    pane.innerHTML = '<div id="sdt-photos-wrap"><span class="spinner"></span></div>';
+    var wrapEl = document.getElementById('sdt-photos-wrap');
+
+    try {
+      var res = await window.api.call('photos.list', { site_id: siteId, include_archived: true });
+      var photos = (res && res.photos) || [];
+
+      var headerHtml = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+          <div>
+            <h3 style="margin:0; font-size:1.05rem;">Site Photos (${photos.length})</h3>
+            <span style="font-size:0.8rem; color:var(--text-muted);">Installation and inspection photo records</span>
+          </div>
+          <button id="btn-upload-photo" class="btn btn-primary btn-sm">📷 + Upload Photo</button>
+        </div>
+      `;
+
+      var bodyHtml = '';
+      if (!photos.length) {
+        bodyHtml = `
+          <div class="card text-muted" style="text-align:center; padding:2rem 1rem;">
+            <div style="font-size:2.5rem; margin-bottom:0.5rem;">📸</div>
+            <p style="margin:0 0 0.5rem 0; font-weight:600; font-size:1rem;">No photos attached yet</p>
+            <p style="margin:0 0 1rem 0; font-size:0.85rem;">Capture or upload site survey, structure, panels, and wiring photos.</p>
+            <button id="btn-upload-photo-empty" class="btn btn-primary btn-sm">📷 Upload First Photo</button>
+          </div>
+        `;
+      } else {
+        bodyHtml = `<div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:0.75rem;">` +
+          photos.map(function(p) {
+            var stg = stagesData.find(function(s) { return s.stage_id === p.stage_id; });
+            var sm = (stg && smMap[stg.stage_id]) || {};
+            var stgName = sm.name_en || p.stage_id || 'General';
+            var thumbUrl = 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(p.drive_file_id) + '&sz=w300';
+            var isArch = !!p.archived;
+
+            return `
+              <div class="card sdt-photo-card" data-photo-id="${esc(p.photo_id)}" style="padding:0.5rem; display:flex; flex-direction:column; justify-content:space-between; cursor:pointer;">
+                <div style="position:relative; width:100%; height:110px; background:var(--border,#e2e8f0); border-radius:4px; overflow:hidden; display:flex; align-items:center; justify-content:center;">
+                  <img src="${thumbUrl}" alt="${esc(p.caption || 'Photo')}" loading="lazy" style="width:100%; height:100%; object-fit:cover;" onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'40\' height=\'40\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%2394a3b8\' stroke-width=\'2\'><rect width=\'18\' height=\'18\' x=\'3\' y=\'3\' rx=\'2\'/><circle cx=\'9\' cy=\'9\' r=\'2\'/><path d=\'m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21\'/></svg>';">
+                  ${isArch ? '<span style="position:absolute; top:4px; right:4px; background:rgba(0,0,0,0.7); color:#fff; font-size:0.65rem; padding:2px 4px; border-radius:3px;">Archived</span>' : ''}
+                </div>
+                <div style="margin-top:0.4rem; font-size:0.75rem;">
+                  <span class="badge badge-secondary" style="font-size:0.65rem; display:inline-block; margin-bottom:0.2rem;">${esc(stgName)}</span>
+                  <div style="font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${esc(p.caption || 'Photo')}">${esc(p.caption || 'No caption')}</div>
+                  <div style="color:var(--text-muted); font-size:0.7rem; margin-top:0.15rem;">${(p.uploaded_at || '').slice(0, 10)} · ${p.size_kb || 0} KB</div>
+                </div>
+                ${(isOwner || userRole === 'DEVELOPER') ? `
+                  <button class="btn btn-outline btn-sm btn-delete-photo" data-photo-id="${esc(p.photo_id)}" style="margin-top:0.4rem; padding:0.2rem 0.4rem; font-size:0.7rem; color:#dc2626; border-color:#fca5a5;">🗑️ Delete</button>
+                ` : ''}
+              </div>
+            `;
+          }).join('') +
+        `</div>`;
+      }
+
+      wrapEl.innerHTML = headerHtml + bodyHtml;
+      _tabData['photos'] = wrapEl.innerHTML;
+      _tabLoaded['photos'] = true;
+      attachPhotosEventListeners();
+    } catch(err) {
+      if (wrapEl) wrapEl.innerHTML = `<div class="card text-error">${esc(err.message || 'Failed to load photos')}</div>`;
+    }
+  }
+
+  function attachPhotosEventListeners() {
+    var upBtn = document.getElementById('btn-upload-photo');
+    if (upBtn) {
+      upBtn.onclick = function() { openUploadPhotoModal(); };
+    }
+    var upEmptyBtn = document.getElementById('btn-upload-photo-empty');
+    if (upEmptyBtn) {
+      upEmptyBtn.onclick = function() { openUploadPhotoModal(); };
+    }
+
+    var cards = document.querySelectorAll('.sdt-photo-card');
+    cards.forEach(function(card) {
+      card.onclick = async function(ev) {
+        if (ev.target.closest('.btn-delete-photo')) return;
+        var pId = card.getAttribute('data-photo-id');
+        await window.ui.withButtonLoading(card, async function() {
+          try {
+            var pInfo = await window.api.call('photos.get', { photo_id: pId });
+          if (pInfo && pInfo.download_url) {
+            window.open(pInfo.download_url, '_blank');
+          } else {
+            window.open('https://drive.google.com/file/d/' + encodeURIComponent(pInfo.drive_file_id) + '/view', '_blank');
+          }
+          } catch(e) {
+            window.ui.showToast('Could not open photo: ' + e.message, 'error');
+          }
+        });
+      };
+    });
+
+    var delBtns = document.querySelectorAll('.btn-delete-photo');
+    delBtns.forEach(function(delBtn) {
+      delBtn.onclick = async function(ev) {
+        ev.stopPropagation();
+        var pId = delBtn.getAttribute('data-photo-id');
+        if (!confirm('Are you sure you want to delete this photo?')) return;
+        await window.ui.withButtonLoading(delBtn, async function() {
+          try {
+            await window.api.call('photos.delete', { photo_id: pId });
+            window.ui.showToast('Photo deleted', 'info');
+            _tabLoaded['photos'] = false;
+            _tabData['photos'] = null;
+            var pane = document.getElementById('sdt-tab-pane');
+            if (pane) renderPhotosTab(pane);
+          } catch(dErr) {
+            window.ui.showToast('Delete failed: ' + dErr.message, 'error');
+          }
+        });
+      };
+    });
+  }
+
+  function openUploadPhotoModal(defaultStageId) {
+    var stageOptions = '<option value="">(General Site Photo)</option>' +
+      stagesData.map(function(stg) {
+        var sm = smMap[stg.stage_id] || {};
+        var name = sm.name_en || stg.stage_id;
+        var selected = (defaultStageId === stg.stage_id) ? 'selected' : '';
+        return '<option value="' + esc(stg.stage_id) + '" ' + selected + '>' + esc(name) + ' (' + esc(stg.status) + ')</option>';
+      }).join('');
+
+    var formHtml = `
+      <form id="upload-photo-form" novalidate>
+        <div class="form-field">
+          <label>Select or Capture Photo *</label>
+          <input type="file" id="upf-file" accept="image/*" capture="environment" class="input" required style="padding:0.4rem;">
+        </div>
+        <div id="upf-preview-wrap" style="display:none; text-align:center; margin:0.5rem 0;">
+          <img id="upf-preview" style="max-height:160px; max-width:100%; border-radius:6px; border:1px solid var(--border,#e2e8f0);">
+        </div>
+        <div class="form-field">
+          <label>Stage (Optional)</label>
+          <select id="upf-stage" class="input">
+            ${stageOptions}
+          </select>
+        </div>
+        <div class="form-field">
+          <label>Caption / Notes</label>
+          <input type="text" id="upf-caption" class="input" placeholder="e.g. Structure mounted on roof">
+        </div>
+        <div id="upf-error" class="text-error" style="display:none; margin-bottom:0.75rem;"></div>
+        <button type="submit" id="upf-submit" class="btn btn-primary btn-full">Upload Photo</button>
+      </form>
+    `;
+
+    window.ui.openBottomSheet('Upload Site Photo', formHtml, '');
+
+    var fileInput = document.getElementById('upf-file');
+    var previewWrap = document.getElementById('upf-preview-wrap');
+    var previewImg = document.getElementById('upf-preview');
+
+    fileInput.onchange = function() {
+      if (fileInput.files && fileInput.files[0]) {
+        var f = fileInput.files[0];
+        var r = new FileReader();
+        r.onload = function(ev) {
+          previewImg.src = ev.target.result;
+          previewWrap.style.display = 'block';
+        };
+        r.readAsDataURL(f);
+      }
+    };
+
+    var form = document.getElementById('upload-photo-form');
+    var submitBtn = document.getElementById('upf-submit');
+    var errEl = document.getElementById('upf-error');
+
+    form.onsubmit = async function(e) {
+      e.preventDefault();
+      errEl.style.display = 'none';
+
+      if (!fileInput.files || !fileInput.files[0]) {
+        errEl.textContent = 'Please choose or capture a photo.';
+        errEl.style.display = 'block';
+        return;
+      }
+
+      await window.ui.withButtonLoading(submitBtn, async function() {
+        try {
+          var compressed = await compressImage(fileInput.files[0], 1280, 0.8);
+          var stageId = document.getElementById('upf-stage').value || '';
+          var caption = document.getElementById('upf-caption').value || '';
+
+          await window.api.call('photos.upload', {
+            site_id:     siteId,
+            stage_id:    stageId,
+            caption:     caption,
+            data_base64: compressed.base64,
+            mime_type:   compressed.mimeType,
+            file_name:   compressed.fileName
+          });
+
+          window.ui.closeBottomSheet();
+          window.ui.showToast('Photo uploaded successfully! 📸', 'success');
+          _tabLoaded['photos'] = false;
+          _tabData['photos'] = null;
+          var pane = document.getElementById('sdt-tab-pane');
+          if (pane) renderPhotosTab(pane);
+        } catch(upErr) {
+          errEl.textContent = upErr.message || 'Upload failed';
+          errEl.style.display = 'block';
+        }
+      });
+    };
   }
 
   // 4. Money Tab (OWNER / DEVELOPER only)
