@@ -40,8 +40,23 @@ window.pages.siteDetail = async function(container, params) {
   var assignedUsersData = [];
   var smMap = {};
   var productsMap = {};
+  var sitePhotosData = [];
   var _tabLoaded = {};
   var _tabData = {};
+
+  function formatPhotoFileName(siteName, index, total) {
+    var cleanSite = String(siteName || 'Site').replace(/[^a-zA-Z0-9_-]/g, '_').replace(/_+/g, '_').substring(0, 30);
+    var now = new Date();
+    var yyyy = now.getFullYear();
+    var mm = String(now.getMonth() + 1).padStart(2, '0');
+    var dd = String(now.getDate()).padStart(2, '0');
+    var hh = String(now.getHours()).padStart(2, '0');
+    var min = String(now.getMinutes()).padStart(2, '0');
+    var ss = String(now.getSeconds()).padStart(2, '0');
+    var timeStr = yyyy + mm + dd + '-' + hh + min + ss;
+    var suffix = (total && total > 1) ? ('-' + (index + 1)) : '';
+    return cleanSite + '-' + timeStr + suffix + '.jpg';
+  }
 
   function compressImage(file, maxDimension, quality) {
     return new Promise(function(resolve, reject) {
@@ -107,6 +122,13 @@ window.pages.siteDetail = async function(container, params) {
       stagesData = res.stages || [];
       customerData = res.customer;
       assignedUsersData = res.assigned_users || [];
+
+      try {
+        var pRes = await window.api.call('photos.list', { site_id: siteId, include_archived: false });
+        sitePhotosData = (pRes && pRes.photos) || [];
+      } catch (pe) {
+        sitePhotosData = [];
+      }
 
       smMap = {};
       stagesData.forEach(function(sm) { smMap[sm.stage_id] = sm; });
@@ -224,6 +246,7 @@ window.pages.siteDetail = async function(container, params) {
       var sm = smMap[stg.stage_id] || {};
       var stgClass = stg.status === 'COMPLETED' ? 'badge-success' : (stg.status === 'IN_PROGRESS' ? 'badge-warning' : (stg.status === 'BLOCKED' ? 'badge-danger' : 'badge-disabled'));
       var isReqPhoto = sm.requires_photo === true || sm.requires_photo === 'TRUE' || sm.requires_photo === 1;
+      var stgPhotos = sitePhotosData.filter(function(p) { return p.stage_id === stg.stage_id && !p.archived && p.is_active !== false; });
 
       return `
         <div class="card sdt-stage-card" data-sid="${stg.stage_id}" style="margin-bottom:0.5rem; padding:0.75rem; cursor:pointer;">
@@ -233,6 +256,7 @@ window.pages.siteDetail = async function(container, params) {
               <div>
                 <div style="font-weight:600; display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap;">
                   <span>${esc(sm.name_en || stg.stage_id)}</span>
+                  ${stgPhotos.length > 0 ? `<span class="badge" style="background:#e0f2fe; color:#0369a1; font-size:0.68rem; font-weight:600; padding:0.15rem 0.4rem; border:1px solid #bae6fd;">📷 ${stgPhotos.length} Photo${stgPhotos.length > 1 ? 's' : ''}</span>` : ''}
                   ${isReqPhoto ? '<span class="badge" style="background:#fef3c7; color:#92400e; font-size:0.68rem; font-weight:600; padding:0.15rem 0.4rem; border:1px solid #fde68a;">📷 Photo Required</span>' : ''}
                 </div>
                 <div style="font-size:0.8rem; color:var(--text-muted);">${esc(sm.name_hi || '')}</div>
@@ -1189,7 +1213,7 @@ window.pages.siteDetail = async function(container, params) {
   }
 
   // ---------------------------------------------------------------------------
-  // Update Stage Bottom Sheet (Doc 06 S07 + S12 Photo Proof Integration)
+  // Update Stage Bottom Sheet (Doc 06 S07 + S12 Multi-Photo & Gallery Integration)
   // ---------------------------------------------------------------------------
   function openUpdateStageDialog(site, stg, sm) {
     var stageName = sm.name_en || stg.stage_id;
@@ -1217,29 +1241,44 @@ window.pages.siteDetail = async function(container, params) {
           <textarea id="usf-remark" class="input" rows="2">${esc(stg.remark || '')}</textarea>
         </div>
 
-        <!-- S12 Photo Proof for Stage -->
-        <div class="form-field" style="margin-top:0.75rem; padding:0.75rem; background:var(--card-bg,#f8fafc); border:1px solid var(--border,#e2e8f0); border-radius:6px;">
+        <!-- 1. Already Uploaded Stage Photos (Always visible to all) -->
+        <div id="usf-existing-section" style="margin-top:0.75rem; padding:0.6rem 0.75rem; background:var(--card-bg,#f8fafc); border:1px solid var(--border,#e2e8f0); border-radius:6px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem;">
+            <strong style="font-size:0.85rem; display:flex; align-items:center; gap:0.35rem;">
+              <span>📷 Existing Stage Photos</span>
+              <span id="usf-existing-count-badge" class="badge badge-secondary" style="font-size:0.7rem; font-weight:700;">0</span>
+            </strong>
+            <span style="font-size:0.7rem; color:var(--text-muted);">Tap thumbnail to view</span>
+          </div>
+          <div id="usf-existing-grid" style="display:flex; gap:0.5rem; overflow-x:auto; padding-bottom:0.35rem; min-height:40px; align-items:center;">
+            <span style="font-size:0.75rem; color:var(--text-muted);">Checking existing photos...</span>
+          </div>
+        </div>
+
+        <!-- 2. Attach New Photo(s) -->
+        <div class="form-field" style="margin-top:0.75rem; padding:0.6rem 0.75rem; background:var(--card-bg,#f8fafc); border:1px solid var(--border,#e2e8f0); border-radius:6px;">
           <label style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.35rem; font-weight:600;">
-            <span>Stage Photo Proof ${isReqPhoto ? '<span class="text-error" style="font-weight:700;">* (Mandatory)</span>' : '<span class="text-muted">(Optional)</span>'}</span>
-            <span id="usf-photo-badge" style="font-size:0.75rem; color:var(--text-muted);"></span>
+            <span>Attach New Photo(s) ${isReqPhoto ? '<span class="text-error" style="font-weight:700;">* (Mandatory to complete)</span>' : '<span class="text-muted">(Optional)</span>'}</span>
+            <span id="usf-staged-count-badge" style="font-size:0.75rem; color:var(--brand,#059669); font-weight:700;"></span>
           </label>
           <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.5rem;">
-            ${isReqPhoto ? 'This stage requires photo proof before it can be marked COMPLETED.' : 'Capture or upload site photo for this stage.'}
+            ${isReqPhoto ? 'Photo proof is required to mark this stage COMPLETED.' : 'Capture or select multiple photos for this stage.'}
           </div>
 
-          <input type="file" id="usf-photo-input" accept="image/*" capture="environment" style="display:none;">
+          <input type="file" id="usf-gallery-input" accept="image/*" multiple style="display:none;">
+          <input type="file" id="usf-camera-input" accept="image/*" capture="environment" style="display:none;">
 
           <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
-            <button type="button" id="usf-btn-attach" class="btn btn-secondary btn-sm" style="display:flex; align-items:center; gap:0.35rem;">
-              📷 <span>Attach / Take Photo</span>
+            <button type="button" id="usf-btn-camera" class="btn btn-secondary btn-sm" style="display:flex; align-items:center; gap:0.35rem;">
+              📷 <span>Take Photo</span>
             </button>
-            <span id="usf-file-name" style="font-size:0.8rem; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:180px;"></span>
+            <button type="button" id="usf-btn-gallery" class="btn btn-secondary btn-sm" style="display:flex; align-items:center; gap:0.35rem;">
+              📁 <span>Gallery / Multi-Select</span>
+            </button>
           </div>
 
-          <div id="usf-preview-wrap" style="display:none; margin-top:0.5rem; position:relative; width:110px; height:110px; border-radius:6px; overflow:hidden; border:1px solid var(--border,#cbd5e1);">
-            <img id="usf-preview-img" style="width:100%; height:100%; object-fit:cover;" alt="Stage proof">
-            <button type="button" id="usf-btn-clear" style="position:absolute; top:3px; right:3px; background:rgba(0,0,0,0.65); color:#fff; border:none; border-radius:50%; width:22px; height:22px; font-size:12px; cursor:pointer; line-height:22px; text-align:center;">✕</button>
-          </div>
+          <!-- Staged Previews Grid -->
+          <div id="usf-staged-grid" style="display:none; margin-top:0.6rem; display:flex; gap:0.5rem; overflow-x:auto; padding-bottom:0.35rem;"></div>
         </div>
 
         <div id="usf-error" class="text-error" style="display:none; margin-bottom:0.75rem; margin-top:0.5rem;"></div>
@@ -1251,68 +1290,132 @@ window.pages.siteDetail = async function(container, params) {
 
     var statusSelect = document.getElementById('usf-status');
     var reasonWrap = document.getElementById('usf-reason-wrap');
-    var photoInput = document.getElementById('usf-photo-input');
-    var btnAttach = document.getElementById('usf-btn-attach');
-    var btnClear = document.getElementById('usf-btn-clear');
-    var fileNameEl = document.getElementById('usf-file-name');
-    var previewWrap = document.getElementById('usf-preview-wrap');
-    var previewImg = document.getElementById('usf-preview-img');
-    var photoBadge = document.getElementById('usf-photo-badge');
+    var galleryInput = document.getElementById('usf-gallery-input');
+    var cameraInput = document.getElementById('usf-camera-input');
+    var btnCamera = document.getElementById('usf-btn-camera');
+    var btnGallery = document.getElementById('usf-btn-gallery');
+    var existingGrid = document.getElementById('usf-existing-grid');
+    var existingBadge = document.getElementById('usf-existing-count-badge');
+    var stagedGrid = document.getElementById('usf-staged-grid');
+    var stagedBadge = document.getElementById('usf-staged-count-badge');
     var errEl = document.getElementById('usf-error');
     var submitBtn = document.getElementById('usf-submit');
 
-    var stagedPhoto = null;
-    var existingPhotosCount = 0;
+    var stagedPhotos = [];
+    var existingPhotos = [];
 
-    // Check if stage already has photos recorded
-    try {
-      window.api.call('photos.list', { site_id: site.site_id }).then(function(res) {
-        if (res && res.photos) {
-          var matching = res.photos.filter(function(p) { return p.stage_id === stg.stage_id && !p.archived; });
-          existingPhotosCount = matching.length;
-          if (photoBadge && existingPhotosCount > 0) {
-            photoBadge.innerHTML = '✓ ' + existingPhotosCount + ' photo' + (existingPhotosCount > 1 ? 's' : '') + ' on record';
-            photoBadge.style.color = 'var(--brand, #059669)';
+    function renderExisting(photos) {
+      existingPhotos = photos || [];
+      if (!existingGrid) return;
+      if (existingBadge) existingBadge.textContent = String(existingPhotos.length);
+
+      if (!existingPhotos.length) {
+        existingGrid.innerHTML = '<span style="font-size:0.75rem; color:var(--text-muted); padding:0.25rem 0;">No photos uploaded for this stage yet.</span>';
+        return;
+      }
+
+      existingGrid.innerHTML = existingPhotos.map(function(p) {
+        var thumbUrl = 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(p.drive_file_id) + '&sz=w200';
+        var viewUrl = 'https://drive.google.com/file/d/' + encodeURIComponent(p.drive_file_id) + '/view';
+        return `
+          <div style="position:relative; width:80px; height:80px; flex-shrink:0; border-radius:6px; overflow:hidden; border:1px solid var(--border,#cbd5e1); cursor:pointer; background:#f1f5f9;" title="${esc(p.caption || 'Stage Photo')}" onclick="window.open('${viewUrl}', '_blank')">
+            <img src="${thumbUrl}" alt="Photo" style="width:100%; height:100%; object-fit:cover;" onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'32\' height=\'32\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%2394a3b8\' stroke-width=\'2\'><rect width=\'18\' height=\'18\' x=\'3\' y=\'3\' rx=\'2\'/><circle cx=\'9\' cy=\'9\' r=\'2\'/><path d=\'m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21\'/></svg>';" />
+            <span style="position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,0.65); color:#fff; font-size:0.6rem; text-align:center; padding:1px 0;">View ↗</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Render immediately from cached data
+    var initialMatches = (sitePhotosData || []).filter(function(p) {
+      return p.stage_id === stg.stage_id && !p.archived && p.is_active !== false;
+    });
+    renderExisting(initialMatches);
+
+    // Refresh async
+    window.api.call('photos.list', { site_id: site.site_id }).then(function(res) {
+      if (res && res.photos) {
+        sitePhotosData = res.photos;
+        var freshMatches = res.photos.filter(function(p) {
+          return p.stage_id === stg.stage_id && !p.archived && p.is_active !== false;
+        });
+        renderExisting(freshMatches);
+      }
+    }).catch(function() {});
+
+    function renderStaged() {
+      if (!stagedGrid) return;
+      if (!stagedPhotos.length) {
+        stagedGrid.style.display = 'none';
+        stagedGrid.innerHTML = '';
+        if (stagedBadge) stagedBadge.textContent = '';
+        return;
+      }
+      stagedGrid.style.display = 'flex';
+      if (stagedBadge) stagedBadge.textContent = stagedPhotos.length + ' photo' + (stagedPhotos.length > 1 ? 's' : '') + ' ready';
+
+      stagedGrid.innerHTML = stagedPhotos.map(function(p, idx) {
+        return `
+          <div style="position:relative; width:80px; height:80px; flex-shrink:0; border-radius:6px; overflow:hidden; border:1px solid var(--brand,#059669); background:#000;">
+            <img src="data:${p.mimeType};base64,${p.base64}" alt="Preview" style="width:100%; height:100%; object-fit:cover;" />
+            <button type="button" class="btn-remove-staged" data-idx="${idx}" style="position:absolute; top:2px; right:2px; background:rgba(220,38,38,0.85); color:#fff; border:none; border-radius:50%; width:20px; height:20px; font-size:11px; cursor:pointer; line-height:20px; text-align:center;">✕</button>
+            <span style="position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,0.65); color:#fff; font-size:0.55rem; padding:1px 2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:center;">${esc(p.fileName)}</span>
+          </div>
+        `;
+      }).join('');
+
+      stagedGrid.querySelectorAll('.btn-remove-staged').forEach(function(btn) {
+        btn.onclick = function() {
+          var removeIdx = parseInt(btn.getAttribute('data-idx'), 10);
+          stagedPhotos.splice(removeIdx, 1);
+          renderStaged();
+        };
+      });
+    }
+
+    async function handleFilesSelected(fileList) {
+      if (!fileList || !fileList.length) return;
+      var newFiles = Array.from(fileList);
+      btnCamera.disabled = true;
+      btnGallery.disabled = true;
+      var origText = btnGallery.innerHTML;
+      btnGallery.textContent = 'Processing (' + newFiles.length + ')...';
+
+      try {
+        for (var i = 0; i < newFiles.length; i++) {
+          var f = newFiles[i];
+          var comp = await compressImage(f, 1024, 0.7);
+          if (comp) {
+            var fileName = formatPhotoFileName(site.site_name, stagedPhotos.length, stagedPhotos.length + 1);
+            stagedPhotos.push({
+              file: f,
+              base64: comp.base64,
+              mimeType: comp.mimeType || 'image/jpeg',
+              fileName: fileName
+            });
           }
         }
-      }).catch(function() {});
-    } catch(e) {}
-
-    statusSelect.onchange = function() {
-      reasonWrap.style.display = statusSelect.value === 'BLOCKED' ? 'block' : 'none';
-    };
-
-    btnAttach.onclick = function() {
-      photoInput.click();
-    };
-
-    photoInput.onchange = async function() {
-      if (!photoInput.files || !photoInput.files[0]) return;
-      var file = photoInput.files[0];
-      try {
-        btnAttach.disabled = true;
-        btnAttach.textContent = 'Compressing...';
-        stagedPhoto = await compressImage(file, 1280, 0.8);
-        if (stagedPhoto) {
-          previewImg.src = 'data:' + stagedPhoto.mimeType + ';base64,' + stagedPhoto.base64;
-          previewWrap.style.display = 'block';
-          fileNameEl.textContent = stagedPhoto.fileName;
-          btnAttach.innerHTML = '📷 <span>Change Photo</span>';
-        }
+        renderStaged();
       } catch (err) {
         errEl.textContent = 'Failed to process image: ' + (err.message || err);
         errEl.style.display = 'block';
       } finally {
-        btnAttach.disabled = false;
+        btnCamera.disabled = false;
+        btnGallery.disabled = false;
+        btnGallery.innerHTML = origText;
+        galleryInput.value = '';
+        cameraInput.value = '';
       }
-    };
+    }
 
-    btnClear.onclick = function() {
-      stagedPhoto = null;
-      photoInput.value = '';
-      previewWrap.style.display = 'none';
-      fileNameEl.textContent = '';
-      btnAttach.innerHTML = '📷 <span>Attach / Take Photo</span>';
+    btnCamera.onclick = function() { cameraInput.click(); };
+    btnGallery.onclick = function() { galleryInput.click(); };
+
+    cameraInput.onchange = function() { handleFilesSelected(cameraInput.files); };
+    galleryInput.onchange = function() { handleFilesSelected(galleryInput.files); };
+
+    statusSelect.onchange = function() {
+      reasonWrap.style.display = statusSelect.value === 'BLOCKED' ? 'block' : 'none';
     };
 
     document.getElementById('update-stage-form').onsubmit = async function(e) {
@@ -1337,8 +1440,8 @@ window.pages.siteDetail = async function(container, params) {
 
       // Enforce requires_photo when marking stage COMPLETED
       if (toStatus === 'COMPLETED' && isReqPhoto) {
-        if (!stagedPhoto && existingPhotosCount === 0) {
-          errEl.textContent = 'Photo proof is required to mark this stage as COMPLETED. Please attach or capture a photo.';
+        if (!stagedPhotos.length && (!existingPhotos || !existingPhotos.length)) {
+          errEl.textContent = 'Photo proof is required to mark this stage as COMPLETED. Please attach or capture at least one photo.';
           errEl.style.display = 'block';
           return;
         }
@@ -1346,18 +1449,23 @@ window.pages.siteDetail = async function(container, params) {
 
       window.ui.withButtonLoading(submitBtn, async function() {
         try {
-          if (stagedPhoto) {
-            await window.api.call('photos.upload', {
-              site_id:     site.site_id,
-              stage_id:    stg.stage_id,
-              caption:     'Stage proof: ' + stageName,
-              data_base64: stagedPhoto.base64,
-              mime_type:   stagedPhoto.mimeType,
-              file_name:   stagedPhoto.fileName
-            });
+          if (stagedPhotos.length > 0) {
+            for (var i = 0; i < stagedPhotos.length; i++) {
+              var p = stagedPhotos[i];
+              submitBtn.textContent = 'Uploading (' + (i + 1) + '/' + stagedPhotos.length + ')...';
+              await window.api.call('photos.upload', {
+                site_id:     site.site_id,
+                stage_id:    stg.stage_id,
+                caption:     (sm.name_en || stg.stage_id) + ' proof (' + (i + 1) + '/' + stagedPhotos.length + ')',
+                data_base64: p.base64,
+                mime_type:   p.mimeType,
+                file_name:   p.fileName
+              });
+            }
             _tabLoaded['photos'] = false;
           }
 
+          submitBtn.textContent = 'Saving stage...';
           await window.api.call('stages.update', {
             site_id:      site.site_id,
             stage_id:     stg.stage_id,
@@ -1366,7 +1474,7 @@ window.pages.siteDetail = async function(container, params) {
             remark:       remark
           });
           window.ui.closeBottomSheet();
-          window.ui.toast(stagedPhoto ? 'Stage updated and photo uploaded!' : 'Stage updated', 'success');
+          window.ui.toast(stagedPhotos.length > 0 ? ('Stage updated and ' + stagedPhotos.length + ' photo(s) uploaded!') : 'Stage updated', 'success');
           await loadDetails();
 
           // P2-2: Prompt ONLY for "Material Dispatched" (seq 5)
