@@ -230,5 +230,154 @@ window.pages.settings = function(container) {
         if (el2) el2.innerHTML = '<span style="color:var(--text-muted);font-size:0.875rem;">Slow log unavailable.</span>';
       }
     })();
+
+    // System Backup & Drive Storage Card (OWNER/DEVELOPER only)
+    (async function() {
+      var backupCard = document.createElement('div');
+      backupCard.className = 'card';
+      backupCard.style.cssText = 'padding:1rem;margin-top:1rem;';
+      backupCard.innerHTML = '<h3 style="margin:0 0 0.75rem;font-size:1.05rem;">💾 Database Backup & Drive Storage</h3><div id="settings-backup-info"><span class="spinner"></span></div>';
+      var cont = document.getElementById('settings-list-container');
+      if (cont && cont.parentNode) cont.parentNode.appendChild(backupCard);
+
+      try {
+        var info = await api.call('system.backupStatus', {});
+        var el = document.getElementById('settings-backup-info');
+        if (!el) return;
+
+        var pct = info.storage_usage_pct || 0;
+        var warnBadge = '';
+        if (pct >= 85) {
+          warnBadge = '<div style="background:#fee2e2;color:#991b1b;padding:0.5rem;border-radius:6px;margin-bottom:0.75rem;font-size:0.8rem;font-weight:600;">🚨 Critical Drive Storage: ' + pct + '% used. Free up space immediately.</div>';
+        } else if (pct >= 70) {
+          warnBadge = '<div style="background:#fef3c7;color:#92400e;padding:0.5rem;border-radius:6px;margin-bottom:0.75rem;font-size:0.8rem;font-weight:600;">⚠️ Drive Storage Warning: ' + pct + '% used.</div>';
+        }
+
+        var usedMB = (info.storage_used_bytes / (1024 * 1024)).toFixed(1);
+        var limitGB = (info.storage_limit_bytes / (1024 * 1024 * 1024)).toFixed(1);
+        var sizeMB = ((info.last_backup_size_bytes || 0) / (1024 * 1024)).toFixed(2);
+        var statusColor = (info.last_backup_status || '').indexOf('SUCCESS') !== -1 ? 'var(--color-success, #16a34a)' : (info.last_backup_status === 'NONE' ? 'var(--text-muted)' : '#dc2626');
+
+        el.innerHTML = warnBadge +
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;font-size:0.85rem;margin-bottom:0.75rem;">' +
+            '<div><span style="color:var(--text-muted);display:block;font-size:0.75rem;">Last Backup Status</span><b style="color:' + statusColor + ';">' + ui.esc(info.last_backup_status || 'None') + '</b></div>' +
+            '<div><span style="color:var(--text-muted);display:block;font-size:0.75rem;">Last Backup Time</span><b>' + ui.esc(info.last_backup_at || 'Never') + '</b></div>' +
+            '<div><span style="color:var(--text-muted);display:block;font-size:0.75rem;">Backup Size</span><b>' + (sizeMB > 0 ? sizeMB + ' MB' : '—') + '</b></div>' +
+            '<div><span style="color:var(--text-muted);display:block;font-size:0.75rem;">Retained Copies</span><b>' + (info.backup_count || 0) + ' files</b></div>' +
+          '</div>' +
+          '<div style="font-size:0.8rem;margin-bottom:0.75rem;">' +
+            '<div style="display:flex;justify-content:space-between;margin-bottom:0.25rem;"><span>Drive Storage Used:</span><span>' + usedMB + ' MB / ' + limitGB + ' GB (' + pct + '%)</span></div>' +
+            '<div style="background:var(--border, #e2e8f0);height:8px;border-radius:4px;overflow:hidden;"><div style="background:' + (pct >= 85 ? '#dc2626' : (pct >= 70 ? '#f59e0b' : '#16a34a')) + ';width:' + Math.min(pct, 100) + '%;height:100%;"></div></div>' +
+          '</div>' +
+          '<button id="btn-run-backup" class="btn btn-secondary btn-sm" style="width:100%;font-size:0.8rem;">Run Backup Now</button>';
+
+        var runBtn = document.getElementById('btn-run-backup');
+        if (runBtn) {
+          runBtn.addEventListener('click', async function() {
+            await ui.withButtonLoading(runBtn, async function() {
+              try {
+                var res = await api.call('system.runBackup', {});
+                ui.showToast('Backup created & verified: ' + (res && res.name || 'OK'), 'success');
+                setTimeout(function() { window.location.reload(); }, 1200);
+              } catch(bErr) {
+                ui.showToast('Backup failed: ' + (bErr.message || 'Error'), 'error');
+              }
+            });
+          });
+        }
+      } catch (e) {
+        var el2 = document.getElementById('settings-backup-info');
+        if (el2) el2.innerHTML = '<span style="color:var(--text-muted);font-size:0.875rem;">Backup info unavailable.</span>';
+      }
+    })();
+
+    // System Integrity & Health Card (OWNER/DEVELOPER only)
+    (async function() {
+      var healthCard = document.createElement('div');
+      healthCard.className = 'card';
+      healthCard.style.cssText = 'padding:1rem;margin-top:1rem;';
+      healthCard.innerHTML = '<h3 style="margin:0 0 0.75rem;font-size:1.05rem;">🩺 System Health & Data Integrity</h3><div id="settings-health-info"><span class="spinner"></span></div>';
+      var cont = document.getElementById('settings-list-container');
+      if (cont && cont.parentNode) cont.parentNode.appendChild(healthCard);
+
+      try {
+        var hInfo = await api.call('system.health', {});
+        var hEl = document.getElementById('settings-health-info');
+        if (!hEl) return;
+
+        var isHealthy = hInfo.status === 'HEALTHY';
+        var statusBadge = isHealthy
+          ? '<span style="background:#dcfce7;color:#166534;padding:0.25rem 0.5rem;border-radius:4px;font-size:0.75rem;font-weight:700;">HEALTHY</span>'
+          : '<span style="background:#fee2e2;color:#991b1b;padding:0.25rem 0.5rem;border-radius:4px;font-size:0.75rem;font-weight:700;">DEGRADED</span>';
+
+        var lastInt = hInfo.integrity || {};
+        var intStatusColor = lastInt.last_integrity_status === 'PASS' ? 'var(--color-success, #16a34a)' : (lastInt.last_integrity_status === 'NONE' ? 'var(--text-muted)' : '#dc2626');
+
+        hEl.innerHTML =
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">' +
+            '<span style="font-size:0.85rem;color:var(--text-muted);">Overall System Status:</span>' +
+            statusBadge +
+          '</div>' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;font-size:0.85rem;margin-bottom:0.75rem;">' +
+            '<div><span style="color:var(--text-muted);display:block;font-size:0.75rem;">12-Point Integrity</span><b style="color:' + intStatusColor + ';">' + ui.esc(lastInt.last_integrity_status || 'Not run') + '</b></div>' +
+            '<div><span style="color:var(--text-muted);display:block;font-size:0.75rem;">Last Integrity Check</span><b>' + ui.esc(lastInt.last_integrity_at || 'Never') + '</b></div>' +
+            '<div><span style="color:var(--text-muted);display:block;font-size:0.75rem;">Errors (last 24h)</span><b style="color:' + (hInfo.errors_24h > 0 ? '#dc2626' : 'inherit') + ';">' + (hInfo.errors_24h || 0) + '</b></div>' +
+            '<div><span style="color:var(--text-muted);display:block;font-size:0.75rem;">Pending Operations</span><b style="color:' + (hInfo.pending_ops > 0 ? '#dc2626' : 'inherit') + ';">' + (hInfo.pending_ops || 0) + '</b></div>' +
+          '</div>' +
+          '<div style="display:flex;gap:0.5rem;">' +
+            '<button id="btn-run-integrity" class="btn btn-secondary btn-sm" style="flex:1;font-size:0.8rem;">Run Integrity Check</button>' +
+            '<button id="btn-view-audit" class="btn btn-outline btn-sm" style="flex:1;font-size:0.8rem;">View Audit Trail</button>' +
+          '</div>';
+
+        var runIntBtn = document.getElementById('btn-run-integrity');
+        if (runIntBtn) {
+          runIntBtn.addEventListener('click', async function() {
+            await ui.withButtonLoading(runIntBtn, async function() {
+              try {
+                var iRes = await api.call('system.runIntegrity', {});
+                if (iRes && iRes.status === 'PASS') {
+                  ui.showToast('All 12 integrity checks PASSED (0 mismatches)', 'success');
+                } else {
+                  ui.showToast('Integrity check: ' + (iRes.failed_count || 0) + ' findings detected', 'error');
+                }
+                setTimeout(function() { window.location.reload(); }, 1200);
+              } catch(iErr) {
+                ui.showToast('Integrity run failed: ' + (iErr.message || 'Error'), 'error');
+              }
+            });
+          });
+        }
+
+        var viewAudBtn = document.getElementById('btn-view-audit');
+        if (viewAudBtn) {
+          viewAudBtn.addEventListener('click', async function() {
+            await ui.withButtonLoading(viewAudBtn, async function() {
+              try {
+                var aRes = await api.call('audit.list', { limit: 15 });
+                var items = (aRes && aRes.items) || [];
+                if (items.length === 0) {
+                  ui.showToast('No audit entries recorded yet.', 'info');
+                } else {
+                  var auditHtml = '<div style="max-height:350px;overflow-y:auto;font-size:0.8rem;">';
+                  items.forEach(function(it) {
+                    auditHtml += '<div style="border-bottom:1px solid var(--border,#e2e8f0);padding:0.5rem 0;">' +
+                      '<div style="display:flex;justify-content:space-between;color:var(--text-muted);font-size:0.7rem;"><span>' + ui.esc(it.action || '') + ' (' + ui.esc(it.user_id || '') + ')</span><span>' + ui.esc(it.timestamp || '') + '</span></div>' +
+                      '<div style="font-weight:600;margin-top:0.2rem;">' + ui.esc(it.summary || (it.entity + ' ' + it.entity_id)) + '</div>' +
+                    '</div>';
+                  });
+                  auditHtml += '</div>';
+                  ui.openBottomSheet('Audit Trail (' + items.length + ')', auditHtml, '');
+                }
+              } catch (aErr) {
+                ui.showToast('Could not load audit log: ' + aErr.message, 'error');
+              }
+            });
+          });
+        }
+      } catch (hErr) {
+        var hEl2 = document.getElementById('settings-health-info');
+        if (hEl2) hEl2.innerHTML = '<span style="color:var(--text-muted);font-size:0.875rem;">Health info unavailable.</span>';
+      }
+    })();
   }
 };
