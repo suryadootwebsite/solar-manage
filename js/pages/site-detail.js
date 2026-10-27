@@ -174,9 +174,14 @@ window.pages.siteDetail = async function(container, params) {
               if (task.skelEl) task.skelEl.style.display = 'none';
             }
           })
-          .catch(function() {
+          .catch(function(e) {
             if (task.skelEl) {
-              task.skelEl.innerHTML = '<span style="font-size:1.5rem; opacity:0.4;">📷</span>';
+              var errCode = (e && e.code) ? e.code : 'ERROR';
+              task.skelEl.innerHTML = '<div style="font-size:0.65rem;color:#ef4444;text-align:center;padding:0.25rem;">' +
+                '<div>⚠\uFE0F ' + errCode + '</div>' +
+                '<button type="button" data-retry-id="' + task.photoId + '" style="font-size:0.65rem;margin-top:0.25rem;' +
+                'padding:0.1rem 0.4rem;border:1px solid #ef4444;background:none;color:#ef4444;border-radius:3px;cursor:pointer;">Retry</button>' +
+                '</div>';
             }
           })
           .finally(function() {
@@ -575,6 +580,13 @@ window.pages.siteDetail = async function(container, params) {
     if (_tabLoaded['photos'] && _tabData['photos']) {
       pane.innerHTML = _tabData['photos'];
       attachPhotosEventListeners();
+      // Re-trigger lazy loads for any thumb still hidden (cache restore path)
+      pane.querySelectorAll('.sdt-photo-card[data-photo-id]').forEach(function(card) {
+        var pId = card.getAttribute('data-photo-id');
+        var imgEl = document.getElementById('img-' + pId);
+        var skelEl = document.getElementById('skel-' + pId);
+        if (imgEl && imgEl.style.display === 'none') loadPhotoThumb(pId, imgEl, skelEl);
+      });
       return;
     }
 
@@ -590,6 +602,7 @@ window.pages.siteDetail = async function(container, params) {
           <div>
             <h3 style="margin:0; font-size:1.05rem;">Site Photos (${photos.length})</h3>
             <span style="font-size:0.8rem; color:var(--text-muted);">Installation and inspection photo records</span>
+            ${isOwner ? '<div id="sdt-photos-diag" style="font-size:0.7rem;color:var(--text-muted);margin-top:0.15rem;">Checking backend...</div>' : ''}
           </div>
           <button id="btn-upload-photo" class="btn btn-primary btn-sm">📷 + Upload Photo</button>
         </div>
@@ -617,7 +630,7 @@ window.pages.siteDetail = async function(container, params) {
             return `
               <div class="card sdt-photo-card" data-photo-id="${esc(p.photo_id)}" data-caption="${esc(p.caption || '')}" data-date="${esc(p.uploaded_at || '')}" style="padding:0.5rem; display:flex; flex-direction:column; justify-content:space-between; cursor:pointer;">
                 <div style="position:relative; width:100%; height:110px; background:var(--border,#e2e8f0); border-radius:4px; overflow:hidden; display:flex; align-items:center; justify-content:center;">
-                  <div class="photo-skel" id="skel-${esc(p.photo_id)}" style="width:100%; height:100%; background:linear-gradient(90deg, #e2e8f0 25%, #cbd5e1 50%, #e2e8f0 75%); background-size:200% 100%; animation:shimmer 1.5s infinite; display:flex; align-items:center; justify-content:center;">
+                  <div class="photo-skel" id="skel-${esc(p.photo_id)}" style="width:100%; height:100%; background:linear-gradient(90deg, #e2e8f0 25%, #cbd5e1 50%, #e2e8f0 75%); background-size:200% 100%; animation:skeleton-shimmer 1.5s infinite; display:flex; align-items:center; justify-content:center;">
                     <span style="font-size:1.5rem; opacity:0.3;">📸</span>
                   </div>
                   <img id="img-${esc(p.photo_id)}" alt="${esc(p.caption || 'Photo')}" style="display:none; width:100%; height:100%; object-fit:cover;" />
@@ -638,6 +651,18 @@ window.pages.siteDetail = async function(container, params) {
       }
 
       wrapEl.innerHTML = headerHtml + bodyHtml;
+
+      // Diagnostics ping (OWNER/DEVELOPER only) — shows backend version
+      if (isOwner) {
+        var diagEl = document.getElementById('sdt-photos-diag');
+        if (diagEl) {
+          window.api.call('system.ping', {}).then(function(p) {
+            if (diagEl && p) diagEl.textContent = '\u2699\uFE0F Backend: ' + (p.version || 'v?') + ' \u00B7 ' + (p.time || '');
+          }).catch(function() {
+            if (diagEl) diagEl.textContent = '\u2699\uFE0F Backend: unreachable';
+          });
+        }
+      }
       _tabData['photos'] = wrapEl.innerHTML;
       _tabLoaded['photos'] = true;
       attachPhotosEventListeners();
@@ -653,7 +678,27 @@ window.pages.siteDetail = async function(container, params) {
     }
   }
 
+  // Retry button delegate (added by debug patch)
+  window.__retryThumb = function(photoId, imgEl, skelEl) {
+    loadPhotoThumb(photoId, imgEl, skelEl);
+  };
+
   function attachPhotosEventListeners() {
+    // Retry button clicks (delegated)
+    var existingDelegate = document.getElementById('sdt-photos-retry-delegate');
+    var photoWrap = document.getElementById('sdt-photos-wrap');
+    if (photoWrap && !existingDelegate) {
+      var delegate = document.createElement('span');
+      delegate.id = 'sdt-photos-retry-delegate';
+      photoWrap.addEventListener('click', function(ev) {
+        var btn = ev.target.closest('button[data-retry-id]');
+        if (!btn) return;
+        var pid = btn.getAttribute('data-retry-id');
+        var skelEl = btn.closest('[id^="skel-"]');
+        var imgEl = skelEl ? document.getElementById('img-' + pid) : null;
+        if (pid) loadPhotoThumb(pid, imgEl, skelEl);
+      });
+    }
     var upBtn = document.getElementById('btn-upload-photo');
     if (upBtn) {
       upBtn.onclick = function() { openUploadPhotoModal(); };
