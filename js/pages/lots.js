@@ -28,6 +28,7 @@ window.pages.lots = async function(container) {
       </select>
     </div>
 
+    <div id="lots-search-mount"></div>
     <!-- Filter chips (Task P3-2) -->
     <div class="lot-chips-container">
       <button class="btn btn-primary lot-filter-btn active" data-status="" style="min-height:34px; height:34px; font-size:13px; padding:0 0.75rem; line-height:32px; border-radius:17px; flex-shrink:0;">All</button>
@@ -56,6 +57,19 @@ window.pages.lots = async function(container) {
       localStorage.setItem('sms_sort_lots', currentSortLots);
       renderLots();
     };
+  }
+
+  var lotsSearchQuery = "";
+  if (window.components && window.components.createSearchBar) {
+    var sBar = window.components.createSearchBar({
+      placeholder: t("lots.search_placeholder") || "Search invoice no, lot ID, supplier...",
+      onSearch: function(q) {
+        lotsSearchQuery = q;
+        renderLots();
+      }
+    });
+    var lm = document.getElementById("lots-search-mount");
+    if (lm) lm.appendChild(sBar.element);
   }
 
   var currentStatusFilter = '';
@@ -124,6 +138,9 @@ window.pages.lots = async function(container) {
     }
 
     var displayLots = sortLotsList(lots, currentSortLots);
+    if (lotsSearchQuery && window.components && window.components.filterListByQuery) {
+      displayLots = window.components.filterListByQuery(displayLots, lotsSearchQuery, ['lot_id', 'invoice_no', 'supplier_id', 'items_summary', 'order_status']);
+    }
 
     listView.innerHTML = displayLots.map(function(l) {
       var ordStatus = l.order_status || '';

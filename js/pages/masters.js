@@ -61,7 +61,7 @@ window.pages.masters = async function(container) {
   async function renderProductsSub(target) {
     target.innerHTML = `
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem; gap:0.5rem; flex-wrap:wrap;">
-        <input type="text" id="prd-search" class="input" style="flex:1; min-width:180px;" placeholder="${window.ui.esc(t('products.search_placeholder'))}">
+        <div id="prd-search-mount" style="flex:1; min-width:180px;"></div>
         ${isOwner ? `<button id="prd-add-btn" class="btn btn-primary" style="min-height:44px;">+ ${window.ui.esc(t('products.new_btn'))}</button>` : ''}
       </div>
       <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.75rem;">
@@ -161,9 +161,14 @@ window.pages.masters = async function(container) {
       }
     }
 
-    searchEl.oninput = function() {
-      renderProductItems(products, searchEl.value);
-    };
+    if (window.components && window.components.createSearchBar) {
+      var pBar = window.components.createSearchBar({
+        placeholder: t("products.search_placeholder") || "Search products...",
+        onSearch: function(q) { renderProductItems(products, q); }
+      });
+      var pm = document.getElementById("prd-search-mount");
+      if (pm) pm.appendChild(pBar.element);
+    }
 
     if (addBtn) {
       addBtn.onclick = function() {
@@ -231,9 +236,14 @@ window.pages.masters = async function(container) {
             <button type="submit" id="pf-submit" class="btn btn-primary btn-full">${window.ui.esc(t('btn.save'))}</button>
           </div>
         </form>
+        ${isEdit ? '<div id="sup-docs-mount"></div>' : ''}
       `;
 
       window.ui.openBottomSheet(title, formHtml, '');
+      if (isEdit && s && window.components && window.components.renderDocumentsSection) {
+        var sDocMount = document.getElementById("sup-docs-mount");
+        if (sDocMount) window.components.renderDocumentsSection(sDocMount, "SUPPLIER", s.supplier_id, s.name);
+      }
 
       document.getElementById('prd-form').onsubmit = async function(e) {
         e.preventDefault();
@@ -288,7 +298,7 @@ window.pages.masters = async function(container) {
   async function renderSuppliersSub(target) {
     target.innerHTML = `
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem; gap:0.5rem; flex-wrap:wrap;">
-        <input type="text" id="sup-search" class="input" style="flex:1; min-width:180px;" placeholder="${window.ui.esc(t('suppliers.search_placeholder'))}">
+        <div id="sup-search-mount" style="flex:1; min-width:180px;"></div>
         <button id="sup-add-btn" class="btn btn-primary" style="min-height:44px;">+ ${window.ui.esc(t('suppliers.new_btn'))}</button>
       </div>
       <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.75rem;">
@@ -377,9 +387,14 @@ window.pages.masters = async function(container) {
       });
     }
 
-    searchEl.oninput = function() {
-      renderSupplierItems(suppliers, searchEl.value);
-    };
+    if (window.components && window.components.createSearchBar) {
+      var sBar = window.components.createSearchBar({
+        placeholder: t("suppliers.search_placeholder") || "Search suppliers...",
+        onSearch: function(q) { renderSupplierItems(suppliers, q); }
+      });
+      var sm = document.getElementById("sup-search-mount");
+      if (sm) sm.appendChild(sBar.element);
+    }
 
     addBtn.onclick = function() {
       openSupplierForm(null);

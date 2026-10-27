@@ -22,7 +22,7 @@ window.pages.stock = async function(container) {
 
     <!-- Filter Bar -->
     <div style="display:flex; gap:0.5rem; margin-bottom:1rem; flex-wrap:wrap;">
-      <input type="text" id="stk-search" class="input" style="flex:2; min-width:180px;" placeholder="Search product…">
+      <div id="stk-search-mount" style="flex:2; min-width:180px;"></div>
       <select id="stk-loc-filter" class="input" style="flex:1; min-width:140px;">
         <option value="">All Godowns</option>
       </select>
@@ -87,7 +87,7 @@ window.pages.stock = async function(container) {
   }
 
   function renderStock() {
-    var q = (searchInput.value || '').toLowerCase().trim();
+    var q = stkSearchQuery.toLowerCase().trim();
     var filtered = stockItems.filter(function(it) {
       if (!q) return true;
       return (it.product_name || '').toLowerCase().indexOf(q) >= 0 ||
@@ -274,7 +274,18 @@ window.pages.stock = async function(container) {
   };
 
   locFilter.onchange = loadStock;
-  searchInput.oninput = renderStock;
+  var stkSearchQuery = "";
+  if (window.components && window.components.createSearchBar) {
+    var sBar = window.components.createSearchBar({
+      placeholder: "Search product name, category, brand...",
+      onSearch: function(q) {
+        stkSearchQuery = q;
+        renderStock();
+      }
+    });
+    var sm = document.getElementById("stk-search-mount");
+    if (sm) sm.appendChild(sBar.element);
+  }
 
   await loadStock();
 };

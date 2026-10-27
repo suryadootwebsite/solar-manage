@@ -19,9 +19,7 @@ window.pages.customers = async function(container) {
       ${canCreate ? `<button id="cst-add-btn" class="btn btn-primary" style="min-height:44px;">+ ${window.ui.esc(t('customers.new_btn'))}</button>` : ''}
     </div>
 
-    <div style="margin-bottom:0.75rem;">
-      <input type="text" id="cst-search" class="input" placeholder="${window.ui.esc(t('customers.search_placeholder'))}">
-    </div>
+    <div id="cst-search-mount"></div>
 
     <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.75rem;">
       <label style="font-size:0.85rem;color:var(--text-muted);">Sort:</label>
@@ -176,9 +174,14 @@ window.pages.customers = async function(container) {
           <button type="submit" id="cf-submit" class="btn btn-primary btn-full">${window.ui.esc(t('btn.save'))}</button>
         </div>
       </form>
+      ${isEdit ? '<div id="cust-docs-mount"></div>' : ''}
     `;
 
     window.ui.openBottomSheet(title, formHtml, '');
+    if (isEdit && cust && window.components && window.components.renderDocumentsSection) {
+      var docMount = document.getElementById('cust-docs-mount');
+      if (docMount) window.components.renderDocumentsSection(docMount, 'CUSTOMER', cust.customer_id, cust.name);
+    }
 
     document.getElementById('cust-form').onsubmit = async function(e) {
       e.preventDefault();
@@ -231,9 +234,18 @@ window.pages.customers = async function(container) {
     };
   }
 
-  searchInput.oninput = function() {
-    renderList(searchInput.value);
-  };
+  var currentQuery = "";
+  if (window.components && window.components.createSearchBar) {
+    var sBar = window.components.createSearchBar({
+      placeholder: t("customers.search_placeholder") || "Search customer name, phone, city...",
+      onSearch: function(q) {
+        currentQuery = q;
+        renderList(q);
+      }
+    });
+    var sMount = document.getElementById("cst-search-mount");
+    if (sMount) sMount.appendChild(sBar.element);
+  }
 
   await loadCustomers();
 };

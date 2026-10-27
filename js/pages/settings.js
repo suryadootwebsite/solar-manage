@@ -324,10 +324,31 @@ window.pages.settings = function(container) {
             '<div><span style="color:var(--text-muted);display:block;font-size:0.75rem;">Errors (last 24h)</span><b style="color:' + (hInfo.errors_24h > 0 ? '#dc2626' : 'inherit') + ';">' + (hInfo.errors_24h || 0) + '</b></div>' +
             '<div><span style="color:var(--text-muted);display:block;font-size:0.75rem;">Pending Operations</span><b style="color:' + (hInfo.pending_ops > 0 ? '#dc2626' : 'inherit') + ';">' + (hInfo.pending_ops || 0) + '</b></div>' +
           '</div>' +
-          '<div style="display:flex;gap:0.5rem;">' +
-            '<button id="btn-run-integrity" class="btn btn-secondary btn-sm" style="flex:1;font-size:0.8rem;">Run Integrity Check</button>' +
-            '<button id="btn-view-audit" class="btn btn-outline btn-sm" style="flex:1;font-size:0.8rem;">View Audit Trail</button>' +
+          (hInfo.schema && hInfo.schema.status === "OUT_OF_DATE" ? (
+            '<div style="background:#fef2f2;border:1px solid #f87171;color:#991b1b;padding:0.6rem;margin-bottom:0.75rem;border-radius:6px;font-size:0.8rem;">' +
+              '<strong>⚠️ Database columns out of date:</strong> ' + hInfo.schema.missing_count + ' columns missing across sheets. Click "Update database columns" below.' +
+            '</div>'
+          ) : '') +
+          '<div style="display:flex;gap:0.4rem;flex-wrap:wrap;">' +
+            '<button id="btn-run-integrity" class="btn btn-secondary btn-sm" style="flex:1;min-width:130px;font-size:0.78rem;">Run Integrity Check</button>' +
+            '<button id="btn-view-audit" class="btn btn-outline btn-sm" style="flex:1;min-width:110px;font-size:0.78rem;">View Audit Trail</button>' +
+            '<button id="btn-update-schema" class="btn btn-primary btn-sm" style="flex:1;min-width:150px;font-size:0.78rem;">Update database columns</button>' +
           '</div>';
+
+        var updateSchemaBtn = document.getElementById('btn-update-schema');
+        if (updateSchemaBtn) {
+          updateSchemaBtn.addEventListener('click', async function() {
+            await ui.withButtonLoading(updateSchemaBtn, async function() {
+              try {
+                await api.call('system.migrateSchema', {});
+                ui.showToast('Database columns updated successfully!', 'success');
+                setTimeout(function() { window.location.reload(); }, 1200);
+              } catch(sErr) {
+                ui.showToast('Schema update failed: ' + (sErr.message || 'Error'), 'error');
+              }
+            });
+          });
+        }
 
         var runIntBtn = document.getElementById('btn-run-integrity');
         if (runIntBtn) {

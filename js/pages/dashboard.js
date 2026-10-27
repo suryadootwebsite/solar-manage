@@ -53,14 +53,28 @@
         '<div class="card skeleton" style="height:180px;"></div>';
     }
 
-    var DASH_CACHE_KEY = 'sms_cache_dashboard_' + role;
+    var dNow = new Date();
+    var defaultMonth = String(dNow.getMonth() + 1).padStart(2, '0');
+    var defaultYear = String(dNow.getFullYear());
+    var selMonth = defaultMonth;
+    var selYear = defaultYear;
+    try {
+      var sm = localStorage.getItem('sms_dash_sel_month');
+      var sy = localStorage.getItem('sms_dash_sel_year');
+      if (sm !== null) selMonth = sm;
+      if (sy !== null) selYear = sy;
+    } catch (e) {}
+
+    function getCacheKey() {
+      return 'sms_cache_dashboard_' + role + '_' + selMonth + '_' + selYear;
+    }
 
     function loadDashboard(forceRefresh) {
-      // 1. Try to render from cache immediately (stale-while-revalidate)
+      var cacheKey = getCacheKey();
       var cached = null;
       if (!forceRefresh) {
         try {
-          var raw = sessionStorage.getItem(DASH_CACHE_KEY);
+          var raw = sessionStorage.getItem(cacheKey);
           if (raw) cached = JSON.parse(raw);
         } catch (e) {}
       }
@@ -73,11 +87,11 @@
         refreshBtn.style.display = 'none';
       }
 
-      // 2. Fetch fresh data
-      api.call('dashboard.get', {})
+      // 2. Fetch fresh data with selected period
+      api.call('dashboard.get', { period: { month: selMonth, year: selYear } })
         .then(function(dash) {
           try {
-            sessionStorage.setItem(DASH_CACHE_KEY, JSON.stringify(dash));
+            sessionStorage.setItem(getCacheKey(), JSON.stringify(dash));
           } catch (e) {}
           renderDashboardData(contentEl, dash, role);
           refreshBtn.style.display = 'none';
@@ -124,12 +138,37 @@
         '</div>';
     }
 
+    // Month & Year Filter Dropdowns
+    var curYr = new Date().getFullYear();
+    var yearOptions = ['ALL', curYr, curYr - 1, curYr - 2, curYr - 3, curYr - 4, curYr - 5];
+    var monthOptions = [
+      { val: 'ALL', label: 'All Months' }, { val: '01', label: 'Jan' }, { val: '02', label: 'Feb' },
+      { val: '03', label: 'Mar' }, { val: '04', label: 'Apr' }, { val: '05', label: 'May' },
+      { val: '06', label: 'Jun' }, { val: '07', label: 'Jul' }, { val: '08', label: 'Aug' },
+      { val: '09', label: 'Sep' }, { val: '10', label: 'Oct' }, { val: '11', label: 'Nov' }, { val: '12', label: 'Dec' }
+    ];
+    var activePeriod = dash.period || { month: selMonth, year: selYear };
+
+    html += '<div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;margin-bottom:1rem;background:var(--bg-main, #f9fafb);padding:0.6rem 0.75rem;border-radius:8px;border:1px solid var(--border-color, #e5e7eb);">' +
+      '<span style="font-size:0.85rem;font-weight:600;color:var(--text-muted);display:inline-flex;align-items:center;gap:0.3rem;">📅 Period:</span>' +
+      '<select id="dash-filter-month" class="input" style="width:auto;min-width:110px;padding:0.25rem 0.5rem;font-size:0.85rem;min-height:36px;">' +
+        monthOptions.map(function(m) {
+          return '<option value="' + m.val + '" ' + (String(activePeriod.month) === String(m.val) ? 'selected' : '') + '>' + m.label + '</option>';
+        }).join('') +
+      '</select>' +
+      '<select id="dash-filter-year" class="input" style="width:auto;min-width:95px;padding:0.25rem 0.5rem;font-size:0.85rem;min-height:36px;">' +
+        yearOptions.map(function(y) {
+          return '<option value="' + y + '" ' + (String(activePeriod.year) === String(y) ? 'selected' : '') + '>' + (y === 'ALL' ? 'All Years' : y) + '</option>';
+        }).join('') +
+      '</select>' +
+    '</div>';
+
     // KPI Cards Grid
-    html += '<div class="kpi-grid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));gap:1rem;margin-bottom:1.5rem;">';
+    html += '<div class="kpi-grid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));gap:1rem;margin-bottom:1.5rem;">'; style="display:grid;grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));gap:1rem;margin-bottom:1.5rem;">';
 
     if (isOwner && ownerView === 'operations') {
       html +=
-        kpiCard(t('dash.active_sites'), dash.active_sites_count || 0, 'var(--brand)') +
+        kpiCard('Follow-ups Today', dash.followups_due_today || 0, '#ea580c') + kpiCard(t('dash.active_sites'), dash.active_sites_count || 0, 'var(--brand)') +
         kpiCard(t('dash.stuck_sites'), dash.stuck_count || 0, dash.stuck_count > 0 ? '#dc2626' : 'var(--text-muted)') +
         kpiCard(t('dash.today_in'), dash.today_in_qty || 0, '#059669') +
         kpiCard(t('dash.today_out'), dash.today_out_qty || 0, '#2563eb') +

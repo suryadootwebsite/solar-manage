@@ -20,6 +20,7 @@ window.pages.sites = async function(container) {
       ${canCreate ? '<button id="site-new-btn" class="btn btn-primary" style="min-height:42px; line-height:1.2; padding:0.5rem 0.85rem; font-size:0.875rem; white-space:nowrap; align-self:center;">+ New Site</button>' : ''}
     </div>
 
+    <div id="sites-search-mount"></div>
     <!-- Filter chips (horizontal scroll with no wrap and smooth touch) -->
     <div style="display:flex; gap:0.35rem; margin-bottom:1rem; overflow-x:auto; padding-bottom:4px; -webkit-overflow-scrolling:touch; scrollbar-width:none;">
       <button class="btn btn-primary site-filter-btn active" data-status="" style="padding:0.35rem 0.75rem; font-size:0.8rem; min-height:36px; white-space:nowrap;">All</button>
@@ -57,6 +58,19 @@ window.pages.sites = async function(container) {
       localStorage.setItem('sms_sort_sites', currentSort);
       loadSites(true);
     };
+  }
+
+  var sitesSearchQuery = "";
+  if (window.components && window.components.createSearchBar) {
+    var sBar = window.components.createSearchBar({
+      placeholder: t("sites.search_placeholder") || "Search site name, ID, city, customer...",
+      onSearch: function(q) {
+        sitesSearchQuery = q;
+        renderSites();
+      }
+    });
+    var sm = document.getElementById("sites-search-mount");
+    if (sm) sm.appendChild(sBar.element);
   }
 
   var currentStatus = '';
@@ -155,12 +169,16 @@ window.pages.sites = async function(container) {
   }
 
   function renderSites() {
-    if (!sites.length) {
+    var displaySites = sites;
+    if (sitesSearchQuery && window.components && window.components.filterListByQuery) {
+      displaySites = window.components.filterListByQuery(sites, sitesSearchQuery, ['site_name', 'site_id', 'customer_id', 'city', 'status']);
+    }
+    if (!displaySites.length) {
       listView.innerHTML = `<div class="card" style="text-align:center; color:var(--text-muted); padding:2rem 1rem;">No sites found matching criteria.</div>`;
       return;
     }
 
-    listView.innerHTML = sites.map(function(s) {
+    listView.innerHTML = displaySites.map(function(s) {
       var statusClass = s.status === 'ACTIVE' ? 'badge-success' : (s.status === 'ON_HOLD' ? 'badge-warning' : 'badge-disabled');
       var stuckBadge = s.is_stuck ? `<span class="badge" style="background:#fee2e2; color:#b91c1c; margin-left:0.5rem;">⏱️ Stuck (${s.stuck_days}d)</span>` : '';
       var valText = isOwner && s.contract_value_paise ? `₹${(s.contract_value_paise / 100).toLocaleString('en-IN')}` : '';

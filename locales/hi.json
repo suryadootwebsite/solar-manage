@@ -357,5 +357,23 @@
   "role.MANAGER": "प्रबंधक (Manager)",
   "role.SITE_USER": "साइट यूज़र (Site User)",
   "role.DEVELOPER": "डेवलपर (Developer)",
-  "sites.tab_photos": "फ़ोटो (Photos)"
+  "sites.tab_photos": "फ़ोटो (Photos)",
+  "nav": {
+    "leads": "लीड्स"
+  },
+  "common": {
+    "search_placeholder": "खोजें..."
+  },
+  "leads": {
+    "title": "लीड्स पाइपलाइन",
+    "subtitle": "पूछताछ, फॉलो-अप और ग्राहक रूपांतरण",
+    "new_btn": "लीड जोड़ें",
+    "search_placeholder": "नाम, फोन, शहर, विवरण खोजें...",
+    "empty": "कोई लीड नहीं मिली"
+  },
+  "documents": {
+    "title": "दस्तावेज़",
+    "upload_btn": "दस्तावेज़ अपलोड करें",
+    "empty": "कोई दस्तावेज़ संलग्न नहीं है"
+  }
 }

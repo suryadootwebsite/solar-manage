@@ -217,18 +217,68 @@ window.api = (function() {
     _activeRequests++;
     _updateProgress();
 
-    // After 8s elapsed, if still pending, show a toast/status update "Still loading..."
-    var slowTimer = setTimeout(function() {
-      if (window.ui && window.ui.showToast) {
-        window.ui.showToast('Still loading...', 'info');
-      } else {
-        console.warn('Still loading...');
+    // 20s Still Loading Popup with Wait & Retry (cancels in-flight, re-sends with SAME request_id)
+    var slowPopupEl = null;
+    var popupShown = false;
+    var activeController = null;
+
+    function _dismissSlowPopup() {
+      if (slowPopupEl && slowPopupEl.parentNode) {
+        slowPopupEl.parentNode.removeChild(slowPopupEl);
+        slowPopupEl = null;
       }
-    }, 8000);
+    }
+
+    function _showSlowPopup() {
+      if (popupShown || slowPopupEl || typeof document === "undefined") return;
+      popupShown = true;
+      slowPopupEl = document.createElement("div");
+      slowPopupEl.id = "still-loading-popup-" + requestId;
+      slowPopupEl.className = "still-loading-popup";
+      slowPopupEl.setAttribute("role", "alert");
+      slowPopupEl.style.cssText = "position:fixed;bottom:24px;left:50%;transform:translateX(-50%);" +
+        "background:var(--bg-card, #ffffff);color:var(--text-main, #111827);" +
+        "border:1px solid var(--border-color, #e5e7eb);box-shadow:0 10px 25px -5px rgba(0,0,0,0.25);" +
+        "border-radius:12px;padding:0.85rem 1.15rem;z-index:10001;max-width:90vw;width:340px;" +
+        "display:flex;flex-direction:column;gap:0.6rem;pointer-events:auto;";
+
+      slowPopupEl.innerHTML = 
+        "<div style=\"display:flex;align-items:center;gap:0.5rem;\">" +
+          "<span style=\"font-size:1.25rem;\">⏳</span>" +
+          "<span style=\"font-weight:600;font-size:0.85rem;line-height:1.3;\">Still loading... slow network. Please wait.</span>" +
+        "</div>" +
+        "<div style=\"display:flex;justify-content:flex-end;gap:0.5rem;\">" +
+          "<button type=\"button\" class=\"btn btn-outline btn-sm btn-still-wait\" style=\"min-height:34px;padding:0.2rem 0.75rem;font-size:0.8rem;\">Wait</button>" +
+          "<button type=\"button\" class=\"btn btn-primary btn-sm btn-still-retry\" style=\"min-height:34px;padding:0.2rem 0.75rem;font-size:0.8rem;\">Retry</button>" +
+        "</div>";
+
+      document.body.appendChild(slowPopupEl);
+
+      var btnWait = slowPopupEl.querySelector(".btn-still-wait");
+      var btnRetry = slowPopupEl.querySelector(".btn-still-retry");
+      if (btnWait) {
+        btnWait.addEventListener("click", function() {
+          _dismissSlowPopup();
+        });
+      }
+      if (btnRetry) {
+        btnRetry.addEventListener("click", function() {
+          _dismissSlowPopup();
+          if (activeController) {
+            try { activeController.abort(); } catch(e) {}
+          }
+        });
+      }
+    }
+
+    var slowTimer = setTimeout(function() {
+      _showSlowPopup();
+    }, 20000);
 
     try {
       for (var attempt = 0; attempt <= maxRetries; attempt++) {
         var controller = new AbortController();
+        activeController = controller;
         var timeoutId = setTimeout(function() { controller.abort(); }, timeoutMs);
 
         var response;

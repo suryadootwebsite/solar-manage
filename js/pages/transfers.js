@@ -19,6 +19,7 @@ window.pages.transfers = async function(container) {
       </div>
     </div>
 
+    <div id="trf-search-mount"></div>
     <!-- Filter chips -->
     <div style="display:flex; gap:0.5rem; margin-bottom:1rem; overflow-x:auto;">
       <button class="btn btn-primary trf-filter-btn active" data-status="">All</button>
@@ -36,6 +37,19 @@ window.pages.transfers = async function(container) {
   var newBtn = document.getElementById('trf-new-btn');
   var backBtn = document.getElementById('trf-back-stk-btn');
   var filterButtons = container.querySelectorAll('.trf-filter-btn');
+
+  var trfSearchQuery = "";
+  if (window.components && window.components.createSearchBar) {
+    var sBar = window.components.createSearchBar({
+      placeholder: "Search transfer ID, location, status...",
+      onSearch: function(q) {
+        trfSearchQuery = q;
+        renderTransfers();
+      }
+    });
+    var tm = document.getElementById("trf-search-mount");
+    if (tm) tm.appendChild(sBar.element);
+  }
 
   var currentStatus = '';
   var transfers = [];
@@ -75,12 +89,16 @@ window.pages.transfers = async function(container) {
   }
 
   function renderTransfers() {
-    if (!transfers.length) {
+    var displayTransfers = transfers;
+    if (trfSearchQuery && window.components && window.components.filterListByQuery) {
+      displayTransfers = window.components.filterListByQuery(transfers, trfSearchQuery, ['transfer_id', 'from_location_id', 'to_location_id', 'status']);
+    }
+    if (!displayTransfers.length) {
       listView.innerHTML = `<div class="card" style="text-align:center; color:var(--text-muted); padding:2rem 1rem;">No stock transfers found.</div>`;
       return;
     }
 
-    listView.innerHTML = transfers.map(function(t) {
+    listView.innerHTML = displayTransfers.map(function(t) {
       var statusClass = t.status === 'RECEIVED' ? 'badge-success' : (t.status === 'IN_TRANSIT' ? 'badge-warning' : 'badge-disabled');
 
       return `

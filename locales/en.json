@@ -357,5 +357,23 @@
   "role.MANAGER": "Manager",
   "role.SITE_USER": "Site User",
   "role.DEVELOPER": "Developer",
-  "sites.tab_photos": "Photos"
+  "sites.tab_photos": "Photos",
+  "nav": {
+    "leads": "Leads"
+  },
+  "common": {
+    "search_placeholder": "Search / खोजें..."
+  },
+  "leads": {
+    "title": "Leads Pipeline",
+    "subtitle": "Inquiries, follow-ups & customer conversions",
+    "new_btn": "Add Lead",
+    "search_placeholder": "Search name, phone, city, notes...",
+    "empty": "No leads found"
+  },
+  "documents": {
+    "title": "Documents",
+    "upload_btn": "Upload Document",
+    "empty": "No documents attached yet"
+  }
 }

@@ -36,15 +36,7 @@ window.pages.users = function(container) {
         </button>
       </div>
 
-      <div style="margin-bottom:1rem;">
-        <input
-          type="text"
-          id="users-search-input"
-          class="form-control"
-          placeholder="${ui.esc(t('users.search_placeholder') || 'Search users by name, username, or phone...')}"
-          style="width:100%; min-height:44px; padding:0.5rem 0.75rem; border:1.5px solid var(--border); border-radius:8px; box-sizing:border-box;"
-        />
-      </div>
+      <div id="users-search-mount"></div>
 
       <div id="users-list-container">
         <div style="text-align:center; padding:2rem;">

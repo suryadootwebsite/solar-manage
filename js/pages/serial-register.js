@@ -16,12 +16,7 @@ window.pages.serialRegister = function(container) {
       '<p class="text-muted" style="margin:0; font-size:0.85rem;">' + esc(t('serials.subtitle') || 'Search serial numbers, manage warranties & replacements') + '</p>' +
     '</div>' +
 
-    '<div class="card" style="margin-bottom:1rem; padding:0.75rem;">' +
-      '<div style="display:flex; gap:0.5rem;">' +
-        '<input id="serial-search-input" class="input" placeholder="' + esc(t('serials.search_placeholder') || 'Search serial number...') + '" style="flex:1;">' +
-        '<button id="btn-serial-search" class="btn btn-primary" style="padding:0.4rem 0.8rem;">' + esc(t('common.search') || 'Search') + '</button>' +
-      '</div>' +
-    '</div>' +
+    '<div id="serial-search-mount"></div>' +
 
     '<div class="card">' +
       '<div id="serials-table-container">' +
@@ -33,17 +28,21 @@ window.pages.serialRegister = function(container) {
   var btnSearch = document.getElementById('btn-serial-search');
   var tableContainer = document.getElementById('serials-table-container');
 
-  btnSearch.addEventListener('click', function() {
-    window.ui.withButtonLoading(btnSearch, performSearch);
-  });
-  searchInput.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') {
-      window.ui.withButtonLoading(btnSearch, performSearch);
-    }
-  });
+  var serialQuery = "";
+  if (window.components && window.components.createSearchBar) {
+    var sBar = window.components.createSearchBar({
+      placeholder: t("serials.search_placeholder") || "Search serial number...",
+      onSearch: function(q) {
+        serialQuery = q;
+        performSearch(q);
+      }
+    });
+    var sm = document.getElementById("serial-search-mount");
+    if (sm) sm.appendChild(sBar.element);
+  }
 
-  function performSearch() {
-    var q = searchInput.value.trim();
+  function performSearch(query) {
+    var q = (query !== undefined ? query : serialQuery).trim();
     tableContainer.innerHTML = '<p class="text-muted">' + esc(t('common.loading') || 'Loading...') + '</p>';
 
     var action = q ? 'serials.search' : 'serials.list';
