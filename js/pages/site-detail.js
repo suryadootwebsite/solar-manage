@@ -13,7 +13,9 @@ window.pages.siteDetail = async function(container, params) {
 
   var t = window.i18n.t;
   var esc = window.ui.esc;
-  var userRole = window.auth.getUser() ? window.auth.getUser().role : 'SITE_USER';
+  var currentUser = window.auth.getUser() || {};
+  var userRole = currentUser.role || 'SITE_USER';
+  var currentUserId = currentUser.user_id || '';
   var isOwner = userRole === 'OWNER' || userRole === 'DEVELOPER';
 
   container.innerHTML = `
@@ -58,7 +60,7 @@ window.pages.siteDetail = async function(container, params) {
     return cleanSite + '-' + timeStr + suffix + '.jpg';
   }
 
-  function compressImage(file, maxDimension, quality) {
+  function compressPhotoAndThumb(file) {
     return new Promise(function(resolve, reject) {
       if (!file || !file.type.startsWith('image/')) {
         return resolve(null);
@@ -67,9 +69,10 @@ window.pages.siteDetail = async function(container, params) {
       reader.onload = function(e) {
         var img = new Image();
         img.onload = function() {
+          // 1. Full photo: max 1600px, quality 0.85
           var w = img.width;
           var h = img.height;
-          var maxD = maxDimension || 1280;
+          var maxD = 1600;
           if (w > maxD || h > maxD) {
             if (w > h) {
               h = Math.round((h * maxD) / w);
@@ -84,23 +87,196 @@ window.pages.siteDetail = async function(container, params) {
           canvas.height = h;
           var ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, w, h);
-          var dataUrl = canvas.toDataURL('image/jpeg', quality || 0.8);
-          var base64 = dataUrl.split(',')[1];
+          var mainDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          var mainBase64 = mainDataUrl.split(',')[1];
+
+          // 2. Thumbnail: max 320px, quality 0.70
+          var tw = img.width;
+          var th = img.height;
+          var maxT = 320;
+          if (tw > maxT || th > maxT) {
+            if (tw > th) {
+              th = Math.round((th * maxT) / tw);
+              tw = maxT;
+            } else {
+              tw = Math.round((tw * maxT) / th);
+              th = maxT;
+            }
+          }
+          var tCanvas = document.createElement('canvas');
+          tCanvas.width = tw;
+          tCanvas.height = th;
+          var tCtx = tCanvas.getContext('2d');
+          tCtx.drawImage(img, 0, 0, tw, th);
+          var thumbDataUrl = tCanvas.toDataURL('image/jpeg', 0.70);
+          var thumbBase64 = thumbDataUrl.split(',')[1];
+
           resolve({
-            base64: base64,
-            mimeType: 'image/jpeg',
-            fileName: (file.name || 'photo.jpg').replace(/\.[^.]+$/, '') + '.jpg'
+            base64: mainBase64,
+            thumbBase64: thumbBase64,
+            mimeType: 'image/jpeg'
           });
         };
         img.onerror = function() {
           var rawBase64 = String(e.target.result).split(',')[1];
-          resolve({ base64: rawBase64, mimeType: file.type || 'image/jpeg', fileName: file.name });
+          resolve({ base64: rawBase64, thumbBase64: '', mimeType: file.type || 'image/jpeg' });
         };
         img.src = e.target.result;
       };
       reader.onerror = reject;
       reader.readAsDataURL(file);
     });
+  }
+
+  function compressImage(file, maxD, quality) {
+    return compressPhotoAndThumb(file);
+  }
+
+  // Lazy thumbnail loader (max 3 concurrent) with sessionStorage cache
+  var _thumbQueue = [];
+  var _thumbActiveCount = 0;
+  var MAX_PARALLEL_THUMBS = 3;
+
+  function loadPhotoThumb(photoId, imgEl, skelEl) {
+    if (!photoId) return;
+    var cacheKey = 'pimg_' + photoId + '_thumb';
+    var cached = sessionStorage.getItem(cacheKey);
+    if (cached) {
+      if (imgEl) {
+        imgEl.src = cached;
+        imgEl.style.display = 'block';
+      }
+      if (skelEl) skelEl.style.display = 'none';
+      return;
+    }
+
+    _thumbQueue.push({
+      photoId: photoId,
+      imgEl: imgEl,
+      skelEl: skelEl
+    });
+    _processThumbQueue();
+  }
+
+  function _processThumbQueue() {
+    while (_thumbActiveCount < MAX_PARALLEL_THUMBS && _thumbQueue.length > 0) {
+      var item = _thumbQueue.shift();
+      _thumbActiveCount++;
+      (function(task) {
+        window.api.call('photos.image', { photo_id: task.photoId, size: 'thumb' })
+          .then(function(res) {
+            if (res && res.data_uri) {
+              try { sessionStorage.setItem('pimg_' + task.photoId + '_thumb', res.data_uri); } catch(e) {}
+              if (task.imgEl) {
+                task.imgEl.src = res.data_uri;
+                task.imgEl.style.display = 'block';
+              }
+              if (task.skelEl) task.skelEl.style.display = 'none';
+            }
+          })
+          .catch(function() {
+            if (task.skelEl) {
+              task.skelEl.innerHTML = '<span style="font-size:1.5rem; opacity:0.4;">📷</span>';
+            }
+          })
+          .finally(function() {
+            _thumbActiveCount--;
+            _processThumbQueue();
+          });
+      })(item);
+    }
+  }
+
+  // Modal full photo viewer
+  async function openFullPhotoModal(photoId, caption, uploadedAt) {
+    var modalHtml = `
+      <div id="full-photo-modal-content" style="text-align:center; position:relative; min-height:180px; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+        <div id="fpm-spinner" style="padding:2rem;"><span class="spinner"></span></div>
+        <img id="fpm-img" style="display:none; max-width:100%; max-height:70vh; border-radius:6px; object-fit:contain; box-shadow:0 4px 12px rgba(0,0,0,0.15);" />
+        <div id="fpm-meta" style="margin-top:0.75rem; font-size:0.85rem; color:var(--text-muted); display:none;">
+          <div style="font-weight:600; color:var(--text-main); font-size:0.95rem;">${esc(caption || 'Site Photo')}</div>
+          <div>${uploadedAt ? esc(uploadedAt.slice(0, 10)) : ''}</div>
+        </div>
+      </div>
+    `;
+    window.ui.openBottomSheet('Photo View', modalHtml, '');
+
+    var cacheKey = 'pimg_' + photoId + '_full';
+    var cached = sessionStorage.getItem(cacheKey);
+    var spinnerEl = document.getElementById('fpm-spinner');
+    var imgEl = document.getElementById('fpm-img');
+    var metaEl = document.getElementById('fpm-meta');
+
+    if (cached) {
+      if (spinnerEl) spinnerEl.style.display = 'none';
+      if (imgEl) { imgEl.src = cached; imgEl.style.display = 'block'; }
+      if (metaEl) metaEl.style.display = 'block';
+      return;
+    }
+
+    try {
+      var res = await window.api.call('photos.image', { photo_id: photoId, size: 'full' });
+      if (res && res.data_uri) {
+        try { sessionStorage.setItem(cacheKey, res.data_uri); } catch(e) {}
+        if (spinnerEl) spinnerEl.style.display = 'none';
+        if (imgEl) { imgEl.src = res.data_uri; imgEl.style.display = 'block'; }
+        if (metaEl) metaEl.style.display = 'block';
+      }
+    } catch(err) {
+      if (spinnerEl) spinnerEl.innerHTML = '<div class="text-error">Failed to load photo: ' + esc(err.message || 'Error') + '</div>';
+    }
+  }
+
+  // 2-step verification delete dialog
+  function openDeletePhotoDialog(photoId, onSuccess) {
+    var dialogHtml = `
+      <div id="del-photo-flow" style="padding:0.5rem 0;">
+        <p style="font-weight:600; color:#dc2626; margin:0 0 0.5rem 0;">⚠️ Permanent Deletion</p>
+        <p style="font-size:0.875rem; color:var(--text-muted); margin:0 0 1rem 0;">
+          Are you sure you want to permanently delete this photo? This will remove the file from storage and cannot be undone.
+        </p>
+        <div class="form-field">
+          <label style="font-weight:600; font-size:0.85rem;">Type <strong>DELETE</strong> to confirm:</label>
+          <input type="text" id="del-photo-input" class="input" placeholder="DELETE" autocomplete="off" style="margin-top:0.25rem;">
+        </div>
+        <div id="del-photo-err" class="text-error" style="display:none; margin-bottom:0.75rem;"></div>
+        <button id="del-photo-btn" class="btn btn-full" disabled style="background:#dc2626; color:#fff; border:none; opacity:0.5; cursor:not-allowed;">Confirm Delete</button>
+      </div>
+    `;
+    window.ui.openBottomSheet('Delete Photo', dialogHtml, '');
+
+    var inputEl = document.getElementById('del-photo-input');
+    var btnEl = document.getElementById('del-photo-btn');
+    var errEl = document.getElementById('del-photo-err');
+
+    inputEl.oninput = function() {
+      if (inputEl.value.trim() === 'DELETE') {
+        btnEl.disabled = false;
+        btnEl.style.opacity = '1';
+        btnEl.style.cursor = 'pointer';
+      } else {
+        btnEl.disabled = true;
+        btnEl.style.opacity = '0.5';
+        btnEl.style.cursor = 'not-allowed';
+      }
+    };
+
+    btnEl.onclick = async function() {
+      if (inputEl.value.trim() !== 'DELETE') return;
+      window.ui.withButtonLoading(btnEl, async function() {
+        try {
+          await window.api.call('photos.delete', { photo_id: photoId, confirm: true });
+          sessionStorage.removeItem('pimg_' + photoId + '_thumb');
+          sessionStorage.removeItem('pimg_' + photoId + '_full');
+          window.ui.closeBottomSheet();
+          window.ui.toast('Photo permanently deleted', 'success');
+          if (typeof onSuccess === 'function') onSuccess();
+        } catch(dErr) {
+          errEl.textContent = dErr.message || 'Deletion failed';
+          errEl.style.display = 'block';
+        }
+      });
+    };
   }
 
   async function ensureProductsLoaded() {
@@ -435,13 +611,16 @@ window.pages.siteDetail = async function(container, params) {
             var stg = stagesData.find(function(s) { return s.stage_id === p.stage_id; });
             var sm = (stg && smMap[stg.stage_id]) || {};
             var stgName = sm.name_en || p.stage_id || 'General';
-            var thumbUrl = 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(p.drive_file_id) + '&sz=w300';
             var isArch = !!p.archived;
+            var canDelete = (isOwner || userRole === 'MANAGER' || (userRole === 'SITE_USER' && p.uploaded_by === currentUserId));
 
             return `
-              <div class="card sdt-photo-card" data-photo-id="${esc(p.photo_id)}" style="padding:0.5rem; display:flex; flex-direction:column; justify-content:space-between; cursor:pointer;">
+              <div class="card sdt-photo-card" data-photo-id="${esc(p.photo_id)}" data-caption="${esc(p.caption || '')}" data-date="${esc(p.uploaded_at || '')}" style="padding:0.5rem; display:flex; flex-direction:column; justify-content:space-between; cursor:pointer;">
                 <div style="position:relative; width:100%; height:110px; background:var(--border,#e2e8f0); border-radius:4px; overflow:hidden; display:flex; align-items:center; justify-content:center;">
-                  <img src="${thumbUrl}" alt="${esc(p.caption || 'Photo')}" loading="lazy" style="width:100%; height:100%; object-fit:cover;" onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'40\' height=\'40\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%2394a3b8\' stroke-width=\'2\'><rect width=\'18\' height=\'18\' x=\'3\' y=\'3\' rx=\'2\'/><circle cx=\'9\' cy=\'9\' r=\'2\'/><path d=\'m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21\'/></svg>';">
+                  <div class="photo-skel" id="skel-${esc(p.photo_id)}" style="width:100%; height:100%; background:linear-gradient(90deg, #e2e8f0 25%, #cbd5e1 50%, #e2e8f0 75%); background-size:200% 100%; animation:shimmer 1.5s infinite; display:flex; align-items:center; justify-content:center;">
+                    <span style="font-size:1.5rem; opacity:0.3;">📸</span>
+                  </div>
+                  <img id="img-${esc(p.photo_id)}" alt="${esc(p.caption || 'Photo')}" style="display:none; width:100%; height:100%; object-fit:cover;" />
                   ${isArch ? '<span style="position:absolute; top:4px; right:4px; background:rgba(0,0,0,0.7); color:#fff; font-size:0.65rem; padding:2px 4px; border-radius:3px;">Archived</span>' : ''}
                 </div>
                 <div style="margin-top:0.4rem; font-size:0.75rem;">
@@ -449,7 +628,7 @@ window.pages.siteDetail = async function(container, params) {
                   <div style="font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${esc(p.caption || 'Photo')}">${esc(p.caption || 'No caption')}</div>
                   <div style="color:var(--text-muted); font-size:0.7rem; margin-top:0.15rem;">${(p.uploaded_at || '').slice(0, 10)} · ${p.size_kb || 0} KB</div>
                 </div>
-                ${(isOwner || userRole === 'DEVELOPER') ? `
+                ${canDelete ? `
                   <button class="btn btn-outline btn-sm btn-delete-photo" data-photo-id="${esc(p.photo_id)}" style="margin-top:0.4rem; padding:0.2rem 0.4rem; font-size:0.7rem; color:#dc2626; border-color:#fca5a5;">🗑️ Delete</button>
                 ` : ''}
               </div>
@@ -462,6 +641,13 @@ window.pages.siteDetail = async function(container, params) {
       _tabData['photos'] = wrapEl.innerHTML;
       _tabLoaded['photos'] = true;
       attachPhotosEventListeners();
+
+      // Trigger lazy loads for thumbnails
+      photos.forEach(function(p) {
+        var imgEl = document.getElementById('img-' + p.photo_id);
+        var skelEl = document.getElementById('skel-' + p.photo_id);
+        if (imgEl) loadPhotoThumb(p.photo_id, imgEl, skelEl);
+      });
     } catch(err) {
       if (wrapEl) wrapEl.innerHTML = `<div class="card text-error">${esc(err.message || 'Failed to load photos')}</div>`;
     }
@@ -479,41 +665,25 @@ window.pages.siteDetail = async function(container, params) {
 
     var cards = document.querySelectorAll('.sdt-photo-card');
     cards.forEach(function(card) {
-      card.onclick = async function(ev) {
+      card.onclick = function(ev) {
         if (ev.target.closest('.btn-delete-photo')) return;
         var pId = card.getAttribute('data-photo-id');
-        await window.ui.withButtonLoading(card, async function() {
-          try {
-            var pInfo = await window.api.call('photos.get', { photo_id: pId });
-          if (pInfo && pInfo.download_url) {
-            window.open(pInfo.download_url, '_blank');
-          } else {
-            window.open('https://drive.google.com/file/d/' + encodeURIComponent(pInfo.drive_file_id) + '/view', '_blank');
-          }
-          } catch(e) {
-            window.ui.showToast('Could not open photo: ' + e.message, 'error');
-          }
-        });
+        var caption = card.getAttribute('data-caption') || '';
+        var date = card.getAttribute('data-date') || '';
+        openFullPhotoModal(pId, caption, date);
       };
     });
 
     var delBtns = document.querySelectorAll('.btn-delete-photo');
     delBtns.forEach(function(delBtn) {
-      delBtn.onclick = async function(ev) {
+      delBtn.onclick = function(ev) {
         ev.stopPropagation();
         var pId = delBtn.getAttribute('data-photo-id');
-        if (!confirm('Are you sure you want to delete this photo?')) return;
-        await window.ui.withButtonLoading(delBtn, async function() {
-          try {
-            await window.api.call('photos.delete', { photo_id: pId });
-            window.ui.showToast('Photo deleted', 'info');
-            _tabLoaded['photos'] = false;
-            _tabData['photos'] = null;
-            var pane = document.getElementById('sdt-tab-pane');
-            if (pane) renderPhotosTab(pane);
-          } catch(dErr) {
-            window.ui.showToast('Delete failed: ' + dErr.message, 'error');
-          }
+        openDeletePhotoDialog(pId, function() {
+          _tabLoaded['photos'] = false;
+          _tabData['photos'] = null;
+          var pane = document.getElementById('sdt-tab-pane');
+          if (pane) renderPhotosTab(pane);
         });
       };
     });
@@ -586,17 +756,18 @@ window.pages.siteDetail = async function(container, params) {
 
       await window.ui.withButtonLoading(submitBtn, async function() {
         try {
-          var compressed = await compressImage(fileInput.files[0], 1280, 0.8);
+          var compressed = await compressPhotoAndThumb(fileInput.files[0]);
           var stageId = document.getElementById('upf-stage').value || '';
           var caption = document.getElementById('upf-caption').value || '';
 
           await window.api.call('photos.upload', {
-            site_id:     siteId,
-            stage_id:    stageId,
-            caption:     caption,
-            data_base64: compressed.base64,
-            mime_type:   compressed.mimeType,
-            file_name:   compressed.fileName
+            site_id:           siteId,
+            stage_id:          stageId,
+            caption:           caption,
+            data_base64:       compressed.base64,
+            thumb_data_base64: compressed.thumbBase64,
+            mime_type:         compressed.mimeType,
+            file_name:         'photo.jpg'
           });
 
           window.ui.closeBottomSheet();
@@ -613,8 +784,7 @@ window.pages.siteDetail = async function(container, params) {
     };
   }
 
-  // 4. Money Tab (OWNER / DEVELOPER only)
-  // 4. Money Tab (OWNER / DEVELOPER full P&L & expenses; MANAGER add-only expense)
+  // 4. Money Tab (OWNER / DEVELOPER full P&L & expenses; MANAGER add-only expense)  // 4. Money Tab (OWNER / DEVELOPER full P&L & expenses; MANAGER add-only expense)
   async function renderMoneyTab(pane) {
     if (_tabLoaded['money'] && _tabData['money']) {
       pane.innerHTML = _tabData['money'];
@@ -1319,25 +1489,64 @@ window.pages.siteDetail = async function(container, params) {
       }
 
       existingGrid.innerHTML = existingPhotos.map(function(p) {
-        var thumbUrl = 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(p.drive_file_id) + '&sz=w200';
-        var altThumb = 'https://lh3.googleusercontent.com/d/' + encodeURIComponent(p.drive_file_id) + '=w200';
-        var viewUrl = 'https://drive.google.com/file/d/' + encodeURIComponent(p.drive_file_id) + '/view';
+        var canDelete = (isOwner || userRole === 'MANAGER' || (userRole === 'SITE_USER' && p.uploaded_by === currentUserId));
         return `
-          <div style="position:relative; width:80px; height:80px; flex-shrink:0; border-radius:6px; overflow:hidden; border:1px solid var(--border,#cbd5e1); cursor:pointer; background:#f1f5f9;" title="${esc(p.caption || 'Stage Photo')}" onclick="window.open('${viewUrl}', '_blank')">
-            <img src="${thumbUrl}" alt="Photo" style="width:100%; height:100%; object-fit:cover;" onerror="this.onerror=null; this.src='${altThumb}';" />
-            <span style="position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,0.65); color:#fff; font-size:0.6rem; text-align:center; padding:1px 0;">View ↗</span>
+          <div class="existing-photo-item" data-photo-id="${esc(p.photo_id)}" data-caption="${esc(p.caption || '')}" data-date="${esc(p.uploaded_at || '')}" style="position:relative; width:80px; height:80px; flex-shrink:0; border-radius:6px; overflow:hidden; border:1px solid var(--border,#cbd5e1); cursor:pointer; background:#f1f5f9;" title="${esc(p.caption || 'Stage Photo')}">
+            <div id="esk-${esc(p.photo_id)}" style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; background:#e2e8f0;">
+              <span style="font-size:1rem; opacity:0.3;">📸</span>
+            </div>
+            <img id="eimg-${esc(p.photo_id)}" alt="Photo" style="display:none; width:100%; height:100%; object-fit:cover;" />
+            <span style="position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,0.65); color:#fff; font-size:0.55rem; text-align:center; padding:1px 0;">View ↗</span>
+            ${canDelete ? `
+              <button type="button" class="btn-del-existing" data-photo-id="${esc(p.photo_id)}" style="position:absolute; top:2px; right:2px; background:rgba(220,38,38,0.9); color:#fff; border:none; border-radius:50%; width:20px; height:20px; font-size:10px; cursor:pointer; display:flex; align-items:center; justify-content:center;">✕</button>
+            ` : ''}
           </div>
         `;
       }).join('');
+
+      existingGrid.querySelectorAll('.existing-photo-item').forEach(function(item) {
+        item.onclick = function(ev) {
+          if (ev.target.closest('.btn-del-existing')) return;
+          var pId = item.getAttribute('data-photo-id');
+          var caption = item.getAttribute('data-caption') || '';
+          var date = item.getAttribute('data-date') || '';
+          openFullPhotoModal(pId, caption, date);
+        };
+      });
+
+      async function refreshStageExistingPhotos() {
+        _tabLoaded['photos'] = false;
+        var freshRes = await window.api.call('photos.list', { site_id: site.site_id });
+        if (freshRes && freshRes.photos) {
+          sitePhotosData = freshRes.photos;
+          var freshMatches = freshRes.photos.filter(function(p) {
+            return p.stage_id === stg.stage_id && !p.archived && p.is_active !== false;
+          });
+          renderExisting(freshMatches);
+        }
+        loadDetails();
+      }
+
+      existingGrid.querySelectorAll('.btn-del-existing').forEach(function(delBtn) {
+        delBtn.onclick = function(ev) {
+          ev.stopPropagation();
+          var pId = delBtn.getAttribute('data-photo-id');
+          openDeletePhotoDialog(pId, refreshStageExistingPhotos);
+        };
+      });
+
+      existingPhotos.forEach(function(p) {
+        var imgEl = document.getElementById('eimg-' + p.photo_id);
+        var skelEl = document.getElementById('esk-' + p.photo_id);
+        if (imgEl) loadPhotoThumb(p.photo_id, imgEl, skelEl);
+      });
     }
 
-    // Render immediately from cached data
     var initialMatches = (sitePhotosData || []).filter(function(p) {
       return p.stage_id === stg.stage_id && !p.archived && p.is_active !== false;
     });
     renderExisting(initialMatches);
 
-    // Refresh async
     window.api.call('photos.list', { site_id: site.site_id }).then(function(res) {
       if (res && res.photos) {
         sitePhotosData = res.photos;
@@ -1391,12 +1600,13 @@ window.pages.siteDetail = async function(container, params) {
       try {
         for (var i = 0; i < newFiles.length; i++) {
           var f = newFiles[i];
-          var comp = await compressImage(f, 1024, 0.7);
+          var comp = await compressPhotoAndThumb(f);
           if (comp) {
             var fileName = formatPhotoFileName(site.site_name, stagedPhotos.length, stagedPhotos.length + 1);
             stagedPhotos.push({
               file: f,
               base64: comp.base64,
+              thumbBase64: comp.thumbBase64,
               mimeType: comp.mimeType || 'image/jpeg',
               fileName: fileName
             });
@@ -1428,12 +1638,13 @@ window.pages.siteDetail = async function(container, params) {
               var p = stagedPhotos[i];
               btnUploadNow.textContent = 'Uploading (' + (i + 1) + '/' + stagedPhotos.length + ')...';
               await window.api.call('photos.upload', {
-                site_id:     site.site_id,
-                stage_id:    stg.stage_id,
-                caption:     (sm.name_en || stg.stage_id) + ' proof (' + (i + 1) + '/' + stagedPhotos.length + ')',
-                data_base64: p.base64,
-                mime_type:   p.mimeType,
-                file_name:   p.fileName
+                site_id:           site.site_id,
+                stage_id:          stg.stage_id,
+                caption:           (sm.name_en || stg.stage_id) + ' proof (' + (i + 1) + '/' + stagedPhotos.length + ')',
+                data_base64:       p.base64,
+                thumb_data_base64: p.thumbBase64,
+                mime_type:         p.mimeType,
+                file_name:         p.fileName
               });
             }
             var count = stagedPhotos.length;
