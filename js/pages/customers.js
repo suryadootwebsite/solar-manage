@@ -120,7 +120,10 @@ window.pages.customers = async function(container) {
               </div>
               ${c.city || c.address ? `<div style="font-size:0.85rem; color:var(--text-muted); margin-top:0.25rem;">📍 ${window.ui.esc([c.address, c.city, c.pincode].filter(Boolean).join(', '))}</div>` : ''}
             </div>
-            <span class="badge ${c.is_active ? 'badge-success' : 'badge-disabled'}">${c.is_active ? 'ACTIVE' : 'INACTIVE'}</span>
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:0.25rem;">
+              <span class="badge ${c.is_active ? 'badge-success' : 'badge-disabled'}">${c.is_active ? 'ACTIVE' : 'INACTIVE'}</span>
+              ${c.doc_count ? `<span class="badge" style="font-size:0.75rem; background:#f1f5f9; color:#475569;">📄 ${c.doc_count}</span>` : ''}
+            </div>
           </div>
         </div>
       `;
@@ -136,6 +139,31 @@ window.pages.customers = async function(container) {
           if (cust) openCustomerForm(cust);
         };
       });
+    }
+  }
+
+  function openCustomerDetail(c) {
+    var detailHtml = `
+      <div style="margin-bottom:1rem;">
+        <div style="font-weight:700; font-size:1.15rem; color:var(--text-main); margin-bottom:0.25rem;">${window.ui.esc(c.name)}</div>
+        <div style="font-size:0.875rem; color:var(--text-muted); margin-bottom:0.25rem;">📞 <a href="tel:${window.ui.esc(c.phone)}">${window.ui.esc(c.phone)}</a> ${c.alt_phone ? ' | ' + window.ui.esc(c.alt_phone) : ''}</div>
+        ${c.city || c.address ? `<div style="font-size:0.875rem; color:var(--text-muted); margin-bottom:0.5rem;">📍 ${window.ui.esc([c.address, c.city, c.pincode].filter(Boolean).join(', '))}</div>` : ''}
+        <div style="margin-top:0.75rem;">
+          <button id="btn-edit-cust-detail" class="btn btn-outline btn-sm">Edit Details</button>
+        </div>
+      </div>
+      <div id="cust-detail-docs-mount"></div>
+    `;
+    window.ui.openBottomSheet('Customer: ' + c.name, detailHtml, '');
+    var editBtn = document.getElementById('btn-edit-cust-detail');
+    if (editBtn) {
+      editBtn.onclick = function() {
+        openCustomerForm(c);
+      };
+    }
+    if (window.components && window.components.renderDocumentsSection) {
+      var mount = document.getElementById('cust-detail-docs-mount');
+      if (mount) window.components.renderDocumentsSection(mount, 'CUSTOMER', c.customer_id, c.name);
     }
   }
 

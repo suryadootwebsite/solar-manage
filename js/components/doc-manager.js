@@ -132,7 +132,7 @@ window.components.renderDocumentsSection = async function (mountEl, entityType, 
             var thumbId = 'doc-thumb-' + doc.doc_id;
 
             return (
-              '<div class="doc-card" data-doc-id="' + esc(doc.doc_id)" style="border:1px solid var(--border-color, #e5e7eb);border-radius:8px;overflow:hidden;background:#fff;display:flex;flex-direction:column;">' +
+              '<div class="doc-card" data-doc-id="' + esc(doc.doc_id) + '" style="border:1px solid var(--border-color, #e5e7eb);border-radius:8px;overflow:hidden;background:#fff;display:flex;flex-direction:column;">' +
                 '<div style="position:relative;width:100%;aspect-ratio:4/3;background:#f3f4f6;cursor:pointer;display:flex;align-items:center;justify-content:center;" class="doc-view-trigger" data-doc-id="' + esc(doc.doc_id) + '">' +
                   (isPdf ? (
                     '<div style="text-align:center;padding:0.5rem;"><div style="font-size:2rem;">📄</div><span style="font-size:0.7rem;font-weight:700;color:#dc2626;">PDF</span></div>'

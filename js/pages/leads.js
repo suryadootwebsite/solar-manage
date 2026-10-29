@@ -38,14 +38,14 @@ window.pages.leads = async function (container) {
     '<div id="leads-search-mount"></div>' +
 
     '<div id="leads-filter-chips" class="filter-chips-scroll" style="display:flex;gap:0.4rem;overflow-x:auto;padding-bottom:0.5rem;margin-bottom:0.75rem;-webkit-overflow-scrolling:touch;">' +
-      '<button type="button" class="chip active" data-status="ALL">All <span class="chip-count" id="count-ALL">0</span></button>' +
-      '<button type="button" class="chip" data-status="NEW">New <span class="chip-count" id="count-NEW">0</span></button>' +
-      '<button type="button" class="chip" data-status="CONTACTED">Contacted <span class="chip-count" id="count-CONTACTED">0</span></button>' +
-      '<button type="button" class="chip" data-status="SITE_VISIT">Site Visit <span class="chip-count" id="count-SITE_VISIT">0</span></button>' +
-      '<button type="button" class="chip" data-status="QUOTATION_SENT">Quote <span class="chip-count" id="count-QUOTATION_SENT">0</span></button>' +
-      '<button type="button" class="chip" data-status="NEGOTIATION">Negotiation <span class="chip-count" id="count-NEGOTIATION">0</span></button>' +
-      '<button type="button" class="chip" data-status="WON">Won <span class="chip-count" id="count-WON">0</span></button>' +
-      '<button type="button" class="chip" data-status="LOST">Lost <span class="chip-count" id="count-LOST">0</span></button>' +
+      '<button type="button" class="chip active" data-status="ALL">' + esc(t('leads.filter_all') || 'All') + ' <span class="chip-count" id="count-ALL">0</span></button>' +
+      '<button type="button" class="chip" data-status="NEW">' + esc(t('leads.status_NEW') || 'New') + ' <span class="chip-count" id="count-NEW">0</span></button>' +
+      '<button type="button" class="chip" data-status="CONTACTED">' + esc(t('leads.status_CONTACTED') || 'Contacted') + ' <span class="chip-count" id="count-CONTACTED">0</span></button>' +
+      '<button type="button" class="chip" data-status="SITE_VISIT">' + esc(t('leads.status_SITE_VISIT') || 'Site Visit') + ' <span class="chip-count" id="count-SITE_VISIT">0</span></button>' +
+      '<button type="button" class="chip" data-status="QUOTATION_SENT">' + esc(t('leads.status_QUOTATION_SENT') || 'Quote') + ' <span class="chip-count" id="count-QUOTATION_SENT">0</span></button>' +
+      '<button type="button" class="chip" data-status="NEGOTIATION">' + esc(t('leads.status_NEGOTIATION') || 'Negotiation') + ' <span class="chip-count" id="count-NEGOTIATION">0</span></button>' +
+      '<button type="button" class="chip" data-status="WON">' + esc(t('leads.status_WON') || 'Won') + ' <span class="chip-count" id="count-WON">0</span></button>' +
+      '<button type="button" class="chip" data-status="LOST">' + esc(t('leads.status_LOST') || 'Lost') + ' <span class="chip-count" id="count-LOST">0</span></button>' +
     '</div>' +
 
     '<div id="leads-list-view">' +
@@ -158,11 +158,11 @@ window.pages.leads = async function (container) {
               '<div style="font-size:0.8rem;color:var(--text-muted);margin-top:0.2rem;">' +
                 'ID: <strong>' + esc(lead.lead_id) + '</strong>' +
                 (lead.city ? ' · 📍 ' + esc(lead.city) : '') +
-                (lead.source ? ' · ' + esc(lead.source) : '') +
+                (lead.source ? ' · ' + esc(t('leads.source_' + lead.source) || lead.source) : '') +
               '</div>' +
             '</div>' +
             '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.3rem;">' +
-              '<span class="badge ' + statusBadgeClass + '" style="font-size:0.75rem;">' + esc(lead.status) + '</span>' +
+              '<span class="badge ' + statusBadgeClass + '" style="font-size:0.75rem;">' + esc(t('leads.status_' + lead.status) || lead.status) + '</span>' +
               followupBadge +
             '</div>' +
           '</div>' +

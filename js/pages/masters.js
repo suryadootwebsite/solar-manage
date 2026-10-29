@@ -372,7 +372,10 @@ window.pages.masters = async function(container) {
                 ${s.gst_no ? `<div style="font-size:0.85rem; color:var(--text-muted); margin-top:0.25rem;">GST: <code>${window.ui.esc(s.gst_no)}</code></div>` : ''}
                 ${s.phone ? `<div style="font-size:0.85rem; color:var(--text-muted); margin-top:0.25rem;">📞 ${window.ui.esc(s.phone)}</div>` : ''}
               </div>
-              <span class="badge ${s.is_active ? 'badge-success' : 'badge-disabled'}">${s.is_active ? 'ACTIVE' : 'INACTIVE'}</span>
+              <div style="display:flex; flex-direction:column; align-items:flex-end; gap:0.25rem;">
+                <span class="badge ${s.is_active ? 'badge-success' : 'badge-disabled'}">${s.is_active ? 'ACTIVE' : 'INACTIVE'}</span>
+                ${s.doc_count ? `<span class="badge" style="font-size:0.75rem; background:#f1f5f9; color:#475569;">📄 ${s.doc_count}</span>` : ''}
+              </div>
             </div>
           </div>
         `;
@@ -399,6 +402,32 @@ window.pages.masters = async function(container) {
     addBtn.onclick = function() {
       openSupplierForm(null);
     };
+
+    function openSupplierDetail(s) {
+      var detailHtml = `
+        <div style="margin-bottom:1rem;">
+          <div style="font-weight:700; font-size:1.15rem; color:var(--text-main); margin-bottom:0.25rem;">${window.ui.esc(s.name)}</div>
+          ${s.gst_no ? `<div style="font-size:0.875rem; color:var(--text-muted); margin-bottom:0.25rem;">GST: <code>${window.ui.esc(s.gst_no)}</code></div>` : ''}
+          ${s.phone ? `<div style="font-size:0.875rem; color:var(--text-muted); margin-bottom:0.25rem;">📞 <a href="tel:${window.ui.esc(s.phone)}">${window.ui.esc(s.phone)}</a></div>` : ''}
+          ${s.address ? `<div style="font-size:0.875rem; color:var(--text-muted); margin-bottom:0.5rem;">📍 ${window.ui.esc(s.address)}</div>` : ''}
+          <div style="margin-top:0.75rem;">
+            <button id="btn-edit-sup-detail" class="btn btn-outline btn-sm">Edit Details</button>
+          </div>
+        </div>
+        <div id="sup-detail-docs-mount"></div>
+      `;
+      window.ui.openBottomSheet('Supplier: ' + s.name, detailHtml, '');
+      var editBtn = document.getElementById('btn-edit-sup-detail');
+      if (editBtn) {
+        editBtn.onclick = function() {
+          openSupplierForm(s);
+        };
+      }
+      if (window.components && window.components.renderDocumentsSection) {
+        var mount = document.getElementById('sup-detail-docs-mount');
+        if (mount) window.components.renderDocumentsSection(mount, 'SUPPLIER', s.supplier_id, s.name);
+      }
+    }
 
     function openSupplierForm(s) {
       var isEdit = Boolean(s);

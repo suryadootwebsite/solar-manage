@@ -191,6 +191,7 @@ window.pages.transfers = async function(container) {
 
       window.ui.openBottomSheet('Transfer: ' + transfer.transfer_id, bodyHtml, '');
 
+      if (isPending) {
         var recBtn = document.getElementById('trfd-receive-btn');
         recBtn.onclick = function() {
           window.ui.withButtonLoading(recBtn, async function() {

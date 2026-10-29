@@ -11,6 +11,23 @@ window.i18n = (function() {
     hi: {}
   };
   var _isLoaded = false;
+  function _flatten(obj, prefix, res) {
+    res = res || {};
+    prefix = prefix || "";
+    if (!obj || typeof obj !== "object") return res;
+    for (var k in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, k)) {
+        var val = obj[k];
+        var prop = prefix ? prefix + "." + k : k;
+        if (val && typeof val === "object" && !Array.isArray(val)) {
+          _flatten(val, prop, res);
+        } else {
+          res[prop] = val;
+        }
+      }
+    }
+    return res;
+  }
 
   /**
    * Initializes translations by fetching JSON dictionaries independently.
@@ -18,14 +35,14 @@ window.i18n = (function() {
   async function init() {
     try {
       var enRes = await fetch('./locales/en.json');
-      if (enRes.ok) _dictionaries.en = await enRes.json();
+      if (enRes.ok) _dictionaries.en = _flatten(await enRes.json());
     } catch (e) {
       console.error('Failed to load en.json locale:', e);
     }
 
     try {
       var hiRes = await fetch('./locales/hi.json');
-      if (hiRes.ok) _dictionaries.hi = await hiRes.json();
+      if (hiRes.ok) _dictionaries.hi = _flatten(await hiRes.json());
     } catch (e) {
       console.error('Failed to load hi.json locale:', e);
     }

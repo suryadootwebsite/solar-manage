@@ -1,4 +1,4 @@
-/**
+﻿/**
  * js/pages/dashboard.js — Executive & Operational Dashboard Page.
  *
  * Enforces:
@@ -142,15 +142,24 @@
     var curYr = new Date().getFullYear();
     var yearOptions = ['ALL', curYr, curYr - 1, curYr - 2, curYr - 3, curYr - 4, curYr - 5];
     var monthOptions = [
-      { val: 'ALL', label: 'All Months' }, { val: '01', label: 'Jan' }, { val: '02', label: 'Feb' },
-      { val: '03', label: 'Mar' }, { val: '04', label: 'Apr' }, { val: '05', label: 'May' },
-      { val: '06', label: 'Jun' }, { val: '07', label: 'Jul' }, { val: '08', label: 'Aug' },
-      { val: '09', label: 'Sep' }, { val: '10', label: 'Oct' }, { val: '11', label: 'Nov' }, { val: '12', label: 'Dec' }
+      { val: 'ALL', label: t('dash.month_all') || 'All Months' },
+      { val: '01', label: t('dash.month_01') || 'Jan' },
+      { val: '02', label: t('dash.month_02') || 'Feb' },
+      { val: '03', label: t('dash.month_03') || 'Mar' },
+      { val: '04', label: t('dash.month_04') || 'Apr' },
+      { val: '05', label: t('dash.month_05') || 'May' },
+      { val: '06', label: t('dash.month_06') || 'Jun' },
+      { val: '07', label: t('dash.month_07') || 'Jul' },
+      { val: '08', label: t('dash.month_08') || 'Aug' },
+      { val: '09', label: t('dash.month_09') || 'Sep' },
+      { val: '10', label: t('dash.month_10') || 'Oct' },
+      { val: '11', label: t('dash.month_11') || 'Nov' },
+      { val: '12', label: t('dash.month_12') || 'Dec' }
     ];
     var activePeriod = dash.period || { month: selMonth, year: selYear };
 
     html += '<div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;margin-bottom:1rem;background:var(--bg-main, #f9fafb);padding:0.6rem 0.75rem;border-radius:8px;border:1px solid var(--border-color, #e5e7eb);">' +
-      '<span style="font-size:0.85rem;font-weight:600;color:var(--text-muted);display:inline-flex;align-items:center;gap:0.3rem;">📅 Period:</span>' +
+      '<span style="font-size:0.85rem;font-weight:600;color:var(--text-muted);display:inline-flex;align-items:center;gap:0.3rem;">📅 ' + ui.esc(t('dash.period') || 'Period') + ':</span>' +
       '<select id="dash-filter-month" class="input" style="width:auto;min-width:110px;padding:0.25rem 0.5rem;font-size:0.85rem;min-height:36px;">' +
         monthOptions.map(function(m) {
           return '<option value="' + m.val + '" ' + (String(activePeriod.month) === String(m.val) ? 'selected' : '') + '>' + m.label + '</option>';
@@ -158,17 +167,17 @@
       '</select>' +
       '<select id="dash-filter-year" class="input" style="width:auto;min-width:95px;padding:0.25rem 0.5rem;font-size:0.85rem;min-height:36px;">' +
         yearOptions.map(function(y) {
-          return '<option value="' + y + '" ' + (String(activePeriod.year) === String(y) ? 'selected' : '') + '>' + (y === 'ALL' ? 'All Years' : y) + '</option>';
+          return '<option value="' + y + '" ' + (String(activePeriod.year) === String(y) ? 'selected' : '') + '>' + (y === 'ALL' ? (t('dash.year_all') || 'All Years') : y) + '</option>';
         }).join('') +
       '</select>' +
     '</div>';
 
     // KPI Cards Grid
-    html += '<div class="kpi-grid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));gap:1rem;margin-bottom:1.5rem;">'; style="display:grid;grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));gap:1rem;margin-bottom:1.5rem;">';
+    html += '<div class="kpi-grid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));gap:1rem;margin-bottom:1.5rem;">';
 
     if (isOwner && ownerView === 'operations') {
       html +=
-        kpiCard('Follow-ups Today', dash.followups_due_today || 0, '#ea580c') + kpiCard(t('dash.active_sites'), dash.active_sites_count || 0, 'var(--brand)') +
+        kpiCard(t('dash.followups_due_today') || 'Follow-ups Today', dash.followups_due_today || 0, '#ea580c') + kpiCard(t('dash.active_sites'), dash.active_sites_count || 0, 'var(--brand)') +
         kpiCard(t('dash.stuck_sites'), dash.stuck_count || 0, dash.stuck_count > 0 ? '#dc2626' : 'var(--text-muted)') +
         kpiCard(t('dash.today_in'), dash.today_in_qty || 0, '#059669') +
         kpiCard(t('dash.today_out'), dash.today_out_qty || 0, '#2563eb') +

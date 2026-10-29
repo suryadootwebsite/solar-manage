@@ -171,6 +171,7 @@ window.pages.lots = async function(container) {
                 <span class="badge ${ordClass}">${window.ui.esc(localizedOrdStatus)}</span>
                 ${isPendingRate ? '<span class="badge badge-warning" style="font-size:0.7rem; padding:0.15rem 0.45rem;">Rate pending</span>' : ''}
               </div>
+              ${l.doc_count ? `<span class="badge" style="font-size:0.75rem; background:#f1f5f9; color:#475569; margin-top:0.25rem;">📄 ${l.doc_count} docs</span>` : ''}
               ${totalText ? `<div style="font-weight:700; margin-top:0.5rem; color:var(--brand);">${totalText}</div>` : ''}
             </div>
           </div>
@@ -286,9 +287,10 @@ window.pages.lots = async function(container) {
         </div>
         ${timelineHtml}
         <div style="font-weight:700; margin-bottom:0.5rem;">Line Items:</div>
-        <div style="margin-bottom:1.5rem;">
+        <div style="margin-bottom:1rem;">
           ${itemsHtml}
         </div>
+        <div id="lot-docs-mount" style="margin-bottom:1.5rem;"></div>
         <div style="display:flex; flex-direction:column; gap:0.5rem;">
           ${canUpdateOrd ? `<button id="lot-update-status-btn" class="btn btn-primary btn-full">${window.ui.esc(t('lots.update_status_btn'))}</button>` : ''}
           ${canSetRate ? `<button id="lot-set-rate-btn" class="btn btn-secondary btn-full">Set Rates (Back-fill)</button>` : ''}
@@ -297,6 +299,13 @@ window.pages.lots = async function(container) {
       `;
 
       window.ui.openBottomSheet('Purchase Lot: ' + lot.lot_id, bodyHtml, '');
+
+      if (window.components && window.components.renderDocumentsSection) {
+        var lotDocMount = document.getElementById('lot-docs-mount');
+        if (lotDocMount) {
+          window.components.renderDocumentsSection(lotDocMount, 'LOT', lot.lot_id, lot.invoice_no);
+        }
+      }
 
       if (canUpdateOrd) {
         document.getElementById('lot-update-status-btn').onclick = function() {
@@ -916,8 +925,26 @@ window.pages.lots = async function(container) {
           window.ui.toast('Purchase lot recorded successfully', 'success');
           loadLots();
         } catch(err) {
-          errEl.textContent = err.message || 'Failed to create lot';
-          errEl.style.display = 'block';
+          if (err && (err.code === 'SCHEMA_OUT_OF_DATE' || (err.message && err.message.indexOf('SCHEMA_OUT_OF_DATE') !== -1))) {
+            errEl.innerHTML = (window.ui.esc(err.message || 'Database schema is out of date.')) +
+              '<div style="margin-top:0.5rem;"><button type="button" class="btn btn-sm btn-primary" id="btn-err-migrate-schema">Update Database Columns</button></div>';
+            errEl.style.display = 'block';
+            var mBtn = errEl.querySelector('#btn-err-migrate-schema');
+            if (mBtn) {
+              mBtn.onclick = async function() {
+                try {
+                  await window.api.call('system.migrateSchema', {});
+                  window.ui.toast('Database columns updated! Retrying...', 'success');
+                  submitBtn.click();
+                } catch(mErr) {
+                  window.ui.toast(mErr.message || 'Migration failed', 'error');
+                }
+              };
+            }
+          } else {
+            errEl.textContent = err.message || 'Failed to create lot';
+            errEl.style.display = 'block';
+          }
         }
       });
     };
