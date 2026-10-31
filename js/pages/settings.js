@@ -8,6 +8,63 @@
 
 window.pages = window.pages || {};
 
+
+function _showIntegrityFindingsModal(findings) {
+  findings = findings || [];
+  var rows = findings.map(function(f) {
+    var copyText = '[' + f.invariant + '] ' + f.entity + ' (' + (f.id || 'N/A') + '): ' + f.message;
+    return '<tr style="border-bottom:1px solid var(--border); font-size:0.8rem;">' +
+      '<td style="padding:0.4rem; font-weight:700; color:var(--danger); white-space:nowrap;">' + window.ui.esc(f.invariant) + '</td>' +
+      '<td style="padding:0.4rem; font-weight:600;">' + window.ui.esc(f.entity) + '</td>' +
+      '<td style="padding:0.4rem; font-family:monospace; font-size:0.75rem;">' + window.ui.esc(f.id || '-') + '</td>' +
+      '<td style="padding:0.4rem; word-break:break-word;">' + window.ui.esc(f.message) + '</td>' +
+      '<td style="padding:0.4rem; white-space:nowrap;">' +
+        '<button class="btn btn-outline btn-sm btn-copy-finding" data-text="' + window.ui.esc(copyText) + '" style="font-size:0.75rem; padding:0.25rem 0.5rem;">Copy</button>' +
+      '</td>' +
+    '</tr>';
+  }).join('');
+
+  var html = '<div style="margin-bottom:0.75rem; font-size:0.85rem; color:var(--text-muted);">' +
+    'Found <strong>' + findings.length + '</strong> data integrity mismatch(es):' +
+    '</div>' +
+    '<div style="max-height:55vh; overflow-y:auto; border:1px solid var(--border); border-radius:6px;">' +
+      '<table style="width:100%; border-collapse:collapse; text-align:left;">' +
+        '<thead>' +
+          '<tr style="background:var(--bg-main); border-bottom:1px solid var(--border); font-size:0.75rem; color:var(--text-muted);">' +
+            '<th style="padding:0.4rem;">Invariant</th>' +
+            '<th style="padding:0.4rem;">Entity</th>' +
+            '<th style="padding:0.4rem;">ID</th>' +
+            '<th style="padding:0.4rem;">Message</th>' +
+            '<th style="padding:0.4rem;">Action</th>' +
+          '</tr>' +
+        '</thead>' +
+        '<tbody>' + rows + '</tbody>' +
+      '</table>' +
+    '</div>';
+
+  window.ui.openBottomSheet('Integrity Findings (' + findings.length + ')', html, '');
+
+  setTimeout(function() {
+    var copyBtns = document.querySelectorAll('.btn-copy-finding');
+    copyBtns.forEach(function(b) {
+      b.onclick = function() {
+        var txt = b.getAttribute('data-text');
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(txt);
+        } else {
+          var ta = document.createElement('textarea');
+          ta.value = txt;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+        }
+        window.ui.showToast('Finding copied to clipboard', 'success');
+      };
+    });
+  }, 100);
+}
+
 window.pages.settings = function(container) {
   var t = window.i18n.t;
   var user = window.auth.getUser() || { name: 'Staff User', role: 'SITE_USER', lang: 'hi' };
@@ -358,12 +415,16 @@ window.pages.settings = function(container) {
                 var iRes = await api.call('system.runIntegrity', {});
                 if (iRes && iRes.status === 'PASS') {
                   ui.showToast('All 12 integrity checks PASSED (0 mismatches)', 'success');
+                  setTimeout(function() { window.location.reload(); }, 1200);
                 } else {
-                  ui.showToast('Integrity check: ' + (iRes.failed_count || 0) + ' findings detected', 'error');
+                  var fCount = (iRes && iRes.findings) ? iRes.findings.length : (iRes ? (iRes.failed_count || 0) : 0);
+                  ui.showToast('Integrity check: ' + fCount + ' findings detected', 'error');
+                  if (iRes && iRes.findings && iRes.findings.length > 0) {
+                    _showIntegrityFindingsModal(iRes.findings);
+                  }
                 }
-                setTimeout(function() { window.location.reload(); }, 1200);
               } catch(iErr) {
-                ui.showToast('Integrity run failed: ' + (iErr.message || 'Error'), 'error');
+                ui.showToast('Integrity run failed: ' + ((iErr && iErr.message) || 'Error'), 'error');
               }
             });
           });

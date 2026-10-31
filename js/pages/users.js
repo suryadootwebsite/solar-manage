@@ -68,7 +68,10 @@ window.pages.users = function(container) {
     }
   }
 
+  var allUsers = [];
   function renderUsers(items) {
+    allUsers = items;
+    var isOwnerRole = window.auth && window.auth.getRole && window.auth.getRole() === 'OWNER';
     var listContainer = document.getElementById('users-list-container');
     if (!listContainer) return;
 
@@ -123,6 +126,7 @@ window.pages.users = function(container) {
             >
               ${isActive ? (ui.esc(t('users.disable_btn') || 'Disable')) : (ui.esc(t('users.enable_btn') || 'Enable'))}
             </button>
+            ${!isActive && isOwnerRole ? _renderDeleteInfo(u) : ''}
           </div>
         </div>
       `;
@@ -130,6 +134,67 @@ window.pages.users = function(container) {
 
     listContainer.innerHTML = html;
     attachUserActions();
+  }
+
+  function _renderDeleteInfo(u) {
+    var disabledAt = u.disabled_at ? new Date(u.disabled_at) : null;
+    var daysDiff = disabledAt ? Math.floor((Date.now() - disabledAt.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+    if (daysDiff >= 7) {
+      return '<button class="btn btn-sm btn-delete-user" data-id="' + ui.esc(u.user_id) + '" style="color:#dc2626;border:1px solid #dc2626;background:transparent;min-height:44px;font-size:0.875rem;padding:0.4rem 0.75rem;">Delete User</button>';
+    } else if (u.disabled_at) {
+      return '<span class="badge" style="background:#fef3c7;color:#92400e;font-size:0.75rem;padding:0.3rem 0.6rem;border-radius:4px;">Delete in ' + (7 - daysDiff) + ' day(s)</span>';
+    }
+    return '';
+  }
+
+  async function openDeleteUserDialog(user) {
+    var disabledAt = user.disabled_at ? new Date(user.disabled_at) : null;
+    var daysDiff = disabledAt ? Math.floor((Date.now() - disabledAt.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+    var html = `
+      <div style="padding:0.5rem 0 1rem;">
+        <div class="text-error" style="font-size:0.9rem;margin-bottom:1rem;padding:0.75rem;background:#fef2f2;border-radius:6px;border:1px solid #fecaca;">
+          \u26a0\ufe0f This permanently deletes the user. This action cannot be undone.
+        </div>
+        <div style="margin-bottom:0.75rem;font-size:0.85rem;color:var(--text-muted);">
+          User: <strong>${ui.esc(user.name)}</strong> (@${ui.esc(user.username || '')})<br>
+          Role: <strong>${ui.esc(user.role || '')}</strong><br>
+          Disabled for: <strong>${daysDiff} day(s)</strong>
+        </div>
+        <div class="form-field">
+          <label>Type <strong>DELETE</strong> to confirm *</label>
+          <input id="del-user-confirm" type="text" class="input" placeholder="DELETE" autocomplete="off">
+        </div>
+        <div id="del-user-error" class="text-error" style="display:none;margin-bottom:0.75rem;"></div>
+        <button id="del-user-submit" class="btn btn-primary btn-full" style="background:#dc2626;border-color:#dc2626;" disabled>Delete User</button>
+      </div>
+    `;
+    ui.openBottomSheet('Delete User: ' + user.name, html, '');
+    var confirmInput = document.getElementById('del-user-confirm');
+    var submitBtn = document.getElementById('del-user-submit');
+    var errEl = document.getElementById('del-user-error');
+    if (confirmInput) {
+      confirmInput.oninput = function() {
+        submitBtn.disabled = confirmInput.value !== 'DELETE';
+      };
+    }
+    if (submitBtn) {
+      submitBtn.onclick = async function() {
+        errEl.style.display = 'none';
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Deleting...';
+        try {
+          await api.call('users.delete', { user_id: user.user_id, confirm_text: 'DELETE' });
+          ui.closeBottomSheet && ui.closeBottomSheet();
+          ui.showToast('User deleted successfully', 'success');
+          await loadUsers();
+        } catch (e) {
+          errEl.textContent = (e.code ? '[' + e.code + '] ' : '') + (e.message || 'Delete failed');
+          errEl.style.display = 'block';
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Delete User';
+        }
+      };
+    }
   }
 
   function attachUserActions() {
@@ -185,6 +250,17 @@ window.pages.users = function(container) {
             }
           }
         );
+      };
+    });
+
+    // Delete User buttons (OWNER only)
+    var deleteBtns = document.querySelectorAll('.btn-delete-user');
+    deleteBtns.forEach(function(btn) {
+      btn.onclick = function(e) {
+        e.stopPropagation();
+        var userId = btn.getAttribute('data-id');
+        var u = allUsers.find(function(x) { return x.user_id === userId; });
+        if (u) openDeleteUserDialog(u);
       };
     });
   }

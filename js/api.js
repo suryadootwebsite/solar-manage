@@ -348,6 +348,10 @@ window.api = (function() {
 
         // Handle UNAUTHORIZED
         if (err.code === 'UNAUTHORIZED') {
+          // Never log out on system.runIntegrity
+          if (action === 'system.runIntegrity') {
+            throw err;
+          }
           if (window.auth && window.auth.clearToken) window.auth.clearToken();
           window.location.hash = '#/login';
           throw err;

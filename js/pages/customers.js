@@ -163,7 +163,13 @@ window.pages.customers = async function(container) {
     }
     if (window.components && window.components.renderDocumentsSection) {
       var mount = document.getElementById('cust-detail-docs-mount');
-      if (mount) window.components.renderDocumentsSection(mount, 'CUSTOMER', c.customer_id, c.name);
+      if (mount) {
+        try {
+          window.components.renderDocumentsSection(mount, 'CUSTOMER', c.customer_id, c.name);
+        } catch (docErr) {
+          mount.innerHTML = '<div class="text-muted" style="font-size:0.85rem;padding:0.75rem 0;">Documents unavailable</div>';
+        }
+      }
     }
   }
 
@@ -208,7 +214,13 @@ window.pages.customers = async function(container) {
     window.ui.openBottomSheet(title, formHtml, '');
     if (isEdit && cust && window.components && window.components.renderDocumentsSection) {
       var docMount = document.getElementById('cust-docs-mount');
-      if (docMount) window.components.renderDocumentsSection(docMount, 'CUSTOMER', cust.customer_id, cust.name);
+      if (docMount) {
+        try {
+          window.components.renderDocumentsSection(docMount, 'CUSTOMER', cust.customer_id, cust.name);
+        } catch (docErr) {
+          docMount.innerHTML = '<div class="text-muted" style="font-size:0.85rem;padding:0.75rem 0;">Documents unavailable</div>';
+        }
+      }
     }
 
     document.getElementById('cust-form').onsubmit = async function(e) {
@@ -249,7 +261,7 @@ window.pages.customers = async function(container) {
           window.ui.toast(isEdit ? 'Customer updated' : 'Customer created', 'success');
           await loadCustomers();
         } catch(err) {
-          errEl.textContent = err.message || 'Operation failed';
+          errEl.textContent = (err.code ? '[' + err.code + '] ' : '') + (err.message || 'Operation failed');
           errEl.style.display = 'block';
         }
       });

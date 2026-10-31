@@ -394,5 +394,17 @@
   "dash.month_11": "नवंबर",
   "dash.month_12": "दिसंबर",
   "dash.year_all": "सभी वर्ष",
-  "role.VIEW_ONLY": "केवल देखें"
+  "role.VIEW_ONLY": "केवल देखें",
+  "lots.status_ORDER_CONFIRMED": "ऑर्डर पुष्ट",
+  "lots.status_DISPATCHED": "डिस्पैच हुआ",
+  "lots.status_DELIVERED": "डिलीवर हुआ",
+  "lots.status_RETURN_IN_PROGRESS": "वापसी प्रगति पर",
+  "lots.status_RETURNED": "वापस हुआ",
+  "lots.status_CANCELLED": "रद्द किया गया",
+  "users.delete_btn": "उपयोगकर्ता हटाएं",
+  "users.delete_confirm_prompt": "पुष्टि के लिए DELETE टाइप करें",
+  "users.delete_confirm_title": "उपयोगकर्ता हटाएं",
+  "users.delete_success": "उपयोगकर्ता सफलतापूर्वक हटाया गया",
+  "users.disabled_since": "अक्षम किया गया",
+  "users.delete_available_in": "{n} दिन में हटाने का विकल्प उपलब्ध होगा"
 }

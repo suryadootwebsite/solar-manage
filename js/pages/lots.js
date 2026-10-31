@@ -363,8 +363,10 @@ window.pages.lots = async function(container) {
       lotDetail.allowed_next = transitions[lotDetail.order_status] || [];
     }
     var cur = lotDetail.order_status || '';
-    var nextOpts = (lotDetail.allowed_next || []).map(function(s) {
-      return '<option value="' + s + '">' + s.replace(/_/g,' ') + '</option>';
+    var nextOptsArr = (lotDetail.allowed_next || []);
+    var nextOpts = nextOptsArr.map(function(s) {
+      var lbl = (window.i18n && window.i18n.t) ? (window.i18n.t('lots.status_' + s) || s.replace(/_/g,' ')) : s.replace(/_/g,' ');
+      return '<option value="' + s + '">' + lbl + '</option>';
     }).join('');
 
     var formHtml = `
@@ -372,9 +374,10 @@ window.pages.lots = async function(container) {
         <p class="text-muted" style="margin:0 0 1rem 0;">Current Status: <strong>${cur || 'None'}</strong></p>
         <div class="form-field">
           <label>Target Status *</label>
-          <select id="uos-status" class="input" required>
-            ${nextOpts}
-          </select>
+          ${nextOptsArr.length === 0
+            ? '<p class="text-muted" style="margin:0.25rem 0 0.5rem;">No status change available for current status.</p>'
+            : '<select id="uos-status" class="input" required><option value="">-- Select status --</option>' + nextOpts + '</select>'
+          }
         </div>
         <div class="form-field" id="uos-reason-wrap" style="display:none;">
           <label>Reason *</label>
@@ -412,7 +415,7 @@ window.pages.lots = async function(container) {
         </div>
 
         <div id="uos-error" class="text-error" style="display:none; margin-bottom:0.75rem;"></div>
-        <button type="submit" id="uos-submit" class="btn btn-primary btn-full" ${nextOpts.length === 0 ? 'disabled' : ''}>Save Order Status</button>
+        <button type="submit" id="uos-submit" class="btn btn-primary btn-full" ${nextOptsArr.length === 0 ? 'disabled' : ''}>Save Order Status</button>
       </form>
     `;
 
@@ -423,14 +426,21 @@ window.pages.lots = async function(container) {
     var returnDetails = document.getElementById('uos-return-details');
 
     function checkVisibility() {
+      if (!statusSelect) return;
       var val = statusSelect.value;
       reasonWrap.style.display = (val === 'CANCELLED' || val === 'RETURN_IN_PROGRESS' || val === 'RETURNED') ? 'block' : 'none';
       if (returnDetails) {
         returnDetails.style.display = (val === 'RETURNED') ? 'block' : 'none';
       }
     }
-    statusSelect.onchange = checkVisibility;
-    checkVisibility();
+    if (statusSelect) {
+      statusSelect.onchange = function() {
+        checkVisibility();
+        var submitBtn2 = document.getElementById('uos-submit');
+        if (submitBtn2) submitBtn2.disabled = !statusSelect.value;
+      };
+      checkVisibility();
+    }
 
     document.getElementById('update-ord-status-form').onsubmit = async function(e) {
       e.preventDefault();
@@ -438,7 +448,12 @@ window.pages.lots = async function(container) {
       var submitBtn = document.getElementById('uos-submit');
       errEl.style.display = 'none';
 
-      var toStatus = statusSelect.value;
+      var toStatus = statusSelect ? statusSelect.value : '';
+      if (!toStatus) {
+        errEl.textContent = 'Please select a target status';
+        errEl.style.display = 'block';
+        return;
+      }
       var reason = document.getElementById('uos-reason').value.trim();
       var actionDate = document.getElementById('uos-date').value;
 
