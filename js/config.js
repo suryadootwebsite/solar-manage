@@ -19,7 +19,7 @@ window.APP_CONFIG = {
   APP_VERSION: '1.0.0',
 
   // Localization
-  DEFAULT_LANG: 'hi',
+  DEFAULT_LANG: 'en',
 
   // Network timeouts & retries (Doc 03 F-30)
   API_TIMEOUT_MS: 45000,

@@ -47,7 +47,6 @@ const SHELL_ASSETS = [
   './js/pages/import-stock.js',
   './js/pages/sites.js',
   './js/pages/site-detail.js',
-  './js/pages/leads.js',
   './js/pages/reports.js',
   './js/pages/money.js',
   './js/pages/material-issue.js',

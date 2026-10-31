@@ -298,7 +298,7 @@ window.pages.lots = async function(container) {
         </div>
       `;
 
-      window.ui.openBottomSheet('Purchase Lot: ' + lot.lot_id, bodyHtml, '');
+      window.ui.openBottomSheet('Purchase Lot: ' + (lot.invoice_no || lot.lot_id), bodyHtml, '');
 
       if (window.components && window.components.renderDocumentsSection) {
         var lotDocMount = document.getElementById('lot-docs-mount');
@@ -412,11 +412,11 @@ window.pages.lots = async function(container) {
         </div>
 
         <div id="uos-error" class="text-error" style="display:none; margin-bottom:0.75rem;"></div>
-        <button type="submit" id="uos-submit" class="btn btn-primary btn-full">Save Order Status</button>
+        <button type="submit" id="uos-submit" class="btn btn-primary btn-full" ${nextOpts.length === 0 ? 'disabled' : ''}>Save Order Status</button>
       </form>
     `;
 
-    window.ui.openBottomSheet('Update Status: ' + lot.invoice_no, formHtml, '');
+    window.ui.openBottomSheet('Update Status: ' + (lot.invoice_no || lot.lot_id), formHtml, '');
 
     var statusSelect = document.getElementById('uos-status');
     var reasonWrap = document.getElementById('uos-reason-wrap');

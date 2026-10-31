@@ -5,7 +5,7 @@
  */
 
 window.i18n = (function() {
-  var _currentLang = localStorage.getItem('solar_ms_lang') || window.APP_CONFIG.DEFAULT_LANG || 'hi';
+  var _currentLang = localStorage.getItem('solar_ms_lang') || window.APP_CONFIG.DEFAULT_LANG || 'en';
   var _dictionaries = {
     en: {},
     hi: {}

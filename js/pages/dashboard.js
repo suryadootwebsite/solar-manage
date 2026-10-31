@@ -79,8 +79,17 @@
         } catch (e) {}
       }
 
+      function handlePeriodChange(newMonth, newYear) {
+        selMonth = newMonth;
+        selYear = newYear;
+        try {
+          sessionStorage.removeItem(getCacheKey());
+        } catch (e) {}
+        loadDashboard(true);
+      }
+
       if (cached) {
-        renderDashboardData(contentEl, cached, role);
+        renderDashboardData(contentEl, cached, role, handlePeriodChange);
         refreshBtn.style.display = 'none';
       } else {
         renderSkeleton();
@@ -93,7 +102,7 @@
           try {
             sessionStorage.setItem(getCacheKey(), JSON.stringify(dash));
           } catch (e) {}
-          renderDashboardData(contentEl, dash, role);
+          renderDashboardData(contentEl, dash, role, handlePeriodChange);
           refreshBtn.style.display = 'none';
         })
         .catch(function(err) {
@@ -118,7 +127,7 @@
 
   var ownerView = 'financial'; // 'financial' or 'operations'
 
-  function renderDashboardData(contentEl, dash, role) {
+  function renderDashboardData(contentEl, dash, role, onPeriodChange) {
     var t = window.i18n.t;
     var ui = window.ui;
     var html = '';
@@ -190,7 +199,7 @@
         kpiCard(t('dash.receivable'), formatCurrency(dash.receivable_paise || 0), '#2563eb') +
         kpiCard(t('dash.payable'), formatCurrency(dash.payable_paise || 0), '#d97706') +
         kpiCard(t('dash.month_profit'), formatCurrency(dash.month_profit_paise || 0), (dash.month_profit_paise || 0) >= 0 ? '#059669' : '#dc2626');
-    } else if (role === 'MANAGER') {
+    } else if (role === 'MANAGER' || role === 'VIEW_ONLY') {
       html +=
         kpiCard(t('dash.active_sites'), dash.active_sites_count || 0, 'var(--brand)') +
         kpiCard(t('dash.stuck_sites'), dash.stuck_count || 0, dash.stuck_count > 0 ? '#dc2626' : 'var(--text-muted)') +
@@ -319,19 +328,40 @@
 
     contentEl.innerHTML = html;
 
+    var mFilter = contentEl.querySelector('#dash-filter-month');
+    var yFilter = contentEl.querySelector('#dash-filter-year');
+    if (mFilter) {
+      mFilter.onchange = function() {
+        var vm = this.value;
+        try { localStorage.setItem('sms_dash_sel_month', vm); } catch(e) {}
+        if (typeof onPeriodChange === 'function') {
+          onPeriodChange(vm, yFilter ? yFilter.value : 'ALL');
+        }
+      };
+    }
+    if (yFilter) {
+      yFilter.onchange = function() {
+        var vy = this.value;
+        try { localStorage.setItem('sms_dash_sel_year', vy); } catch(e) {}
+        if (typeof onPeriodChange === 'function') {
+          onPeriodChange(mFilter ? mFilter.value : 'ALL', vy);
+        }
+      };
+    }
+
     if (isOwner) {
       var finBtn = contentEl.querySelector('#dash-view-financial');
       var opsBtn = contentEl.querySelector('#dash-view-operations');
       if (finBtn) {
         finBtn.onclick = function() {
           ownerView = 'financial';
-          renderDashboardData(contentEl, dash, role);
+          renderDashboardData(contentEl, dash, role, onPeriodChange);
         };
       }
       if (opsBtn) {
         opsBtn.onclick = function() {
           ownerView = 'operations';
-          renderDashboardData(contentEl, dash, role);
+          renderDashboardData(contentEl, dash, role, onPeriodChange);
         };
       }
     }

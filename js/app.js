@@ -368,8 +368,6 @@
 
   window.router.register('/', window.pages.ping);
   window.router.register('/ping', window.pages.ping);
-
-  window.router.register('/leads', window.pages.leads);
   window.router.register('/sites', window.pages.sites);
   window.router.register('/sites/:id', window.pages.siteDetail);
   window.router.register('/material-issue', window.pages.materialIssue);

@@ -110,6 +110,7 @@ window.auth = (function() {
     can: can,
     isOwnerLike: isOwnerLike,
     isDeveloper: isDeveloper,
+    isViewOnly: isViewOnly,
     setSession: setSession,
     setToken: setToken,
     clearToken: clearToken,

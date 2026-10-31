@@ -277,6 +277,7 @@ window.pages.users = function(container) {
                 <option value="SITE_USER">${ui.esc(t('role.SITE_USER') || 'Site User')}</option>
                 <option value="MANAGER">${ui.esc(t('role.MANAGER') || 'Manager')}</option>
                 <option value="OWNER">${ui.esc(t('role.OWNER') || 'Owner')}</option>
+                <option value="VIEW_ONLY">${ui.esc(t('role.VIEW_ONLY') || 'View Only')}</option>
               </select>
             </div>
             <div>

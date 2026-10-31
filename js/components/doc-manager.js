@@ -235,7 +235,7 @@ function openUploadSheet(entityType, entityId, entityName, onSuccess) {
       '<button type="button" id="btn-do-upload-doc" class="btn btn-primary btn-full" style="min-height:44px;">Upload Document</button>' +
     '</div>';
 
-  window.ui.openBottomSheet(sheetHtml);
+  window.ui.openBottomSheet('Upload Document', sheetHtml, '');
 
   var fileInput = document.getElementById('udoc-file');
   var docTypeSel = document.getElementById('udoc-type');
