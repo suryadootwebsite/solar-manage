@@ -36,7 +36,7 @@ window.pages.customers = async function(container) {
   `;
 
   var listView = document.getElementById('cst-list-view');
-  var searchInput = document.getElementById('cst-search');
+  var currentQuery = '';
   var addBtn = document.getElementById('cst-add-btn');
   var sortSelect = document.getElementById('cst-sort-select');
 
@@ -46,7 +46,7 @@ window.pages.customers = async function(container) {
     sortSelect.onchange = function() {
       currentSortCst = sortSelect.value;
       localStorage.setItem('sms_sort_customers', currentSortCst);
-      renderList(searchInput.value);
+      renderList(currentQuery);
     };
   }
 
@@ -65,7 +65,7 @@ window.pages.customers = async function(container) {
 
     if (cached) {
       customers = cached;
-      renderList(searchInput.value);
+      renderList(currentQuery);
     } else {
       listView.innerHTML = '<div style="display:flex;flex-direction:column;gap:0.75rem;">' +
         '<div class="card skeleton" style="height:72px;"></div>'.repeat(4) + '</div>';
@@ -75,7 +75,7 @@ window.pages.customers = async function(container) {
       var res = await window.api.call('customers.list', {});
       customers = res.items || [];
       try { sessionStorage.setItem(CUST_CACHE_KEY, JSON.stringify(customers)); } catch (e) {}
-      renderList(searchInput.value);
+      renderList(currentQuery);
     } catch(err) {
       if (!cached) {
         listView.innerHTML = `<div class="card text-error" style="text-align:center;">Failed to load customers: ${window.ui.esc(err.message || 'Error')}</div>`;
@@ -274,7 +274,6 @@ window.pages.customers = async function(container) {
     };
   }
 
-  var currentQuery = "";
   if (window.components && window.components.createSearchBar) {
     var sBar = window.components.createSearchBar({
       placeholder: t("customers.search_placeholder") || "Search customer name, phone, city...",

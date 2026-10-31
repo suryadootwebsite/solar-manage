@@ -143,7 +143,11 @@ window.pages.lots = async function(container) {
     }
 
     listView.innerHTML = displayLots.map(function(l) {
-      var ordStatus = l.order_status || '';
+      var VALID_ORDER_STATUSES = ['ORDER_CONFIRMED', 'DISPATCHED', 'DELIVERED', 'RETURN_IN_PROGRESS', 'RETURNED', 'CANCELLED'];
+      var ordStatus = l.order_status;
+      if (!ordStatus || VALID_ORDER_STATUSES.indexOf(ordStatus) === -1) {
+        ordStatus = (l.delivered_on || l.status === 'CONFIRMED') ? 'DELIVERED' : 'ORDER_CONFIRMED';
+      }
       if (!ordStatus) {
         console.warn('[lots] Missing order_status for lot', l.lot_id);
       }
@@ -207,7 +211,16 @@ window.pages.lots = async function(container) {
       var lot = res.lot;
       var items = res.items || [];
       var batches = res.batches || [];
-      if (res.allowed_next) lot.allowed_next = res.allowed_next;
+      var VALID_ORDER_STATUSES = ['ORDER_CONFIRMED', 'DISPATCHED', 'DELIVERED', 'RETURN_IN_PROGRESS', 'RETURNED', 'CANCELLED'];
+      if (!lot.order_status || VALID_ORDER_STATUSES.indexOf(lot.order_status) === -1) {
+        lot.order_status = (lot.delivered_on || lot.status === 'CONFIRMED') ? 'DELIVERED' : 'ORDER_CONFIRMED';
+      }
+      if (res.allowed_next && res.allowed_next.length > 0) {
+        lot.allowed_next = res.allowed_next;
+      } else {
+        var _t = { 'ORDER_CONFIRMED': ['DISPATCHED', 'DELIVERED', 'CANCELLED'], 'DISPATCHED': ['DELIVERED', 'CANCELLED'], 'DELIVERED': ['RETURN_IN_PROGRESS'], 'RETURN_IN_PROGRESS': ['RETURNED'], 'RETURNED': [], 'CANCELLED': [] };
+        lot.allowed_next = _t[lot.order_status] || [];
+      }
       window.ui.hideSpinner();
 
       var itemsHtml = items.map(function(it) {
@@ -353,12 +366,19 @@ window.pages.lots = async function(container) {
   // ---------------------------------------------------------------------------
   function openUpdateOrderStatusDialog(lot, items, batches) {
     var lotDetail = lot;
-    if (!lotDetail.allowed_next) {
+    var VALID_ORDER_STATUSES = ['ORDER_CONFIRMED', 'DISPATCHED', 'DELIVERED', 'RETURN_IN_PROGRESS', 'RETURNED', 'CANCELLED'];
+    if (!lotDetail.order_status || VALID_ORDER_STATUSES.indexOf(lotDetail.order_status) === -1) {
+      lotDetail.order_status = (lotDetail.delivered_on || lotDetail.status === 'CONFIRMED') ? 'DELIVERED' : 'ORDER_CONFIRMED';
+      lotDetail.allowed_next = null;
+    }
+    if (!lotDetail.allowed_next || lotDetail.allowed_next.length === 0) {
       var transitions = {
-        'ORDER_CONFIRMED': ['DISPATCHED', 'DELIVERED'],
-        'DISPATCHED': ['DELIVERED'],
+        'ORDER_CONFIRMED': ['DISPATCHED', 'DELIVERED', 'CANCELLED'],
+        'DISPATCHED': ['DELIVERED', 'CANCELLED'],
         'DELIVERED': ['RETURN_IN_PROGRESS'],
-        'RETURN_IN_PROGRESS': ['RETURNED']
+        'RETURN_IN_PROGRESS': ['RETURNED'],
+        'RETURNED': [],
+        'CANCELLED': []
       };
       lotDetail.allowed_next = transitions[lotDetail.order_status] || [];
     }
