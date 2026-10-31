@@ -46,6 +46,11 @@ window.auth = (function() {
     return getRole() === 'DEVELOPER';
   }
 
+  function isViewOnly(role) {
+    var r = role || getRole();
+    return r === 'VIEW_ONLY';
+  }
+
   function can(action) {
     var role = getRole();
     // OWNER has full access. DEVELOPER only has read-only actions per ACTION_ROLES.
