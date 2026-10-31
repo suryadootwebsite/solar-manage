@@ -966,14 +966,16 @@ window.pages.lots = async function(container) {
             errEl.style.display = 'block';
             var mBtn = errEl.querySelector('#btn-err-migrate-schema');
             if (mBtn) {
-              mBtn.onclick = async function() {
-                try {
-                  await window.api.call('system.migrateSchema', {});
-                  window.ui.toast('Database columns updated! Retrying...', 'success');
-                  submitBtn.click();
-                } catch(mErr) {
-                  window.ui.toast(mErr.message || 'Migration failed', 'error');
-                }
+              mBtn.onclick = function() {
+                window.ui.withButtonLoading(mBtn, async function() {
+                  try {
+                    await window.api.call('system.migrateSchema', {});
+                    window.ui.toast('Database columns updated! Retrying...', 'success');
+                    submitBtn.click();
+                  } catch(mErr) {
+                    window.ui.toast(mErr.message || 'Migration failed', 'error');
+                  }
+                });
               };
             }
           } else {

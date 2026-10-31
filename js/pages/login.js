@@ -136,9 +136,9 @@ window.pages.login = function(container) {
             }
           }).catch(function() {});
 
-          if (res.user.must_change_password) {
+          if (res.code === 'MUST_CHANGE_PASSWORD' || (res.user && res.user.must_change_password)) {
             ui.showToast(t('login.must_change_pwd_notice') || 'Please update your password to proceed', 'warning', 4000);
-            window.showPasswordChangeModal(true);
+            window.showPasswordChangeModal(true, { user_id: res.user_id || (res.user && res.user.user_id), old_password: password });
           } else {
             var userName = (res.user && res.user.name) ? res.user.name : (res.user && res.user.username) ? res.user.username : 'User';
             ui.showToast(t('login.welcome', { name: userName }), 'success', 2500);

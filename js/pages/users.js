@@ -178,21 +178,17 @@ window.pages.users = function(container) {
       };
     }
     if (submitBtn) {
-      submitBtn.onclick = async function() {
+      submitBtn.onclick = function() {
         errEl.style.display = 'none';
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Deleting...';
-        try {
+        withButtonLoading(submitBtn, async function() {
           await api.call('users.delete', { user_id: user.user_id, confirm_text: 'DELETE' });
           ui.closeBottomSheet && ui.closeBottomSheet();
           ui.showToast('User deleted successfully', 'success');
           await loadUsers();
-        } catch (e) {
+        }).catch(function(e) {
           errEl.textContent = (e.code ? '[' + e.code + '] ' : '') + (e.message || 'Delete failed');
           errEl.style.display = 'block';
-          submitBtn.disabled = false;
-          submitBtn.textContent = 'Delete User';
-        }
+        });
       };
     }
   }

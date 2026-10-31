@@ -114,6 +114,8 @@
   "settings.desc.gst_mode": "खरीद चालानों के लिए कर गणना विधि (अतिरिक्त या सम्मिलित)",
   "settings.key.token_ttl_hours": "सत्र टोकन वैधता (घंटे)",
   "settings.desc.token_ttl_hours": "उपयोगकर्ता सत्र समाप्त होने से पहले घंटों की अवधि",
+  "settings.key.token_ttl_remember_days": "मुझे याद रखें अवधि (दिन)",
+  "settings.desc.token_ttl_remember_days": "लॉगिन पर 'मुझे याद रखें' चुनने पर सत्र कितने दिन वैध रहेगा",
   "settings.key.serial_required_categories": "सीरियल ट्रैकिंग श्रेणियां",
   "settings.desc.serial_required_categories": "उत्पाद श्रेणियां जिनमें सीरियल नंबर ट्रैक करना अनिवार्य है",
   "settings.key.max_photos_per_site": "प्रति साइट अधिकतम फोटो",

@@ -114,6 +114,8 @@
   "settings.desc.gst_mode": "Tax calculation method (EXCLUSIVE or INCLUSIVE) for purchase invoices",
   "settings.key.token_ttl_hours": "Session Token Validity (Hours)",
   "settings.desc.token_ttl_hours": "Duration in hours before an authenticated user session expires",
+  "settings.key.token_ttl_remember_days": "Remember Me Duration (Days)",
+  "settings.desc.token_ttl_remember_days": "Number of days a session remains valid when the user selects Remember Me at login",
   "settings.key.serial_required_categories": "Serial Tracking Categories",
   "settings.desc.serial_required_categories": "Product categories that require mandatory serial number tracking",
   "settings.key.max_photos_per_site": "Max Photos Per Site Stage",
