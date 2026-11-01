@@ -211,7 +211,7 @@ window.pages.suppliers = async function(container) {
         <button id="sup-add-pay-btn" class="btn btn-primary btn-full" style="margin-top:1rem;">+ Add Payment</button>
       ` : '';
 
-      payTab.innerHTML = summaryHtml + lotsHtml + addPayBtn;
+      payTab.innerHTML = summaryHtml + lotsHtml + paymentsHtml + addPayBtn;
 
       if (isOwner) {
         var apBtn = document.getElementById('sup-add-pay-btn');

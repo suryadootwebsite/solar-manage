@@ -143,7 +143,7 @@ window.pages.customers = async function(container) {
   }
 
   function openCustomerDetail(c) {
-    var canViewPayments = window.auth.can('cpay.ledger') || window.auth.isOwnerLike(window.auth.getUser() && window.auth.getUser().role);
+    var canViewPayments = window.auth.can('cpay.ledger') || window.auth.can('cpay.add') || window.auth.isOwnerLike(window.auth.getUser() && window.auth.getUser().role);
     var canAddPayment = window.auth.can('cpay.add');
     var fmt = function(paise) { return '₹' + ((paise || 0) / 100).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 }); };
 
@@ -233,7 +233,11 @@ window.pages.customers = async function(container) {
             return `
               <div style="display:flex; justify-content:space-between; align-items:center; padding:0.5rem 0; border-bottom:1px solid var(--border); font-size:0.85rem;">
                 <div>
-                  <div style="font-weight:600;">${fmt(p.amount_paise)} <span class="badge" style="font-size:0.7rem; margin-left:4px;">${window.ui.esc(p.payment_mode || 'BANK')}</span></div>
+                  <div style="font-weight:600;">
+                    ${fmt(p.amount_paise)}
+                    <span class="badge" style="font-size:0.7rem; margin-left:4px;">${window.ui.esc(p.payment_mode || 'BANK')}</span>
+                    ${p.document_url ? '<a href="' + window.ui.esc(p.document_url) + '" target="_blank" rel="noopener" style="margin-left:6px; font-size:0.75rem;">📎 Proof</a>' : ''}
+                  </div>
                   <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">
                     ${window.ui.esc(p.payment_date || '')} ${p.site_name ? '· Site: ' + window.ui.esc(p.site_name) : ''} ${p.remark ? '· ' + window.ui.esc(p.remark) : ''}
                   </div>

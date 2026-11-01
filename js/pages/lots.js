@@ -238,10 +238,18 @@ window.pages.lots = async function(container) {
         `;
       }).join('');
 
+      var isManager = (role === 'MANAGER');
       var canSetRate = isOwner && lot.status === 'PENDING_RATE';
       var canCancel = isOwner && lot.status !== 'CANCELLED';
       var curOrd = lot.order_status || '';
-      var canUpdateOrd = curOrd !== 'DELIVERED' && curOrd !== 'RETURNED' && curOrd !== 'CANCELLED' && Boolean(curOrd);
+      var canUpdateOrd = (isOwner || isManager) && Array.isArray(lot.allowed_next) && lot.allowed_next.length > 0;
+      if (curOrd === 'DELIVERED' && (!lot.allowed_next || lot.allowed_next.length === 0)) {
+        console.warn('allowed_next is empty for DELIVERED lot', lot.lot_id);
+      }
+      var canSeeFinancials = isOwner || isManager;
+      var grandTotal = Number(lot.grand_total_paise || 0);
+      var paidPaise = Number(lot.paid_paise || 0);
+      var balancePaise = Math.max(0, grandTotal - paidPaise);
 
       // Timeline HTML
       var timelineSteps = [
@@ -314,7 +322,7 @@ window.pages.lots = async function(container) {
 
       window.ui.openBottomSheet('Purchase Lot: ' + (lot.invoice_no || lot.lot_id), bodyHtml, '');
 
-      if (isOwner) {
+      if (canSeeFinancials) {
         loadLotPayments();
       }
 

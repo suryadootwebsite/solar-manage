@@ -162,20 +162,37 @@
 
     var role = window.auth.getRole() || 'SITE_USER';
 
-    // Map each tab to its permission requirement
-    var tabPermissions = {
-      dashboard: window.auth.can('dashboard.get'),
-      sites: window.auth.can('sites.list'),
-      stock: window.auth.can('stock.summary'),
-      lots: window.auth.can('lots.list'),
-      customers: window.auth.can('customers.list'),
-      masters: window.auth.can('products.list') || window.auth.can('locations.list'),
-      suppliers: (role === 'OWNER' || role === 'DEVELOPER') && window.auth.can('suppliers.list'),
-      money: role === 'OWNER' && window.auth.can('cpay.add'),
-      reports: role !== 'SITE_USER' && window.auth.can('reports.list'),
-      users: role === 'OWNER' && window.auth.can('users.list'),
-      settings: role === 'OWNER'
-    };
+    // Map each tab to its permission requirement (B3, B4)
+    var tabPermissions;
+    if (role === 'SITE_USER') {
+      tabPermissions = {
+        dashboard: false,
+        sites: true,
+        stock: false,
+        lots: false,
+        customers: false,
+        masters: false,
+        suppliers: false,
+        money: false,
+        reports: false,
+        users: false,
+        settings: false
+      };
+    } else {
+      tabPermissions = {
+        dashboard: window.auth.can('dashboard.get'),
+        sites: window.auth.can('sites.list'),
+        stock: window.auth.can('stock.summary'),
+        lots: window.auth.can('lots.list'),
+        customers: window.auth.can('customers.list'),
+        masters: window.auth.can('products.list') || window.auth.can('locations.list'),
+        suppliers: (role === 'OWNER' || role === 'MANAGER' || role === 'DEVELOPER') && window.auth.can('suppliers.list'),
+        money: role === 'OWNER' && window.auth.can('cpay.add'),
+        reports: role !== 'SITE_USER' && window.auth.can('reports.list'),
+        users: (role === 'OWNER' || role === 'MANAGER' || role === 'DEVELOPER') && window.auth.can('users.list'),
+        settings: role === 'OWNER'
+      };
+    }
 
     for (var tabKey in tabPermissions) {
       var tabElement = document.querySelector('[data-tab="' + tabKey + '"]');

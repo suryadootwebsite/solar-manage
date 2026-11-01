@@ -440,7 +440,7 @@ window.pages.siteDetail = async function(container, params) {
                   ${stgPhotos.length > 0 ? `<span class="badge" style="background:#e0f2fe; color:#0369a1; font-size:0.68rem; font-weight:600; padding:0.15rem 0.4rem; border:1px solid #bae6fd;">📷 ${stgPhotos.length} Photo${stgPhotos.length > 1 ? 's' : ''}</span>` : ''}
                   ${isReqPhoto ? '<span class="badge" style="background:#fef3c7; color:#92400e; font-size:0.68rem; font-weight:600; padding:0.15rem 0.4rem; border:1px solid #fde68a;">📷 Photo Required</span>' : ''}
                 </div>
-                <div style="font-size:0.8rem; color:var(--text-muted);">${esc(sm.name_hi || '')}</div>
+                <div style="font-size:0.8rem; color:var(--text-muted);">${esc(sm.name_hi || '')}${stg.updated_by_name ? ` · <span style="font-size:0.75rem;">Updated by: ${esc(stg.updated_by_name)}</span>` : (stg.updated_by ? ` · <span style="font-size:0.75rem;">Updated by: ${esc(stg.updated_by)}</span>` : '')}</div>
               </div>
             </div>
             <div style="text-align:right;">
@@ -852,6 +852,17 @@ window.pages.siteDetail = async function(container, params) {
             <button id="sdt-mgr-add-exp-btn" class="btn btn-primary" style="min-height:44px;">+ Add Expense</button>
           </div>
         </div>
+        ${window.auth.can('cpay.add') ? `
+        <div class="card" style="margin-bottom:1rem; padding:1.25rem;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+            <div>
+              <h3 style="margin:0; font-size:1.1rem;">Customer Payments</h3>
+              <p class="text-muted" style="margin:0.25rem 0 0; font-size:0.85rem;">Record payment received on site</p>
+            </div>
+            <button id="sdt-mgr-add-cpay-btn" class="btn btn-primary" style="min-height:44px;">+ Add Customer Payment</button>
+          </div>
+        </div>
+        ` : ''}
       `;
       _bindMoneyEvents(pane);
       _tabData['money'] = pane.innerHTML;
@@ -962,13 +973,20 @@ window.pages.siteDetail = async function(container, params) {
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                   <div>
                     <div style="font-weight:600; font-size:0.95rem;">₹${((Number(p.amount_paise) || 0) / 100).toLocaleString('en-IN')}</div>
-                    <div style="font-size:0.8rem; color:var(--text-muted);">${esc(p.type || p.payment_type || 'PAYMENT')} · ${esc(p.mode || '')} · ${esc(p.pay_date || p.payment_date || '')}</div>
+                    <div style="font-size:0.8rem; color:var(--text-muted);">${esc(p.type || p.payment_type || 'PAYMENT')} · ${esc(p.mode || '')} · ${esc(p.pay_date || p.payment_date || '')}${p.document_url ? ` · <a href="${esc(p.document_url)}" target="_blank" rel="noopener">📎 Proof</a>` : ''}</div>
                   </div>
                   <span class="badge ${isRev ? 'badge-danger' : 'badge-success'}">${esc(p.status || 'ACTIVE')}</span>
                 </div>
               </div>
             `;
           }).join('') : '<p class="text-muted" style="font-size:0.85rem; margin:0;">No payments received for this site yet.</p>'}
+          ${window.auth.can('cpay.add') ? `
+            <button id="sdt-add-cpay-btn"
+              class="btn btn-primary btn-full"
+              style="margin-top:0.75rem;">
+              + Add Customer Payment
+            </button>
+          ` : ''}
         </div>
       `;
 
@@ -993,10 +1011,110 @@ window.pages.siteDetail = async function(container, params) {
         openAddExpenseSheet(siteId);
       };
     }
+    var addCpayBtn = pane.querySelector('#sdt-add-cpay-btn');
+    if (addCpayBtn) {
+      addCpayBtn.onclick = function() {
+        openAddCpaySheet(siteId);
+      };
+    }
+    var mgrAddCpayBtn = pane.querySelector('#sdt-mgr-add-cpay-btn');
+    if (mgrAddCpayBtn) {
+      mgrAddCpayBtn.onclick = function() {
+        openAddCpaySheet(siteId);
+      };
+    }
   }
 
   // ---------------------------------------------------------------------------
-  // Add Site Expense Bottom Sheet (P1-5)
+
+  function openAddCpaySheet(siteId) {
+    var today = new Date().toISOString().slice(0, 10);
+    var formHtml = `
+      <form id="sdt-cpay-form" novalidate style="display:flex; flex-direction:column; gap:0.75rem;">
+        <div class="form-field">
+          <label style="display:block; font-size:0.875rem; font-weight:600; margin-bottom:0.25rem;">Amount (₹) *</label>
+          <input type="number" id="sdt-cp-amount" class="input" placeholder="e.g. 50000" min="1" step="0.01" required style="width:100%; min-height:44px; padding:0.5rem; border:1.5px solid var(--border); border-radius:8px; box-sizing:border-box;">
+        </div>
+        <div class="form-field">
+          <label style="display:block; font-size:0.875rem; font-weight:600; margin-bottom:0.25rem;">Payment Mode *</label>
+          <select id="sdt-cp-mode" class="input" required style="width:100%; min-height:44px; padding:0.5rem; border:1.5px solid var(--border); border-radius:8px; box-sizing:border-box; background:var(--bg-card); color:var(--text-main);">
+            <option value="UPI">UPI</option>
+            <option value="BANK_TRANSFER" selected>Bank Transfer (NEFT/RTGS/IMPS)</option>
+            <option value="CHEQUE">Cheque</option>
+            <option value="CASH">Cash</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label style="display:block; font-size:0.875rem; font-weight:600; margin-bottom:0.25rem;">Date *</label>
+          <input type="date" id="sdt-cp-date" class="input" value="${today}" required style="width:100%; min-height:44px; padding:0.5rem; border:1.5px solid var(--border); border-radius:8px; box-sizing:border-box;">
+        </div>
+        <div class="form-field">
+          <label style="display:block; font-size:0.875rem; font-weight:600; margin-bottom:0.25rem;">Type</label>
+          <select id="sdt-cp-type" class="input" style="width:100%; min-height:44px; padding:0.5rem; border:1.5px solid var(--border); border-radius:8px; box-sizing:border-box; background:var(--bg-card); color:var(--text-main);">
+            <option value="PAYMENT" selected>PAYMENT</option>
+            <option value="ADVANCE">ADVANCE</option>
+            <option value="SUBSIDY_RECEIVED">SUBSIDY_RECEIVED</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label style="display:block; font-size:0.875rem; font-weight:600; margin-bottom:0.25rem;">Remark (optional)</label>
+          <input type="text" id="sdt-cp-remark" class="input" placeholder="e.g. Stage payment" style="width:100%; min-height:44px; padding:0.5rem; border:1.5px solid var(--border); border-radius:8px; box-sizing:border-box;">
+        </div>
+        <div class="form-field">
+          <label style="display:block; font-size:0.875rem; font-weight:600; margin-bottom:0.25rem;">Payment Proof URL (optional)</label>
+          <input type="url" id="sdt-cp-proof" class="input" placeholder="https://drive.google.com/..." style="width:100%; min-height:44px; padding:0.5rem; border:1.5px solid var(--border); border-radius:8px; box-sizing:border-box;">
+        </div>
+      </form>
+    `;
+    var footerHtml = `
+      <button id="sdt-cp-submit-btn" class="btn btn-primary btn-full">Record Payment</button>
+      <button id="sdt-cp-cancel-btn" class="btn btn-secondary btn-full">Cancel</button>
+    `;
+
+    ui.openBottomSheet('Add Customer Payment', formHtml, footerHtml);
+
+    var cancelBtn = document.getElementById('sdt-cp-cancel-btn');
+    if (cancelBtn) cancelBtn.onclick = ui.closeBottomSheet;
+
+    var submitBtn = document.getElementById('sdt-cp-submit-btn');
+    if (submitBtn) {
+      submitBtn.onclick = function() {
+        var amt = parseFloat(document.getElementById('sdt-cp-amount').value);
+        if (!amt || isNaN(amt) || amt <= 0) {
+          ui.showToast('Please enter a valid amount', 'error');
+          return;
+        }
+        var mode = document.getElementById('sdt-cp-mode').value;
+        var pDate = document.getElementById('sdt-cp-date').value;
+        var pType = document.getElementById('sdt-cp-type').value;
+        var remark = document.getElementById('sdt-cp-remark').value.trim();
+        var proofUrl = document.getElementById('sdt-cp-proof').value.trim();
+
+        ui.withButtonLoading(submitBtn, async function() {
+          try {
+            await api.call('cpay.add', {
+              site_id: siteId,
+              amount_paise: Math.round(amt * 100),
+              payment_mode: mode,
+              pay_date: pDate,
+              type: pType,
+              remark: remark,
+              document_url: proofUrl
+            });
+            ui.closeBottomSheet();
+            ui.showToast('Payment recorded successfully', 'success');
+            _tabLoaded['money'] = false;
+            var pane = document.getElementById('sdt-pane-money');
+            if (pane) renderMoneyTab(pane);
+          } catch(err) {
+            ui.showToast(err.message || 'Failed to record payment', 'error');
+          }
+        });
+      };
+    }
+  }
+
+    // Add Site Expense Bottom Sheet (P1-5)
   // ---------------------------------------------------------------------------
   function openAddExpenseSheet(siteId) {
     var formHtml = `
@@ -1436,7 +1554,7 @@ window.pages.siteDetail = async function(container, params) {
 
     var formHtml = `
       <form id="update-stage-form" novalidate>
-        <p class="text-muted" style="margin:0 0 1rem 0;">Current Status: <strong>${stg.status}</strong></p>
+        <p class="text-muted" style="margin:0 0 1rem 0;">Current Status: <strong>${stg.status}</strong>${stg.updated_by_name ? ` · Last updated by: <strong>${esc(stg.updated_by_name)}</strong>` : (stg.updated_by ? ` · Last updated by: <strong>${esc(stg.updated_by)}</strong>` : '')}</p>
         <div class="form-field">
           <label>Target Status *</label>
           <select id="usf-status" class="input" required>

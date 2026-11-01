@@ -261,6 +261,118 @@ window.pages.users = function(container) {
     });
   }
 
+
+  async function openEditUserModal(u) {
+    var branches = [];
+    try {
+      var bRes = await api.call('branches.list', {});
+      branches = bRes.items || [];
+    } catch (e) {}
+
+    var userBranchList = (u.branch_ids || '').split(',').map(function(s) { return s.trim(); });
+    var branchOptions = branches.length ? branches.map(function(b) {
+      var isChecked = userBranchList.indexOf(b.branch_id) !== -1;
+      return `<label style="display:inline-flex; align-items:center; gap:0.35rem; font-size:0.875rem; margin-right:0.75rem;">
+        <input type="checkbox" name="eu-branches" value="${ui.esc(b.branch_id)}" ${isChecked ? 'checked' : ''} />
+        ${ui.esc(b.name || b.branch_id)}
+      </label>`;
+    }).join('') : `<input type="text" id="eu-branch" value="${ui.esc(u.branch_ids || '')}" class="form-control" style="width:100%; min-height:44px; padding:0.5rem; border:1.5px solid var(--border); border-radius:8px; box-sizing:border-box;" />`;
+
+    var isOwnerUser = u.role === 'OWNER';
+    var roleOptions = isOwnerUser ? `
+      <option value="OWNER" selected>${ui.esc(t('role.OWNER') || 'Owner')}</option>
+    ` : `
+      <option value="SITE_USER" ${u.role === 'SITE_USER' ? 'selected' : ''}>${ui.esc(t('role.SITE_USER') || 'Site User')}</option>
+      <option value="MANAGER" ${u.role === 'MANAGER' ? 'selected' : ''}>${ui.esc(t('role.MANAGER') || 'Manager')}</option>
+      <option value="OWNER">${ui.esc(t('role.OWNER') || 'Owner')}</option>
+      <option value="VIEW_ONLY" ${u.role === 'VIEW_ONLY' ? 'selected' : ''}>${ui.esc(t('role.VIEW_ONLY') || 'View Only')}</option>
+    `;
+
+    ui.openBottomSheet(
+      'Edit User: ' + (u.name || u.username),
+      `
+        <form id="edit-user-form" style="display:flex; flex-direction:column; gap:0.75rem;">
+          <div>
+            <label style="display:block; font-size:0.875rem; font-weight:600; margin-bottom:0.25rem;">Display Name *</label>
+            <input type="text" id="eu-name" value="${ui.esc(u.name || '')}" required class="form-control" style="width:100%; min-height:44px; padding:0.5rem; border:1.5px solid var(--border); border-radius:8px; box-sizing:border-box;" />
+          </div>
+          <div>
+            <label style="display:block; font-size:0.875rem; font-weight:600; margin-bottom:0.25rem;">Username (Immutable)</label>
+            <input type="text" id="eu-username" value="${ui.esc(u.username || '')}" disabled class="form-control" style="width:100%; min-height:44px; padding:0.5rem; border:1.5px solid var(--border); border-radius:8px; box-sizing:border-box; background:var(--bg-muted, #f3f4f6); color:var(--text-muted); cursor:not-allowed;" />
+          </div>
+          <div>
+            <label style="display:block; font-size:0.875rem; font-weight:600; margin-bottom:0.25rem;">Phone Number</label>
+            <input type="tel" id="eu-phone" value="${ui.esc(u.phone || '')}" class="form-control" style="width:100%; min-height:44px; padding:0.5rem; border:1.5px solid var(--border); border-radius:8px; box-sizing:border-box;" />
+          </div>
+          <div>
+            <label style="display:block; font-size:0.875rem; font-weight:600; margin-bottom:0.25rem;">Role *</label>
+            <select id="eu-role" ${isOwnerUser ? 'disabled' : ''} class="form-control" style="width:100%; min-height:44px; padding:0.5rem; border:1.5px solid var(--border); border-radius:8px; box-sizing:border-box; background:var(--bg-card); color:var(--text-main);">
+              ${roleOptions}
+            </select>
+            ${isOwnerUser ? '<p style="font-size:0.75rem; color:var(--text-muted); margin:0.25rem 0 0;">OWNER accounts cannot be demoted.</p>' : ''}
+          </div>
+          <div>
+            <label style="display:block; font-size:0.875rem; font-weight:600; margin-bottom:0.25rem;">Branch(es)</label>
+            <div id="eu-branches-container" style="padding:0.5rem 0;">
+              ${branchOptions}
+            </div>
+          </div>
+        </form>
+      `,
+      `
+        <button id="save-edit-user-btn" class="btn btn-primary btn-block" style="min-height:48px;">
+          ${ui.esc(t('btn.save') || 'Save Changes')}
+        </button>
+        <button id="cancel-edit-user-btn" class="btn btn-secondary btn-block" style="min-height:48px;">
+          ${ui.esc(t('btn.cancel') || 'Cancel')}
+        </button>
+      `
+    );
+
+    var cancelBtn = document.getElementById('cancel-edit-user-btn');
+    if (cancelBtn) cancelBtn.onclick = ui.closeBottomSheet;
+
+    var saveBtn = document.getElementById('save-edit-user-btn');
+    if (saveBtn) {
+      saveBtn.onclick = function() {
+        ui.withButtonLoading(saveBtn, async function() {
+          var nameInput = document.getElementById('eu-name');
+          var phoneInput = document.getElementById('eu-phone');
+          var roleSelect = document.getElementById('eu-role');
+
+          var selectedBranches = [];
+          var branchChecks = document.querySelectorAll('input[name="eu-branches"]:checked');
+          if (branchChecks.length > 0) {
+            branchChecks.forEach(function(cb) { selectedBranches.push(cb.value); });
+          } else {
+            var rawB = document.getElementById('eu-branch');
+            if (rawB && rawB.value) selectedBranches.push(rawB.value.trim());
+          }
+
+          var patchPayload = {
+            user_id: u.user_id,
+            display_name: nameInput ? nameInput.value.trim() : u.name,
+            phone: phoneInput ? phoneInput.value.trim() : '',
+            branch_ids: selectedBranches.join(',')
+          };
+
+          if (roleSelect && !roleSelect.disabled) {
+            patchPayload.role = roleSelect.value;
+          }
+
+          try {
+            await api.call('users.update', patchPayload);
+            ui.closeBottomSheet();
+            ui.showToast('User updated successfully', 'success');
+            loadUsers();
+          } catch (err) {
+            ui.showToast(err.message || 'Failed to update user', 'error');
+          }
+        });
+      };
+    }
+  }
+
   function showTempPasswordModal(name, tempPassword) {
     ui.openBottomSheet(
       t('users.temp_pwd_title') || 'Temporary Password Generated',
