@@ -143,18 +143,47 @@ window.pages.customers = async function(container) {
   }
 
   function openCustomerDetail(c) {
+    var canViewPayments = window.auth.can('cpay.ledger') || window.auth.isOwnerLike(window.auth.getUser() && window.auth.getUser().role);
+    var canAddPayment = window.auth.can('cpay.add');
+    var fmt = function(paise) { return '₹' + ((paise || 0) / 100).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 }); };
+
     var detailHtml = `
-      <div style="margin-bottom:1rem;">
-        <div style="font-weight:700; font-size:1.15rem; color:var(--text-main); margin-bottom:0.25rem;">${window.ui.esc(c.name)}</div>
-        <div style="font-size:0.875rem; color:var(--text-muted); margin-bottom:0.25rem;">📞 <a href="tel:${window.ui.esc(c.phone)}">${window.ui.esc(c.phone)}</a> ${c.alt_phone ? ' | ' + window.ui.esc(c.alt_phone) : ''}</div>
-        ${c.city || c.address ? `<div style="font-size:0.875rem; color:var(--text-muted); margin-bottom:0.5rem;">📍 ${window.ui.esc([c.address, c.city, c.pincode].filter(Boolean).join(', '))}</div>` : ''}
-        <div style="margin-top:0.75rem;">
-          <button id="btn-edit-cust-detail" class="btn btn-outline btn-sm">Edit Details</button>
-        </div>
+      <div style="display:flex; gap:0.5rem; margin-bottom:1rem; border-bottom:2px solid var(--border); padding-bottom:0.5rem;">
+        <button class="btn btn-primary cust-dtab-btn" data-tab="details" style="flex:1;">Details</button>
+        ${canViewPayments ? `<button class="btn btn-secondary cust-dtab-btn" data-tab="payments" style="flex:1;">Payments</button>` : ''}
       </div>
-      <div id="cust-detail-docs-mount"></div>
+      <div id="cust-dtab-details">
+        <div style="margin-bottom:1rem;">
+          <div style="font-weight:700; font-size:1.15rem; color:var(--text-main); margin-bottom:0.25rem;">${window.ui.esc(c.name)}</div>
+          <div style="font-size:0.875rem; color:var(--text-muted); margin-bottom:0.25rem;">📞 <a href="tel:${window.ui.esc(c.phone)}">${window.ui.esc(c.phone)}</a> ${c.alt_phone ? ' | ' + window.ui.esc(c.alt_phone) : ''}</div>
+          ${c.city || c.address ? `<div style="font-size:0.875rem; color:var(--text-muted); margin-bottom:0.5rem;">📍 ${window.ui.esc([c.address, c.city, c.pincode].filter(Boolean).join(', '))}</div>` : ''}
+          <div style="margin-top:0.75rem;">
+            <button id="btn-edit-cust-detail" class="btn btn-outline btn-sm">Edit Details</button>
+          </div>
+        </div>
+        <div id="cust-detail-docs-mount"></div>
+      </div>
+      <div id="cust-dtab-payments" style="display:none;">
+        <div style="text-align:center; padding:1.5rem 0;"><span class="spinner"></span></div>
+      </div>
     `;
+
     window.ui.openBottomSheet('Customer: ' + c.name, detailHtml, '');
+
+    // Tab switching
+    document.querySelectorAll('.cust-dtab-btn').forEach(function(btn) {
+      btn.onclick = function() {
+        document.querySelectorAll('.cust-dtab-btn').forEach(function(b) {
+          b.classList.remove('btn-primary'); b.classList.add('btn-secondary');
+        });
+        btn.classList.add('btn-primary'); btn.classList.remove('btn-secondary');
+        var tab = btn.getAttribute('data-tab');
+        document.getElementById('cust-dtab-details').style.display = tab === 'details' ? '' : 'none';
+        document.getElementById('cust-dtab-payments').style.display = tab === 'payments' ? '' : 'none';
+        if (tab === 'payments') loadCustomerPayments(c);
+      };
+    });
+
     var editBtn = document.getElementById('btn-edit-cust-detail');
     if (editBtn) {
       editBtn.onclick = function() {
@@ -170,6 +199,168 @@ window.pages.customers = async function(container) {
           mount.innerHTML = '<div class="text-muted" style="font-size:0.85rem;padding:0.75rem 0;">Documents unavailable</div>';
         }
       }
+    }
+
+    async function loadCustomerPayments(cust) {
+      var payTab = document.getElementById('cust-dtab-payments');
+      if (!payTab) return;
+      payTab.innerHTML = '<div style="text-align:center;padding:1.5rem 0;"><span class="spinner"></span></div>';
+      try {
+        var ledger = await window.api.call('cpay.ledger', { customer_id: cust.customer_id });
+        var sites = ledger.sites || [];
+
+        var summaryHtml = `
+          <div style="display:flex; gap:0.5rem; margin-bottom:1rem;">
+            <div class="card" style="flex:1; text-align:center; padding:0.5rem;">
+              <div style="font-size:0.75rem; color:var(--text-muted);">Total Contract</div>
+              <div style="font-weight:700; font-size:0.95rem;">${fmt(ledger.total_contract_paise)}</div>
+            </div>
+            <div class="card" style="flex:1; text-align:center; padding:0.5rem;">
+              <div style="font-size:0.75rem; color:var(--text-muted);">Total Received</div>
+              <div style="font-weight:700; font-size:0.95rem; color:#16a34a;">${fmt(ledger.total_received_paise)}</div>
+            </div>
+            <div class="card" style="flex:1; text-align:center; padding:0.5rem;">
+              <div style="font-size:0.75rem; color:var(--text-muted);">Balance Pending</div>
+              <div style="font-weight:700; font-size:0.95rem; color:${ledger.balance_pending_paise > 0 ? '#dc2626' : '#16a34a'};Stream">${fmt(ledger.balance_pending_paise)}</div>
+            </div>
+          </div>
+        `.replace('\Stream', '');
+
+        var payments = ledger.payments || [];
+        var historyHtml = payments.length ? `
+          <div style="font-weight:700; font-size:0.9rem; margin-bottom:0.5rem;">Payment History</div>
+          ${payments.map(function(p) {
+            return `
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:0.5rem 0; border-bottom:1px solid var(--border); font-size:0.85rem;">
+                <div>
+                  <div style="font-weight:600;">${fmt(p.amount_paise)} <span class="badge" style="font-size:0.7rem; margin-left:4px;">${window.ui.esc(p.payment_mode || 'BANK')}</span></div>
+                  <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">
+                    ${window.ui.esc(p.payment_date || '')} ${p.site_name ? '· Site: ' + window.ui.esc(p.site_name) : ''} ${p.remark ? '· ' + window.ui.esc(p.remark) : ''}
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        ` : '<div class="text-muted" style="text-align:center; padding:1rem 0; font-size:0.85rem;">No payments recorded yet.</div>';
+
+        var addPayBtn = canAddPayment ? `
+          <button id="cust-add-pay-btn" class="btn btn-primary btn-full" style="margin-top:1rem;">+ Add Payment</button>
+        ` : '';
+
+        payTab.innerHTML = summaryHtml + historyHtml + addPayBtn;
+
+        if (canAddPayment) {
+          var apBtn = document.getElementById('cust-add-pay-btn');
+          if (apBtn) {
+            apBtn.onclick = function() {
+              openAddCustomerPayment(cust, sites, function() {
+                loadCustomerPayments(cust);
+              });
+            };
+          }
+        }
+      } catch(err) {
+        payTab.innerHTML = `<div class="card text-error">${window.ui.esc(err.message || 'Failed to load payments')}</div>`;
+      }
+    }
+
+    function openAddCustomerPayment(cust, sites, onDone) {
+      var siteOptions = sites.map(function(s) {
+        return `<option value="${s.site_id}">${window.ui.esc(s.site_name || s.site_id)} (${fmt(s.contract_value_paise)})</option>`;
+      }).join('');
+
+      var formHtml = `
+        <form id="cpay-add-form" novalidate>
+          <div class="form-field">
+            <label>Site *</label>
+            <select id="cpf-site" class="input" required>
+              <option value="">-- Select Site --</option>
+              ${siteOptions}
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Amount (₹) *</label>
+            <input id="cpf-amount" type="number" class="input" min="1" step="1" placeholder="e.g. 50000" required>
+          </div>
+          <div class="form-field">
+            <label>Date *</label>
+            <input id="cpf-date" type="date" class="input" value="${new Date().toISOString().slice(0, 10)}" required>
+          </div>
+          <div class="form-field">
+            <label>Payment Type</label>
+            <select id="cpf-type" class="input">
+              <option value="INSTALLMENT" selected>INSTALLMENT</option>
+              <option value="ADVANCE">ADVANCE</option>
+              <option value="FINAL">FINAL</option>
+              <option value="OTHER">OTHER</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Payment Mode</label>
+            <select id="cpf-mode" class="input">
+              <option value="BANK" selected>BANK (NEFT/RTGS/IMPS)</option>
+              <option value="UPI">UPI</option>
+              <option value="CHEQUE">CHEQUE</option>
+              <option value="CASH">CASH</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Ref / Transaction No</label>
+            <input id="cpf-ref" type="text" class="input" placeholder="e.g. UTR / Cheque No">
+          </div>
+          <div class="form-field">
+            <label>Remark</label>
+            <input id="cpf-remark" type="text" class="input">
+          </div>
+          <div id="cpf-error" class="text-error" style="display:none; margin-bottom:0.75rem;"></div>
+          <div class="sheet-footer" style="padding-top:0.75rem; border-top:1px solid var(--border);">
+            <button type="submit" id="cpf-submit" class="btn btn-primary btn-full">Save Payment</button>
+          </div>
+        </form>
+      `;
+
+      window.ui.openBottomSheet('Add Payment: ' + cust.name, formHtml, '');
+
+      document.getElementById('cpay-add-form').onsubmit = function(e) {
+        e.preventDefault();
+        var errEl = document.getElementById('cpf-error');
+        var submitBtn = document.getElementById('cpf-submit');
+        errEl.style.display = 'none';
+
+        var siteId = document.getElementById('cpf-site').value;
+        var amount = parseFloat(document.getElementById('cpf-amount').value);
+
+        if (!siteId) {
+          errEl.textContent = 'Please select a site';
+          errEl.style.display = 'block';
+          return;
+        }
+        if (!amount || amount <= 0) {
+          errEl.textContent = 'Please enter a valid amount';
+          errEl.style.display = 'block';
+          return;
+        }
+
+        var payload = {
+          site_id: siteId,
+          amount_paise: Math.round(amount * 100),
+          type: document.getElementById('cpf-type').value,
+          mode: document.getElementById('cpf-mode').value,
+          ref_no: document.getElementById('cpf-ref').value.trim(),
+          remark: document.getElementById('cpf-remark').value.trim(),
+          pay_date: document.getElementById('cpf-date').value
+        };
+
+        window.ui.withButtonLoading(submitBtn, async function() {
+          await window.api.call('cpay.add', payload);
+          window.ui.closeBottomSheet();
+          window.ui.showToast('Payment recorded successfully', 'success');
+          if (onDone) onDone();
+        }).catch(function(err) {
+          errEl.textContent = err.message || 'Failed to record payment';
+          errEl.style.display = 'block';
+        });
+      };
     }
   }
 

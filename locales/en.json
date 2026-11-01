@@ -408,5 +408,6 @@
   "users.delete_confirm_title": "Delete User",
   "users.delete_success": "User deleted successfully",
   "users.disabled_since": "Disabled since",
-  "users.delete_available_in": "Delete available in {n} day(s)"
+  "users.delete_available_in": "Delete available in {n} day(s)",
+  "nav.suppliers": "Suppliers"
 }

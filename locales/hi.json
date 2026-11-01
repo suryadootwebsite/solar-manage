@@ -408,5 +408,6 @@
   "users.delete_confirm_title": "उपयोगकर्ता हटाएं",
   "users.delete_success": "उपयोगकर्ता सफलतापूर्वक हटाया गया",
   "users.disabled_since": "अक्षम किया गया",
-  "users.delete_available_in": "{n} दिन में हटाने का विकल्प उपलब्ध होगा"
+  "users.delete_available_in": "{n} दिन में हटाने का विकल्प उपलब्ध होगा",
+  "nav.suppliers": "आपूर्तिकर्ता"
 }

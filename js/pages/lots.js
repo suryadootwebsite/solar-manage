@@ -303,6 +303,7 @@ window.pages.lots = async function(container) {
         <div style="margin-bottom:1rem;">
           ${itemsHtml}
         </div>
+        ${isOwner ? '<div id="lot-payments-mount" style="margin-bottom:1.5rem;"><div style="text-align:center; padding:1rem;"><span class="spinner"></span></div></div>' : ''}
         <div id="lot-docs-mount" style="margin-bottom:1.5rem;"></div>
         <div style="display:flex; flex-direction:column; gap:0.5rem;">
           ${canUpdateOrd ? `<button id="lot-update-status-btn" class="btn btn-primary btn-full">${window.ui.esc(t('lots.update_status_btn'))}</button>` : ''}
@@ -313,12 +314,134 @@ window.pages.lots = async function(container) {
 
       window.ui.openBottomSheet('Purchase Lot: ' + (lot.invoice_no || lot.lot_id), bodyHtml, '');
 
+      if (isOwner) {
+        loadLotPayments();
+      }
+
+      var addPayBtn = document.getElementById('lot-add-pay-btn');
+      if (addPayBtn) {
+        addPayBtn.onclick = function() {
+          openAddLotPayment(lot);
+        };
+      }
+
       if (window.components && window.components.renderDocumentsSection) {
         var lotDocMount = document.getElementById('lot-docs-mount');
         if (lotDocMount) {
           window.components.renderDocumentsSection(lotDocMount, 'LOT', lot.lot_id, lot.invoice_no);
         }
       }
+      async function loadLotPayments() {
+        var mount = document.getElementById('lot-payments-mount');
+        if (!mount) return;
+        try {
+          var res = await window.api.call('spay.list', { supplier_id: lot.supplier_id, lot_id: lot.lot_id });
+          var payments = (res.rows || []).filter(function(p) { return p.lot_id === lot.lot_id; });
+          if (!payments.length) {
+            mount.innerHTML = `
+              <div style="font-weight:700; margin-bottom:0.5rem; font-size:0.9rem;">Payment History:</div>
+              <div class="text-muted" style="font-size:0.85rem; padding:0.5rem 0;">No payments yet.</div>
+            `;
+            return;
+          }
+          mount.innerHTML = `
+            <div style="font-weight:700; margin-bottom:0.5rem; font-size:0.9rem;">Payment History:</div>
+            ${payments.map(function(p) {
+              return `
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:0.4rem 0; border-bottom:1px solid var(--border); font-size:0.85rem;">
+                  <div>
+                    <span style="font-weight:600;">₹${((p.amount_paise || 0) / 100).toLocaleString('en-IN')}</span>
+                    <span class="badge" style="font-size:0.7rem; margin-left:4px;">${window.ui.esc(p.mode || 'BANK')}</span>
+                    ${p.remark ? `<div style="font-size:0.75rem; color:var(--text-muted);">${window.ui.esc(p.remark)}</div>` : ''}
+                  </div>
+                  <div style="font-size:0.75rem; color:var(--text-muted);">${window.ui.esc(p.pay_date || p.payment_date || '')}</div>
+                </div>
+              `;
+            }).join('')}
+          `;
+        } catch(e) {
+          mount.innerHTML = `<div class="text-error" style="font-size:0.85rem;">Failed to load payments: ${window.ui.esc(e.message)}</div>`;
+        }
+      }
+
+      function openAddLotPayment(currentLot) {
+        var balPaise = Math.max(0, (Number(currentLot.grand_total_paise || 0) - Number(currentLot.paid_paise || 0)));
+        var defaultAmt = balPaise > 0 ? (balPaise / 100) : '';
+
+        var formHtml = `
+          <form id="lot-pay-form" novalidate>
+            <div class="form-field">
+              <label>Supplier</label>
+              <input type="text" class="input" value="${window.ui.esc(getSupplierName(currentLot.supplier_id))}" disabled>
+            </div>
+            <div class="form-field">
+              <label>Invoice No</label>
+              <input type="text" class="input" value="${window.ui.esc(currentLot.invoice_no || currentLot.lot_id)}" disabled>
+            </div>
+            <div class="form-field">
+              <label>Amount (₹) *</label>
+              <input id="lpf-amount" type="number" class="input" min="1" step="1" value="${defaultAmt}" required>
+            </div>
+            <div class="form-field">
+              <label>Date *</label>
+              <input id="lpf-date" type="date" class="input" value="${new Date().toISOString().slice(0, 10)}" required>
+            </div>
+            <div class="form-field">
+              <label>Payment Mode</label>
+              <select id="lpf-mode" class="input">
+                <option value="BANK" selected>BANK (NEFT/RTGS/IMPS)</option>
+                <option value="UPI">UPI</option>
+                <option value="CHEQUE">CHEQUE</option>
+                <option value="CASH">CASH</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label>Remark</label>
+              <input id="lpf-remark" type="text" class="input" placeholder="e.g. Part payment">
+            </div>
+            <div id="lpf-error" class="text-error" style="display:none; margin-bottom:0.75rem;"></div>
+            <div class="sheet-footer" style="padding-top:0.75rem; border-top:1px solid var(--border);">
+              <button type="submit" id="lpf-submit" class="btn btn-primary btn-full">Save Payment</button>
+            </div>
+          </form>
+        `;
+
+        window.ui.openBottomSheet('Add Payment: ' + (currentLot.invoice_no || currentLot.lot_id), formHtml, '');
+
+        document.getElementById('lot-pay-form').onsubmit = function(e) {
+          e.preventDefault();
+          var errEl = document.getElementById('lpf-error');
+          var submitBtn = document.getElementById('lpf-submit');
+          errEl.style.display = 'none';
+
+          var amt = parseFloat(document.getElementById('lpf-amount').value);
+          if (!amt || amt <= 0) {
+            errEl.textContent = 'Please enter a valid amount';
+            errEl.style.display = 'block';
+            return;
+          }
+
+          var payload = {
+            supplier_id: currentLot.supplier_id,
+            lot_id: currentLot.lot_id,
+            amount_paise: Math.round(amt * 100),
+            pay_date: document.getElementById('lpf-date').value,
+            mode: document.getElementById('lpf-mode').value,
+            remark: document.getElementById('lpf-remark').value.trim()
+          };
+
+          window.ui.withButtonLoading(submitBtn, async function() {
+            await window.api.call('spay.add', payload);
+            window.ui.closeBottomSheet();
+            window.ui.showToast('Payment added successfully', 'success');
+            openLotDetail(currentLot.lot_id);
+          }).catch(function(err) {
+            errEl.textContent = err.message || 'Payment failed';
+            errEl.style.display = 'block';
+          });
+        };
+      }
+
 
       if (canUpdateOrd) {
         document.getElementById('lot-update-status-btn').onclick = function() {

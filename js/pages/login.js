@@ -15,12 +15,10 @@ window.pages.login = function(container) {
   container.innerHTML = `
     <div style="max-width: 420px; margin: 1.5rem auto; padding: 0 1rem;">
       <div class="card" style="padding: 2rem 1.5rem; text-align: center; border-top: 4px solid var(--brand);">
-        <div style="margin-bottom:1.25rem;">
+        <div style="margin-bottom:1.5rem;">
           <img src="assets/logo-full-560.png" alt="Suryadoot Energy Solution" style="max-width:240px; width:80%; height:auto; margin:0 auto; display:block;" />
+          <p style="font-size:0.875rem; color:var(--text-muted); margin:0.75rem 0 0;">${ui.esc(t('login.subtitle'))}</p>
         </div>
-
-        <h1 style="font-size:1.35rem; font-weight:700; margin:0 0 0.5rem; color:var(--text-main);">${ui.esc(t('login.title'))}</h1>
-        <p style="font-size:0.875rem; color:var(--text-muted); margin:0 0 1.5rem;">${ui.esc(t('login.subtitle'))}</p>
 
         <form id="login-form" style="text-align:left;">
           <div style="margin-bottom: 1.25rem;">

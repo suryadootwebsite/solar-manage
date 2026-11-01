@@ -39,6 +39,7 @@
       lots: t('nav.purchase') || 'Purchase',
       customers: t('nav.customers') || 'Customers',
       masters: t('nav.masters') || 'Masters',
+      suppliers: t('nav.suppliers') || 'Suppliers',
       money: t('nav.money') || 'Money',
       reports: t('nav.reports') || 'Reports',
       users: t('nav.users') || 'Users',
@@ -169,6 +170,7 @@
       lots: window.auth.can('lots.list'),
       customers: window.auth.can('customers.list'),
       masters: window.auth.can('products.list') || window.auth.can('locations.list'),
+      suppliers: (role === 'OWNER' || role === 'DEVELOPER') && window.auth.can('suppliers.list'),
       money: role === 'OWNER' && window.auth.can('cpay.add'),
       reports: role !== 'SITE_USER' && window.auth.can('reports.list'),
       users: role === 'OWNER' && window.auth.can('users.list'),
@@ -384,6 +386,7 @@
   window.router.register('/users', window.pages.users);
   window.router.register('/customers', window.pages.customers);
   window.router.register('/masters', window.pages.masters);
+  window.router.register('/suppliers', window.pages.suppliers);
   window.router.register('/lots', window.pages.lots);
   window.router.register('/settings', window.pages.settings);
 

@@ -14,7 +14,6 @@ window.pages.masters = async function(container) {
       <h2 style="margin:0 0 0.5rem 0;">${window.ui.esc(t('masters.title'))}</h2>
       <div style="display:flex; gap:0.5rem; overflow-x:auto; padding-bottom:0.25rem;" id="masters-tabs-bar">
         <button class="btn btn-secondary tab-btn active" data-sub="products">${window.ui.esc(t('masters.tab_products'))}</button>
-        ${isOwner ? `<button class="btn btn-secondary tab-btn" data-sub="suppliers">${window.ui.esc(t('masters.tab_suppliers'))}</button>` : ''}
         <button class="btn btn-secondary tab-btn" data-sub="locations">${window.ui.esc(t('masters.tab_locations'))}</button>
         <button class="btn btn-secondary tab-btn" data-sub="stages">${window.ui.esc(t('masters.tab_stages'))}</button>
       </div>
@@ -42,7 +41,6 @@ window.pages.masters = async function(container) {
     });
 
     if (tab === 'products') renderProductsSub(subContent);
-    else if (tab === 'suppliers') renderSuppliersSub(subContent);
     else if (tab === 'locations') renderLocationsSub(subContent);
     else if (tab === 'stages') renderStagesSub(subContent);
   }
