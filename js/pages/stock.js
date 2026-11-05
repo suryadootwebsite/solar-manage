@@ -53,8 +53,8 @@ window.pages.stock = async function(container) {
   // Load locations and products for filter dropdowns
   try {
     var [locRes, prdRes] = await Promise.all([
-      window.api.call('locations.list', {}),
-      window.api.call('products.list', {})
+      window.api.call('locations.list', { limit: 9999 }),
+      window.api.call('products.list', { limit: 9999 })
     ]);
     locations = locRes.items || [];
     products = prdRes.items || [];

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * js/pages/dashboard.js — Executive & Operational Dashboard Page.
  *
  * Enforces:
@@ -53,17 +53,8 @@
         '<div class="card skeleton" style="height:180px;"></div>';
     }
 
-    var dNow = new Date();
-    var defaultMonth = String(dNow.getMonth() + 1).padStart(2, '0');
-    var defaultYear = String(dNow.getFullYear());
-    var selMonth = defaultMonth;
-    var selYear = defaultYear;
-    try {
-      var sm = localStorage.getItem('sms_dash_sel_month');
-      var sy = localStorage.getItem('sms_dash_sel_year');
-      if (sm !== null) selMonth = sm;
-      if (sy !== null) selYear = sy;
-    } catch (e) {}
+    var selMonth = localStorage.getItem('sms_dash_sel_month') || 'ALL';
+    var selYear = localStorage.getItem('sms_dash_sel_year') || 'ALL';
 
     function getCacheKey() {
       return 'sms_cache_dashboard_' + role + '_' + selMonth + '_' + selYear;
@@ -330,6 +321,9 @@
 
     var mFilter = contentEl.querySelector('#dash-filter-month');
     var yFilter = contentEl.querySelector('#dash-filter-year');
+    if (yFilter && yFilter.value === 'ALL' && mFilter) {
+      mFilter.style.display = 'none';
+    }
     if (mFilter) {
       mFilter.onchange = function() {
         var vm = this.value;
@@ -343,8 +337,23 @@
       yFilter.onchange = function() {
         var vy = this.value;
         try { localStorage.setItem('sms_dash_sel_year', vy); } catch(e) {}
-        if (typeof onPeriodChange === 'function') {
-          onPeriodChange(mFilter ? mFilter.value : 'ALL', vy);
+        if (vy === 'ALL') {
+          if (mFilter) mFilter.style.display = 'none';
+          try { localStorage.setItem('sms_dash_sel_month', 'ALL'); } catch(e) {}
+          if (typeof onPeriodChange === 'function') {
+            onPeriodChange('ALL', 'ALL');
+          }
+        } else {
+          if (mFilter) mFilter.style.display = '';
+          var currM = mFilter ? mFilter.value : 'ALL';
+          if (currM === 'ALL') {
+            currM = String(new Date().getMonth() + 1).padStart(2, '0');
+            if (mFilter) mFilter.value = currM;
+            try { localStorage.setItem('sms_dash_sel_month', currM); } catch(e) {}
+          }
+          if (typeof onPeriodChange === 'function') {
+            onPeriodChange(currM, vy);
+          }
         }
       };
     }

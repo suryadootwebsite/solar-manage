@@ -461,5 +461,199 @@ window.pages.settings = function(container) {
         if (hEl2) hEl2.innerHTML = '<span style="color:var(--text-muted);font-size:0.875rem;">Health info unavailable.</span>';
       }
     })();
+
+    // F3: Company & Branch Management (DEVELOPER only)
+    if (window.auth && window.auth.getRole && window.auth.getRole() === 'DEVELOPER') {
+      (async function() {
+        var devCard = document.createElement('div');
+        devCard.className = 'card';
+        devCard.style.cssText = 'padding:1rem;margin-top:1rem;';
+        devCard.innerHTML = '<h3 style="margin:0 0 0.75rem;font-size:1.05rem;">⚙️ Company & Branch Management</h3><div id="settings-dev-section"><span class="spinner"></span></div>';
+        var cont = document.getElementById('settings-list-container');
+        if (cont && cont.parentNode) cont.parentNode.appendChild(devCard);
+
+        var devSec = document.getElementById('settings-dev-section');
+        if (!devSec) return;
+
+        async function renderDevSection() {
+          var branches = [];
+          var company = {};
+          try {
+            var bRes = await api.call('branches.list', {});
+            branches = (bRes && bRes.items) || bRes || [];
+          } catch(e) {}
+          try {
+            var cRes = await api.call('companies.get', {});
+            company = (cRes && (cRes.company || cRes)) || {};
+          } catch(e) {}
+
+          devSec.innerHTML = `
+            <div style="margin-bottom:1.25rem;border-bottom:1px solid var(--border,#e2e8f0);padding-bottom:1rem;">
+              <div style="font-weight:700;font-size:0.95rem;margin-bottom:0.4rem;">Company Profile</div>
+              <div id="company-display-block" style="font-size:0.875rem;color:var(--text-main);">
+                <div><strong>${ui.esc(company.name || 'Company')}</strong></div>
+                ${company.phone ? `<div style="color:var(--text-muted);font-size:0.8rem;">Phone: ${ui.esc(company.phone)}</div>` : ''}
+                ${company.gst_no ? `<div style="color:var(--text-muted);font-size:0.8rem;">GST: ${ui.esc(company.gst_no)}</div>` : ''}
+                ${company.address ? `<div style="color:var(--text-muted);font-size:0.8rem;">Address: ${ui.esc(company.address)}</div>` : ''}
+                <button id="btn-edit-company" class="btn btn-secondary btn-sm" style="margin-top:0.5rem;">Edit Company</button>
+              </div>
+              <div id="company-edit-form" style="display:none;margin-top:0.5rem;">
+                <input id="comp-name" class="input" placeholder="Company Name" value="${ui.esc(company.name || '')}" style="margin-bottom:0.4rem;width:100%;"><br>
+                <input id="comp-phone" class="input" placeholder="Phone" value="${ui.esc(company.phone || '')}" style="margin-bottom:0.4rem;width:100%;"><br>
+                <input id="comp-gst" class="input" placeholder="GST No" value="${ui.esc(company.gst_no || '')}" style="margin-bottom:0.4rem;width:100%;"><br>
+                <input id="comp-addr" class="input" placeholder="Address" value="${ui.esc(company.address || '')}" style="margin-bottom:0.4rem;width:100%;"><br>
+                <button id="btn-save-company" class="btn btn-primary btn-sm">Save Company</button>
+                <button id="btn-cancel-company" class="btn btn-secondary btn-sm" style="margin-left:0.5rem;">Cancel</button>
+              </div>
+            </div>
+
+            <div>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+                <div style="font-weight:700;font-size:0.95rem;">Branches</div>
+                <button id="btn-add-branch" class="btn btn-primary btn-sm">+ Add Branch</button>
+              </div>
+              <div id="branch-form-area" style="margin-bottom:0.75rem;"></div>
+              <div id="branches-list-wrap">
+                ${branches.length === 0 ? '<div style="color:var(--text-muted);font-size:0.85rem;">No branches found.</div>' : ''}
+                ${branches.map(function(b) {
+                  if (b.status === 'DELETED') return '';
+                  return `
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:0.4rem 0;border-bottom:1px solid var(--border,#e2e8f0);font-size:0.85rem;">
+                      <div>
+                        <strong>${ui.esc(b.branch_id)}</strong> — ${ui.esc(b.name)}
+                        ${b.phone ? `<span style="color:var(--text-muted);font-size:0.75rem;"> (${ui.esc(b.phone)})</span>` : ''}
+                      </div>
+                      <div style="display:flex;gap:0.35rem;">
+                        <button class="btn btn-secondary btn-sm branch-edit-btn" data-id="${ui.esc(b.branch_id)}" data-name="${ui.esc(b.name)}" data-phone="${ui.esc(b.phone || '')}" data-addr="${ui.esc(b.address || '')}" style="font-size:0.75rem;padding:0.2rem 0.5rem;min-height:32px;">Edit</button>
+                        <button class="btn btn-danger btn-sm branch-del-btn" data-id="${ui.esc(b.branch_id)}" style="font-size:0.75rem;padding:0.2rem 0.5rem;min-height:32px;">Delete</button>
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          `;
+
+          var editCompBtn = document.getElementById('btn-edit-company');
+          var compDisp = document.getElementById('company-display-block');
+          var compForm = document.getElementById('company-edit-form');
+          if (editCompBtn && compDisp && compForm) {
+            editCompBtn.onclick = function() { compDisp.style.display = 'none'; compForm.style.display = 'block'; };
+            document.getElementById('btn-cancel-company').onclick = function() { compForm.style.display = 'none'; compDisp.style.display = 'block'; };
+            document.getElementById('btn-save-company').onclick = async function() {
+              try {
+                await api.call('company.update', {
+                  name: document.getElementById('comp-name').value.trim(),
+                  phone: document.getElementById('comp-phone').value.trim(),
+                  gst_no: document.getElementById('comp-gst').value.trim(),
+                  address: document.getElementById('comp-addr').value.trim()
+                });
+                ui.showToast('Company updated successfully', 'success');
+                renderDevSection();
+              } catch(cErr) {
+                ui.showToast('Company update failed: ' + (cErr.message || 'Error'), 'error');
+              }
+            };
+          }
+
+          var addBrBtn = document.getElementById('btn-add-branch');
+          var brFormArea = document.getElementById('branch-form-area');
+          if (addBrBtn && brFormArea) {
+            addBrBtn.onclick = function() {
+              brFormArea.innerHTML = `
+                <div style="background:var(--bg-main,#f8fafc);padding:0.75rem;border-radius:8px;border:1px solid var(--border,#e2e8f0);">
+                  <div style="font-weight:600;font-size:0.85rem;margin-bottom:0.35rem;">New Branch</div>
+                  <input id="new-br-name" class="input" placeholder="Branch Name *" style="margin-bottom:0.35rem;width:100%;"><br>
+                  <input id="new-br-phone" class="input" placeholder="Phone" style="margin-bottom:0.35rem;width:100%;"><br>
+                  <input id="new-br-addr" class="input" placeholder="Address" style="margin-bottom:0.35rem;width:100%;"><br>
+                  <button id="btn-save-new-br" class="btn btn-primary btn-sm">Save Branch</button>
+                  <button id="btn-cancel-new-br" class="btn btn-secondary btn-sm" style="margin-left:0.5rem;">Cancel</button>
+                </div>
+              `;
+              document.getElementById('btn-cancel-new-br').onclick = function() { brFormArea.innerHTML = ''; };
+              document.getElementById('btn-save-new-br').onclick = async function() {
+                var nameVal = document.getElementById('new-br-name').value.trim();
+                if (!nameVal) { ui.showToast('Branch name is required', 'error'); return; }
+                try {
+                  await api.call('branches.create', {
+                    name: nameVal,
+                    phone: document.getElementById('new-br-phone').value.trim(),
+                    address: document.getElementById('new-br-addr').value.trim()
+                  });
+                  ui.showToast('Branch created!', 'success');
+                  brFormArea.innerHTML = '';
+                  renderDevSection();
+                } catch(bErr) {
+                  ui.showToast('Failed to create branch: ' + (bErr.message || 'Error'), 'error');
+                }
+              };
+            };
+          }
+
+          document.querySelectorAll('.branch-edit-btn').forEach(function(btn) {
+            btn.onclick = function() {
+              var bid = btn.getAttribute('data-id');
+              var bname = btn.getAttribute('data-name');
+              var bphone = btn.getAttribute('data-phone');
+              var baddr = btn.getAttribute('data-addr');
+              brFormArea.innerHTML = `
+                <div style="background:var(--bg-main,#f8fafc);padding:0.75rem;border-radius:8px;border:1px solid var(--border,#e2e8f0);">
+                  <div style="font-weight:600;font-size:0.85rem;margin-bottom:0.35rem;">Edit Branch: ${ui.esc(bid)}</div>
+                  <input id="edit-br-name" class="input" value="${ui.esc(bname)}" placeholder="Branch Name *" style="margin-bottom:0.35rem;width:100%;"><br>
+                  <input id="edit-br-phone" class="input" value="${ui.esc(bphone)}" placeholder="Phone" style="margin-bottom:0.35rem;width:100%;"><br>
+                  <input id="edit-br-addr" class="input" value="${ui.esc(baddr)}" placeholder="Address" style="margin-bottom:0.35rem;width:100%;"><br>
+                  <button id="btn-update-br" class="btn btn-primary btn-sm">Update</button>
+                  <button id="btn-cancel-edit-br" class="btn btn-secondary btn-sm" style="margin-left:0.5rem;">Cancel</button>
+                </div>
+              `;
+              document.getElementById('btn-cancel-edit-br').onclick = function() { brFormArea.innerHTML = ''; };
+              document.getElementById('btn-update-br').onclick = async function() {
+                var nameVal = document.getElementById('edit-br-name').value.trim();
+                if (!nameVal) { ui.showToast('Branch name is required', 'error'); return; }
+                try {
+                  await api.call('branches.update', {
+                    branch_id: bid,
+                    name: nameVal,
+                    phone: document.getElementById('edit-br-phone').value.trim(),
+                    address: document.getElementById('edit-br-addr').value.trim()
+                  });
+                  ui.showToast('Branch updated!', 'success');
+                  brFormArea.innerHTML = '';
+                  renderDevSection();
+                } catch(uErr) {
+                  ui.showToast('Failed to update branch: ' + (uErr.message || 'Error'), 'error');
+                }
+              };
+            };
+          });
+
+          document.querySelectorAll('.branch-del-btn').forEach(function(btn) {
+            btn.onclick = function() {
+              var bid = btn.getAttribute('data-id');
+              ui.confirmDialog(
+                'Delete Branch',
+                'Are you sure you want to delete branch ' + bid + '?',
+                async function() {
+                  try {
+                    await api.call('branches.delete', { branch_id: bid });
+                    ui.showToast('Branch deleted', 'success');
+                    renderDevSection();
+                  } catch(dErr) {
+                    if (dErr.rule === 'IN_USE' || (dErr.message && dErr.message.indexOf('IN_USE') >= 0)) {
+                      ui.showToast('Cannot delete — branch has users or sites assigned to it.', 'error');
+                    } else {
+                      ui.showToast(dErr.message || 'Delete failed', 'error');
+                    }
+                  }
+                }
+              );
+            };
+          });
+        }
+
+        renderDevSection();
+      })();
+    }
+
   }
 };

@@ -51,6 +51,41 @@ window.pages.customers = async function(container) {
   }
 
   var customers = [];
+  var _offset = 0, _total = 0, _hasMore = true, _loading = false;
+  async function _loadMoreCustomers() {
+    if (!_hasMore || _loading) return;
+    _loading = true;
+    var loadRow = document.createElement('div');
+    loadRow.id = 'load-more-row-cust';
+    loadRow.style.cssText = 'text-align:center;padding:1rem;color:var(--text-muted);font-size:0.85rem;';
+    loadRow.innerHTML = 'Loading more...';
+    listView.appendChild(loadRow);
+    try {
+      var res = await window.api.call('customers.list', { offset: _offset, limit: 40 });
+      var el = document.getElementById('load-more-row-cust');
+      if (el) el.remove();
+      var newItems = res.items || [];
+      customers = customers.concat(newItems);
+      _offset += newItems.length;
+      _hasMore = res.has_more !== undefined ? res.has_more : (_offset < res.total);
+      renderList(currentQuery);
+    } catch(e) {
+      var el = document.getElementById('load-more-row-cust');
+      if (el) el.remove();
+    } finally {
+      _loading = false;
+    }
+  }
+
+  function _checkCustScroll() {
+    if (!_hasMore || _loading) return;
+    var el = document.scrollingElement || document.documentElement || document.body;
+    if ((window.innerHeight + window.scrollY) >= (el.scrollHeight - 150)) {
+      _loadMoreCustomers();
+    }
+  }
+  window.addEventListener('scroll', _checkCustScroll);
+
 
   var CUST_CACHE_KEY = 'sms_cache_customers';
 
@@ -72,7 +107,12 @@ window.pages.customers = async function(container) {
     }
 
     try {
-      var res = await window.api.call('customers.list', {});
+      _offset = 0;
+      _hasMore = true;
+      var res = await window.api.call('customers.list', { offset: 0, limit: 40 });
+      _total = res.total || (res.items || []).length;
+      _offset = (res.items || []).length;
+      _hasMore = res.has_more !== undefined ? res.has_more : (_offset < _total);
       customers = res.items || [];
       try { sessionStorage.setItem(CUST_CACHE_KEY, JSON.stringify(customers)); } catch (e) {}
       renderList(currentQuery);
@@ -125,6 +165,7 @@ window.pages.customers = async function(container) {
               ${c.doc_count ? `<span class="badge" style="font-size:0.75rem; background:#f1f5f9; color:#475569;">📄 ${c.doc_count}</span>` : ''}
             </div>
           </div>
+            ${c.created_by_name && window.auth && window.auth.getRole && window.auth.getRole() !== 'SITE_USER' ? '<div style="font-size:0.72rem;color:var(--text-muted);margin-top:4px;text-align:right;">Added by ' + window.ui.esc(c.created_by_name) + '</div>' : ''}
         </div>
       `;
     }).join('');
@@ -136,7 +177,7 @@ window.pages.customers = async function(container) {
         card.onclick = function() {
           var id = card.getAttribute('data-id');
           var cust = customers.find(function(x) { return x.customer_id === id; });
-          if (cust) openCustomerForm(cust);
+          if (cust) openCustomerDetail(cust);
         };
       });
     }

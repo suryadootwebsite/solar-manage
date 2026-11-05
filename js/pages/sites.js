@@ -76,15 +76,53 @@ window.pages.sites = async function(container) {
   var currentStatus = '';
   var stuckOnly = false;
   var sites = [];
+  var _offset = 0, _total = 0, _hasMore = true, _loading = false;
+  async function _loadMoreSites() {
+    if (!_hasMore || _loading) return;
+    _loading = true;
+    var loadRow = document.createElement('div');
+    loadRow.id = 'load-more-row-site';
+    loadRow.style.cssText = 'text-align:center;padding:1rem;color:var(--text-muted);font-size:0.85rem;';
+    loadRow.innerHTML = 'Loading more...';
+    listView.appendChild(loadRow);
+    try {
+      var payload = { sort: currentSort, offset: _offset, limit: 40 };
+      if (currentStatus) payload.status = currentStatus;
+      if (stuckOnly) payload.stuck_only = true;
+      var res = await window.api.call('sites.list', payload);
+      var el = document.getElementById('load-more-row-site');
+      if (el) el.remove();
+      var newItems = res.items || [];
+      sites = sites.concat(newItems);
+      _offset += newItems.length;
+      _hasMore = res.has_more !== undefined ? res.has_more : (_offset < res.total);
+      renderSites();
+    } catch(e) {
+      var el = document.getElementById('load-more-row-site');
+      if (el) el.remove();
+    } finally {
+      _loading = false;
+    }
+  }
+
+  function _checkSiteScroll() {
+    if (!_hasMore || _loading) return;
+    var el = document.scrollingElement || document.documentElement || document.body;
+    if ((window.innerHeight + window.scrollY) >= (el.scrollHeight - 150)) {
+      _loadMoreSites();
+    }
+  }
+  window.addEventListener('scroll', _checkSiteScroll);
+
   var customers = [];
   var stages = [];
   var locations = [];
 
   try {
     var [cRes, sRes, lRes] = await Promise.all([
-      window.api.call('customers.list', {}),
+      window.api.call('customers.list', { limit: 9999 }),
       window.api.call('stageMaster.list', {}),
-      window.api.call('locations.list', {})
+      window.api.call('locations.list', { limit: 9999 })
     ]);
     customers = cRes.items || [];
     stages = sRes.items || [];
@@ -154,7 +192,14 @@ window.pages.sites = async function(container) {
       var payload = { sort: currentSort };
       if (currentStatus) payload.status = currentStatus;
       if (stuckOnly) payload.stuck_only = true;
+      payload.offset = 0;
+      payload.limit = 40;
+      _offset = 0;
+      _hasMore = true;
       var res = await window.api.call('sites.list', payload);
+      _total = res.total || (res.items || []).length;
+      _offset = (res.items || []).length;
+      _hasMore = res.has_more !== undefined ? res.has_more : (_offset < _total);
       sites = res.items || [];
       sortSitesList(sites, currentSort);
       try { sessionStorage.setItem(SITES_CACHE_KEY, JSON.stringify(sites)); } catch (e) {}
@@ -202,6 +247,7 @@ window.pages.sites = async function(container) {
               ${valText ? `<div style="font-weight:700; color:var(--text-main); margin-top:0.5rem; font-size:0.9rem;">${valText}</div>` : ''}
             </div>
           </div>
+          ${s.created_by_name && window.auth && window.auth.getRole && window.auth.getRole() !== 'SITE_USER' ? '<div style="font-size:0.72rem;color:var(--text-muted);margin-top:4px;text-align:right;">Added by ' + window.ui.esc(s.created_by_name) + '</div>' : ''}
         </div>
       `;
     }).join('');
@@ -250,7 +296,7 @@ window.pages.sites = async function(container) {
     var siteUsers = [];
     if (window.auth.can('users.list')) {
       try {
-        var uRes = await window.api.call('users.list', {});
+        var uRes = await window.api.call('users.list', { limit: 9999 });
         var allUsers = uRes.items || uRes.rows || [];
         siteUsers = allUsers.filter(function(u) {
           return u.role === 'SITE_USER' && u.is_active !== false;

@@ -74,6 +74,44 @@ window.pages.lots = async function(container) {
 
   var currentStatusFilter = '';
   var lots = [];
+  var _offset = 0, _total = 0, _hasMore = true, _loading = false;
+  async function _loadMoreLots() {
+    if (!_hasMore || _loading) return;
+    _loading = true;
+    var loadRow = document.createElement('div');
+    loadRow.id = 'load-more-row-lot';
+    loadRow.style.cssText = 'text-align:center;padding:1rem;color:var(--text-muted);font-size:0.85rem;';
+    loadRow.innerHTML = 'Loading more...';
+    listView.appendChild(loadRow);
+    try {
+      var payload = { sort: currentSort, offset: _offset, limit: 40 };
+      if (currentStatus) payload.status = currentStatus;
+      if (currentOrdStatus) payload.order_status = currentOrdStatus;
+      var res = await window.api.call('lots.list', payload);
+      var el = document.getElementById('load-more-row-lot');
+      if (el) el.remove();
+      var newItems = res.items || [];
+      lots = lots.concat(newItems);
+      _offset += newItems.length;
+      _hasMore = res.has_more !== undefined ? res.has_more : (_offset < res.total);
+      renderLots();
+    } catch(e) {
+      var el = document.getElementById('load-more-row-lot');
+      if (el) el.remove();
+    } finally {
+      _loading = false;
+    }
+  }
+
+  function _checkLotScroll() {
+    if (!_hasMore || _loading) return;
+    var el = document.scrollingElement || document.documentElement || document.body;
+    if ((window.innerHeight + window.scrollY) >= (el.scrollHeight - 150)) {
+      _loadMoreLots();
+    }
+  }
+  window.addEventListener('scroll', _checkLotScroll);
+
   var suppliers = [];
   var locations = [];
   var products = [];
@@ -81,9 +119,9 @@ window.pages.lots = async function(container) {
   // Load masters for name lookups
   try {
     var [supRes, locRes, prdRes] = await Promise.all([
-      window.api.call('suppliers.list', {}),
-      window.api.call('locations.list', {}),
-      window.api.call('products.list', {})
+      window.api.call('suppliers.list', { limit: 9999 }),
+      window.api.call('locations.list', { limit: 9999 }),
+      window.api.call('products.list', { limit: 9999 })
     ]);
     suppliers = supRes.items || [];
     locations = locRes.items || [];
@@ -106,7 +144,14 @@ window.pages.lots = async function(container) {
     try {
       var payload = {};
       if (currentStatusFilter) payload.status = currentStatusFilter;
+      payload.offset = 0;
+      payload.limit = 40;
+      _offset = 0;
+      _hasMore = true;
       var res = await window.api.call('lots.list', payload);
+      _total = res.total || (res.items || []).length;
+      _offset = (res.items || []).length;
+      _hasMore = res.has_more !== undefined ? res.has_more : (_offset < _total);
       lots = res.items || [];
       renderLots();
     } catch(err) {
@@ -179,6 +224,7 @@ window.pages.lots = async function(container) {
               ${totalText ? `<div style="font-weight:700; margin-top:0.5rem; color:var(--brand);">${totalText}</div>` : ''}
             </div>
           </div>
+          ${l.created_by_name && window.auth && window.auth.getRole && window.auth.getRole() !== 'SITE_USER' ? '<div style="font-size:0.72rem;color:var(--text-muted);margin-top:4px;text-align:right;">Added by ' + window.ui.esc(l.created_by_name) + '</div>' : ''}
         </div>
       `;
     }).join('');

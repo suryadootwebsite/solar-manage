@@ -296,7 +296,7 @@ window.pages.money = function(container) {
     var ledgerArea = document.getElementById('spay-ledger-area');
     var btnAddSpay = document.getElementById('btn-add-spay');
 
-    window.api.call('suppliers.list', {})
+    window.api.call('suppliers.list', { limit: 9999 })
       .then(function(res) {
         var sups = (res && res.items) ? res.items : (res && res.rows ? res.rows : (res && res.data && res.data.rows ? res.data.rows : []));
         supSel.innerHTML = '<option value="">-- ' + esc(t('money.choose_supplier') || 'Choose Supplier') + ' --</option>' +

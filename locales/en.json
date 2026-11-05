@@ -16,6 +16,7 @@
   "btn.confirm": "Confirm",
   "btn.cancel": "Cancel",
   "btn.save": "Save",
+  "btn.edit": "Edit",
   "status.online": "Online",
   "status.offline": "Offline",
   "ping.title": "System Connectivity",

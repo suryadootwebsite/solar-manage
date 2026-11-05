@@ -19,13 +19,18 @@ window.pages.suppliers = async function(container) {
       <div id="sup-search-mount" style="flex:1; min-width:180px;"></div>
       ${isOwner ? `<button id="sup-add-btn" class="btn btn-primary" style="min-height:44px;">+ ${window.ui.esc(t('suppliers.new_btn'))}</button>` : ''}
     </div>
-    <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.75rem;">
-      <label style="font-size:0.85rem;color:var(--text-muted);">Sort:</label>
-      <select id="sup-sort-select" class="input" style="width:auto;min-width:140px;font-size:0.85rem;padding:0.25rem 0.5rem;">
-        <option value="name_asc">Name A-Z</option>
-        <option value="name_desc">Name Z-A</option>
-        <option value="newest">Newest</option>
-      </select>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-bottom:0.75rem;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:0.5rem;">
+        <label style="font-size:0.85rem;color:var(--text-muted);">Sort:</label>
+        <select id="sup-sort-select" class="input" style="width:auto;min-width:140px;font-size:0.85rem;padding:0.25rem 0.5rem;">
+          <option value="name_asc">Name A-Z</option>
+          <option value="name_desc">Name Z-A</option>
+          <option value="newest">Newest</option>
+        </select>
+      </div>
+      <label style="font-size:0.85rem;color:var(--text-muted);display:inline-flex;align-items:center;gap:0.35rem;cursor:pointer;">
+        <input type="checkbox" id="sup-show-inactive-toggle"> Show Inactive
+      </label>
     </div>
     <div id="sup-list-container">
       <div style="text-align:center; padding:1.5rem 0;"><span class="spinner"></span></div>
@@ -37,18 +42,68 @@ window.pages.suppliers = async function(container) {
   var sortEl = document.getElementById('sup-sort-select');
   var currentSort = localStorage.getItem('sms_sort_suppliers') || 'name_asc';
   var suppliers = [];
+  var _offset = 0, _total = 0, _hasMore = true, _loading = false;
+  async function _loadMoreSuppliers() {
+    if (!_hasMore || _loading) return;
+    _loading = true;
+    var loadRow = document.createElement('div');
+    loadRow.id = 'load-more-row-sup';
+    loadRow.style.cssText = 'text-align:center;padding:1rem;color:var(--text-muted);font-size:0.85rem;';
+    loadRow.innerHTML = 'Loading more...';
+    listEl.appendChild(loadRow);
+    try {
+      var res = await window.api.call('suppliers.list', { offset: _offset, limit: 40 });
+      var el = document.getElementById('load-more-row-sup');
+      if (el) el.remove();
+      var newItems = res.items || [];
+      suppliers = suppliers.concat(newItems);
+      _offset += newItems.length;
+      _hasMore = res.has_more !== undefined ? res.has_more : (_offset < res.total);
+      renderItems(suppliers, currentQuery);
+    } catch(e) {
+      var el = document.getElementById('load-more-row-sup');
+      if (el) el.remove();
+    } finally {
+      _loading = false;
+    }
+  }
+
+  function _checkSupScroll() {
+    if (!_hasMore || _loading) return;
+    var el = document.scrollingElement || document.documentElement || document.body;
+    if ((window.innerHeight + window.scrollY) >= (el.scrollHeight - 150)) {
+      _loadMoreSuppliers();
+    }
+  }
+  window.addEventListener('scroll', _checkSupScroll);
+
+  var currentQuery = '';
+  var showInactive = false;
+
+  var inactToggle = document.getElementById('sup-show-inactive-toggle');
+  if (inactToggle) {
+    inactToggle.onchange = function() {
+      showInactive = inactToggle.checked;
+      renderItems(suppliers, currentQuery);
+    };
+  }
 
   if (sortEl) {
     sortEl.value = currentSort;
     sortEl.onchange = function() {
       currentSort = sortEl.value;
       localStorage.setItem('sms_sort_suppliers', currentSort);
-      renderItems(suppliers, '');
+      renderItems(suppliers, currentQuery);
     };
   }
 
   try {
-    var res = await window.api.call('suppliers.list', {});
+    _offset = 0;
+    _hasMore = true;
+    var res = await window.api.call('suppliers.list', { offset: 0, limit: 40 });
+    _total = res.total || (res.items || []).length;
+    _offset = (res.items || []).length;
+    _hasMore = res.has_more !== undefined ? res.has_more : (_offset < _total);
     suppliers = res.items || [];
     renderItems(suppliers, '');
   } catch(err) {
@@ -59,7 +114,7 @@ window.pages.suppliers = async function(container) {
   if (window.components && window.components.createSearchBar) {
     var sBar = window.components.createSearchBar({
       placeholder: t('suppliers.search_placeholder') || 'Search suppliers...',
-      onSearch: function(q) { renderItems(suppliers, q); }
+      onSearch: function(q) { currentQuery = q; renderItems(suppliers, q); }
     });
     var sm = document.getElementById('sup-search-mount');
     if (sm) sm.appendChild(sBar.element);
@@ -68,8 +123,10 @@ window.pages.suppliers = async function(container) {
   if (addBtn) addBtn.onclick = function() { openSupplierForm(null); };
 
   function renderItems(items, query) {
-    var q = (query || '').toLowerCase().trim();
+    currentQuery = query || '';
+    var q = currentQuery.toLowerCase().trim();
     var filtered = items.filter(function(s) {
+      if (!showInactive && s.is_active === false) return false;
       if (!q) return true;
       return (s.name || '').toLowerCase().indexOf(q) >= 0 || (s.gst_no || '').toLowerCase().indexOf(q) >= 0;
     });
@@ -89,15 +146,18 @@ window.pages.suppliers = async function(container) {
 
     listEl.innerHTML = filtered.map(function(s) {
       return `
-        <div class="card sup-card" data-id="${s.supplier_id}" style="margin-bottom:0.75rem; cursor:pointer;">
+        <div class="card sup-card" data-id="${s.supplier_id}" style="margin-bottom:0.75rem; cursor:pointer;${!s.is_active ? 'opacity:0.65;' : ''}">
           <div style="display:flex; justify-content:space-between; align-items:flex-start;">
             <div>
               <div style="font-weight:700; color:var(--text-main); font-size:1.05rem;">${window.ui.esc(s.name)}</div>
               ${s.gst_no ? `<div style="font-size:0.85rem; color:var(--text-muted); margin-top:0.25rem;">GST: <code>${window.ui.esc(s.gst_no)}</code></div>` : ''}
               ${s.phone ? `<div style="font-size:0.85rem; color:var(--text-muted); margin-top:0.25rem;">📞 ${window.ui.esc(s.phone)}</div>` : ''}
             </div>
+                          ${s.created_by_name && window.auth && window.auth.getRole && window.auth.getRole() !== 'SITE_USER' ? '<div style="font-size:0.72rem;color:var(--text-muted);margin-top:4px;text-align:right;">Added by ' + window.ui.esc(s.created_by_name) + '</div>' : ''}
             <div style="display:flex; flex-direction:column; align-items:flex-end; gap:0.25rem;">
-              <span class="badge ${s.is_active ? 'badge-success' : 'badge-disabled'}">${s.is_active ? 'ACTIVE' : 'INACTIVE'}</span>
+              <span class="sup-bal-el-${s.supplier_id}" style="font-size:0.8rem;color:var(--text-muted);">
+                ${!s.is_active ? '<em style="color:var(--text-muted);">(Inactive)</em>' : ''}
+              </span>
               ${s.doc_count ? `<span class="badge" style="font-size:0.75rem; background:#f1f5f9; color:#475569;">📄 ${s.doc_count}</span>` : ''}
             </div>
           </div>
@@ -112,13 +172,29 @@ window.pages.suppliers = async function(container) {
         if (item) openSupplierDetail(item);
       };
     });
+
+    var callerRole = window.auth && window.auth.getRole ? window.auth.getRole() : '';
+    if (callerRole === 'OWNER' || callerRole === 'MANAGER' || callerRole === 'DEVELOPER') {
+      filtered.forEach(function(s) {
+        if (s.is_active === false) return;
+        var el = listEl.querySelector('.sup-bal-el-' + s.supplier_id);
+        if (!el) return;
+        window.api.call('spay.ledger', { supplier_id: s.supplier_id })
+          .then(function(l) {
+            var bal = Number(l.balance_pending_paise || 0);
+            el.innerHTML = bal > 0
+              ? '<span style="color:#dc2626;font-weight:600;">Balance: ₹' + Math.round(bal/100).toLocaleString('en-IN') + '</span>'
+              : '<span style="color:#16a34a;">Cleared ✓</span>';
+          }).catch(function() {});
+      });
+    }
   }
 
   // ---------------------------------------------------------------------------
   // Detail — 2 tabs: Details | Payments (OWNER/DEVELOPER only)
   // ---------------------------------------------------------------------------
   function openSupplierDetail(s) {
-    var showPayments = isOwner;
+    var showPayments = isOwner || window.auth.can('spay.ledger');
     var detailHtml = `
       <div style="display:flex; gap:0.5rem; margin-bottom:1rem; border-bottom:2px solid var(--border); padding-bottom:0.5rem;">
         <button class="btn btn-primary sup-dtab-btn" data-tab="details" style="flex:1;">Details</button>
@@ -206,6 +282,28 @@ window.pages.suppliers = async function(container) {
         }).join('')}
         <div style="margin-bottom:1rem;"></div>
       ` : '';
+
+      var payments = ledger.payments || [];
+      var paymentsHtml = payments.length
+        ? '<div style="font-weight:700;font-size:0.9rem;margin:0.75rem 0 0.4rem;">Payment History</div>'
+          + payments.map(function(p) {
+              var amt = '₹' + Math.round((Number(p.amount_paise)||0)/100).toLocaleString('en-IN');
+              var pDate = p.pay_date || p.payment_date || '';
+              var pMode = p.mode || p.payment_mode || 'BANK';
+              return '<div style="display:flex;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid var(--border);font-size:0.85rem;">'
+                + '<div>'
+                + '<div style="font-weight:600;">' + amt
+                + ' <span class="badge" style="font-size:0.7rem;">' + window.ui.esc(pMode) + '</span>'
+                + (p.document_url ? ' <a href="' + window.ui.esc(p.document_url) + '" target="_blank" rel="noopener" style="font-size:0.75rem;">📎 Proof</a>' : '')
+                + '</div>'
+                + '<div style="font-size:0.75rem;color:var(--text-muted);margin-top:2px;">'
+                + window.ui.esc(pDate)
+                + (p.lot_invoice ? ' · ' + window.ui.esc(p.lot_invoice) : '')
+                + (p.remark ? ' · ' + window.ui.esc(p.remark) : '')
+                + '</div></div></div>';
+            }).join('')
+          + '<div style="margin-bottom:1rem;"></div>'
+        : '<div style="text-align:center;padding:1rem 0;font-size:0.85rem;color:var(--text-muted);">No payments recorded yet.</div>';
 
       var addPayBtn = isOwner ? `
         <button id="sup-add-pay-btn" class="btn btn-primary btn-full" style="margin-top:1rem;">+ Add Payment</button>

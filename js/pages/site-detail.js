@@ -287,7 +287,7 @@ window.pages.siteDetail = async function(container, params) {
   async function ensureProductsLoaded() {
     if (Object.keys(productsMap).length > 0) return productsMap;
     try {
-      var prdRes = await window.api.call('products.list', {});
+      var prdRes = await window.api.call('products.list', { limit: 9999 });
       (prdRes.items || []).forEach(function(p) { productsMap[p.product_id] = p; });
     } catch(e) {}
     return productsMap;
@@ -1257,7 +1257,7 @@ window.pages.siteDetail = async function(container, params) {
   }
 
   function openAssignUsersSheet() {
-    window.api.call('users.list', {}).then(function(uRes) {
+    window.api.call('users.list', { limit: 9999 }).then(function(uRes) {
       var allUsers = (uRes && uRes.items || []).filter(function(u) { return u.role === 'SITE_USER' && u.is_active !== false; });
       var assignedIds = (assignedUsersData || []).map(function(u) { return u.user_id; });
       var formHtml = '<form id="sdt-assign-form" novalidate>' +

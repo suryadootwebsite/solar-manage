@@ -23,6 +23,10 @@ window.pages.users = function(container) {
     return;
   }
 
+  var callerRole = window.auth && window.auth.getRole ? window.auth.getRole() : '';
+  var isOwnerOrDev = callerRole === 'OWNER' || callerRole === 'DEVELOPER';
+  var isOwnerRole = callerRole === 'OWNER';
+
   container.innerHTML = `
     <div style="max-width: 800px; margin: 0 auto; padding: 1rem 0;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:0.5rem;">
@@ -30,10 +34,13 @@ window.pages.users = function(container) {
           <h1 style="font-size:1.5rem; margin:0 0 0.25rem; color:var(--text-main);">${ui.esc(t('users.title') || 'User Management')}</h1>
           <p style="font-size:0.875rem; color:var(--text-muted); margin:0;">${ui.esc(t('users.subtitle') || 'Staff roles, branches, and credentials')}</p>
         </div>
-        <button id="add-user-btn" class="btn btn-primary" style="min-height:44px; display:inline-flex; align-items:center; gap:0.5rem;">
-          <span>+</span>
-          <span>${ui.esc(t('users.new_btn') || 'Add User')}</span>
-        </button>
+        ${isOwnerOrDev
+          ? `<button id="add-user-btn" class="btn btn-primary" style="min-height:44px; display:inline-flex; align-items:center; gap:0.5rem;">
+               <span>+</span>
+               <span>${ui.esc(t('users.new_btn') || 'Add User')}</span>
+             </button>`
+          : `<p style="font-size:0.85rem;color:var(--text-muted);padding:0.5rem 0;">User management is restricted to Owner. Contact owner to modify users.</p>`
+        }
       </div>
 
       <div id="users-search-mount"></div>
@@ -71,7 +78,9 @@ window.pages.users = function(container) {
   var allUsers = [];
   function renderUsers(items) {
     allUsers = items;
-    var isOwnerRole = window.auth && window.auth.getRole && window.auth.getRole() === 'OWNER';
+    var callerRole = window.auth && window.auth.getRole ? window.auth.getRole() : '';
+    var isOwnerOrDev = callerRole === 'OWNER' || callerRole === 'DEVELOPER';
+    var isOwnerRole = callerRole === 'OWNER';
     var listContainer = document.getElementById('users-list-container');
     if (!listContainer) return;
 
@@ -109,6 +118,14 @@ window.pages.users = function(container) {
           </div>
 
           <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.75rem; border-top:1px solid var(--border); padding-top:0.75rem;">
+            ${isOwnerOrDev ? `
+            <button
+              class="btn btn-secondary edit-user-btn"
+              data-id="${ui.esc(u.user_id)}"
+              style="min-height:44px; font-size:0.875rem; padding:0.4rem 0.75rem;"
+            >
+              ✏️ ${ui.esc(t('btn.edit') || 'Edit')}
+            </button>
             <button
               class="btn btn-secondary reset-pwd-btn"
               data-id="${ui.esc(u.user_id)}"
@@ -127,6 +144,7 @@ window.pages.users = function(container) {
               ${isActive ? (ui.esc(t('users.disable_btn') || 'Disable')) : (ui.esc(t('users.enable_btn') || 'Enable'))}
             </button>
             ${!isActive && isOwnerRole ? _renderDeleteInfo(u) : ''}
+            ` : ''}
           </div>
         </div>
       `;
@@ -246,6 +264,16 @@ window.pages.users = function(container) {
             }
           }
         );
+      };
+    });
+
+    // Edit User buttons (OWNER only)
+    var editBtns = document.querySelectorAll('.edit-user-btn');
+    editBtns.forEach(function(btn) {
+      btn.onclick = function() {
+        var userId = btn.getAttribute('data-id');
+        var u = allUsers.find(function(x) { return x.user_id === userId; });
+        if (u) openEditUserModal(u);
       };
     });
 

@@ -208,7 +208,7 @@ window.pages.materialIssue = function(container) {
     var qtyField = document.getElementById('issue-qty-field');
     var serialField = document.getElementById('issue-serial-field');
 
-    window.api.call('products.list', {})
+    window.api.call('products.list', { limit: 9999 })
       .then(function(res) {
         var prods = (res && res.items) ? res.items : (res && res.rows ? res.rows : (res && res.data && res.data.rows ? res.data.rows : []));
         prodSelect.innerHTML = '<option value="">-- ' + esc(t('usage.select_product') || 'Select Product') + ' --</option>' +

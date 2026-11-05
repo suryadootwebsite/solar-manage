@@ -92,7 +92,7 @@ window.pages.masters = async function(container) {
 
     var products = [];
     try {
-      var res = await window.api.call('products.list', {});
+      var res = await window.api.call('products.list', { limit: 9999 });
       products = res.items || [];
       renderProductItems(products, '');
     } catch(err) {
@@ -329,7 +329,7 @@ window.pages.masters = async function(container) {
 
     var suppliers = [];
     try {
-      var res = await window.api.call('suppliers.list', {});
+      var res = await window.api.call('suppliers.list', { limit: 9999 });
       suppliers = res.items || [];
       renderSupplierItems(suppliers, '');
     } catch(err) {
@@ -520,7 +520,7 @@ window.pages.masters = async function(container) {
 
     try {
       var [locRes, brRes] = await Promise.all([
-        window.api.call('locations.list', {}),
+        window.api.call('locations.list', { limit: 9999 }),
         window.api.call('branches.list', {})
       ]);
       locations = locRes.items || [];
