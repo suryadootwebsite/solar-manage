@@ -442,7 +442,6 @@ window.pages.siteDetail = async function(container, params) {
                 <div style="font-weight:600; display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap;">
                   <span>${esc(sm.name_en || stg.stage_id)}</span>
                   ${stgPhotos.length > 0 ? `<span class="badge" style="background:#e0f2fe; color:#0369a1; font-size:0.68rem; font-weight:600; padding:0.15rem 0.4rem; border:1px solid #bae6fd;">📷 ${stgPhotos.length} Photo${stgPhotos.length > 1 ? 's' : ''}</span>` : ''}
-                  ${isReqPhoto ? '<span class="badge" style="background:#fef3c7; color:#92400e; font-size:0.68rem; font-weight:600; padding:0.15rem 0.4rem; border:1px solid #fde68a;">📷 Photo Required</span>' : ''}
                 </div>
                 <div style="font-size:0.8rem; color:var(--text-muted);">${esc(sm.name_hi || '')}${stg.updated_by_name ? ` · <span style="font-size:0.75rem;">Updated by: ${esc(stg.updated_by_name)}</span>` : (stg.updated_by ? ` · <span style="font-size:0.75rem;">Updated by: ${esc(stg.updated_by)}</span>` : '')}</div>
               </div>
@@ -1595,11 +1594,11 @@ window.pages.siteDetail = async function(container, params) {
         <!-- 2. Attach New Photo(s) -->
         <div class="form-field" style="margin-top:0.75rem; padding:0.6rem 0.75rem; background:var(--card-bg,#f8fafc); border:1px solid var(--border,#e2e8f0); border-radius:6px;">
           <label style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.35rem; font-weight:600;">
-            <span>Attach New Photo(s) ${isReqPhoto ? '<span class="text-error" style="font-weight:700;">* (Mandatory to complete)</span>' : '<span class="text-muted">(Optional)</span>'}</span>
+            <span>Attach New Photo(s) <span class="text-muted">(Optional)</span></span>
             <span id="usf-staged-count-badge" style="font-size:0.75rem; color:var(--brand,#059669); font-weight:700;"></span>
           </label>
           <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.5rem;">
-            ${isReqPhoto ? 'Photo proof is required to mark this stage COMPLETED.' : 'Capture or select multiple photos for this stage.'}
+            Capture or select photos for this stage (Optional).
           </div>
 
           <input type="file" id="usf-gallery-input" accept="image/*" multiple style="display:none;">
