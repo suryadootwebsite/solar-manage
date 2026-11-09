@@ -337,6 +337,10 @@ window.pages.siteDetail = async function(container, params) {
   }
 
   function renderMainShell() {
+    var payType = siteData.payment_type || 'CASH';
+    var payBadgeHtml = payType === 'FINANCE'
+      ? '<span class="badge" style="background:#e0e7ff; color:#3730a3; font-weight:700; font-size:0.75rem; vertical-align:middle; margin-left:0.5rem;">FINANCE / LOAN</span>'
+      : '<span class="badge" style="background:#f3f4f6; color:#374151; font-weight:700; font-size:0.75rem; vertical-align:middle; margin-left:0.5rem;">CASH TRACK</span>';
     var completedCount = stagesData.filter(function(s) { return s.status === 'COMPLETED'; }).length;
     var progressPercent = stagesData.length ? Math.round((completedCount / stagesData.length) * 100) : 0;
 

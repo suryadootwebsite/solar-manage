@@ -411,7 +411,7 @@
   "users.delete_available_in": "Delete available in {n} day(s)",
   "nav.suppliers": "Suppliers",
   "nav.leads": "Leads",
-  "leads.title": "Leads Pipeline",
+  "leads.title": "Leads",
   "leads.subtitle": "Inquiries, follow-ups & customer conversions",
   "leads.new_btn": "Add Lead",
   "leads.search_placeholder": "Search name, phone, city, notes...",

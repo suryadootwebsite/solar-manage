@@ -411,7 +411,7 @@
   "users.delete_available_in": "{n} दिन में हटाने का विकल्प उपलब्ध होगा",
   "nav.suppliers": "आपूर्तिकर्ता",
   "nav.leads": "लीड्स",
-  "leads.title": "लीड्स पाइपलाइन",
+  "leads.title": "लीड्स",
   "leads.subtitle": "पूछताछ, फॉलो-अप एवं ग्राहक कन्वर्जन",
   "leads.new_btn": "नई लीड जोड़ें",
   "leads.search_placeholder": "नाम, फोन, शहर, विवरण खोजें...",

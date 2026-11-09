@@ -325,6 +325,13 @@ window.pages.sites = async function(container) {
           <input type="number" step="0.1" id="csf-kw" class="input" placeholder="e.g. 5" required>
         </div>
         <div class="form-field">
+          <label>Payment Track / Stage Template *</label>
+          <select id="csf-payment-type" class="input" required>
+            <option value="CASH">CASH (16 Standard Stages)</option>
+            <option value="FINANCE">FINANCE / LOAN (18 Bank & Loan Stages)</option>
+          </select>
+        </div>
+        <div class="form-field">
           <label>Default Godown / Warehouse *</label>
           <select id="csf-location" class="input" required>
             ${locations.map(function(l) { return `<option value="${l.location_id}">${window.ui.esc(l.name)}</option>`; }).join('')}
@@ -476,7 +483,8 @@ window.pages.sites = async function(container) {
         system_kw:           kw,
         default_location_id: locId,
         city:                document.getElementById('csf-city').value.trim(),
-        target_date:         document.getElementById('csf-target').value
+        target_date:         document.getElementById('csf-target').value,
+        payment_type:        (document.getElementById('csf-payment-type') && document.getElementById('csf-payment-type').value) || 'CASH'
       };
 
       if (canEnterContractValue) {
