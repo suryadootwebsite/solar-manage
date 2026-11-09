@@ -29,6 +29,13 @@ window.pages.sites = async function(container) {
       <button class="btn btn-secondary site-filter-btn" data-status="COMPLETED" style="padding:0.35rem 0.75rem; font-size:0.8rem; min-height:36px; white-space:nowrap;">Done</button>
       <button class="btn btn-secondary" id="site-stuck-toggle" style="padding:0.35rem 0.75rem; font-size:0.8rem; min-height:36px; white-space:nowrap;">Stuck</button>
     </div>
+    <!-- Payment Track / Stage Filter (All, Cash, Finance) -->
+    <div id="sites-track-chips" style="display:flex; gap:0.35rem; margin-bottom:0.85rem; overflow-x:auto; padding-bottom:4px; -webkit-overflow-scrolling:touch; scrollbar-width:none; align-items:center;">
+      <span style="font-size:0.8rem; font-weight:600; color:var(--text-muted); margin-right:0.25rem; white-space:nowrap;">Track:</span>
+      <button type="button" class="btn btn-primary site-track-btn active" data-track="" style="padding:0.25rem 0.65rem; font-size:0.78rem; min-height:30px; white-space:nowrap;">All Tracks</button>
+      <button type="button" class="btn btn-secondary site-track-btn" data-track="CASH" style="padding:0.25rem 0.65rem; font-size:0.78rem; min-height:30px; white-space:nowrap;">💵 Cash (16)</button>
+      <button type="button" class="btn btn-secondary site-track-btn" data-track="FINANCE" style="padding:0.25rem 0.65rem; font-size:0.78rem; min-height:30px; white-space:nowrap;">🏦 Finance (18)</button>
+    </div>
 
     <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.75rem;">
       <label style="font-size:0.85rem;color:var(--text-muted);">Sort:</label>
@@ -73,6 +80,7 @@ window.pages.sites = async function(container) {
     if (sm) sm.appendChild(sBar.element);
   }
 
+  var currentTrack = '';
   var currentStatus = '';
   var stuckOnly = false;
   var sites = [];
@@ -88,6 +96,7 @@ window.pages.sites = async function(container) {
     try {
       var payload = { sort: currentSort, offset: _offset, limit: 40 };
       if (currentStatus) payload.status = currentStatus;
+      if (currentTrack) payload.payment_type = currentTrack;
       if (stuckOnly) payload.stuck_only = true;
       var res = await window.api.call('sites.list', payload);
       var el = document.getElementById('load-more-row-site');
@@ -191,6 +200,7 @@ window.pages.sites = async function(container) {
     try {
       var payload = { sort: currentSort };
       if (currentStatus) payload.status = currentStatus;
+      if (currentTrack) payload.payment_type = currentTrack;
       if (stuckOnly) payload.stuck_only = true;
       payload.offset = 0;
       payload.limit = 40;
@@ -215,6 +225,11 @@ window.pages.sites = async function(container) {
 
   function renderSites() {
     var displaySites = sites;
+    if (currentTrack) {
+      displaySites = displaySites.filter(function(s) {
+        return String(s.payment_type || 'CASH').toUpperCase() === currentTrack;
+      });
+    }
     if (sitesSearchQuery && window.components && window.components.filterListByQuery) {
       displaySites = window.components.filterListByQuery(sites, sitesSearchQuery, ['site_name', 'site_id', 'customer_id', 'city', 'status']);
     }
@@ -266,7 +281,23 @@ window.pages.sites = async function(container) {
       btn.classList.add('active', 'btn-primary');
       btn.classList.remove('btn-secondary');
       currentStatus = btn.getAttribute('data-status');
-      loadSites();
+      try { sessionStorage.removeItem(SITES_CACHE_KEY); } catch (e) {}
+      loadSites(true);
+    };
+  });
+
+  var trackButtons = container.querySelectorAll('.site-track-btn');
+  trackButtons.forEach(function(btn) {
+    btn.onclick = function() {
+      trackButtons.forEach(function(b) {
+        b.classList.remove('active', 'btn-primary');
+        b.classList.add('btn-secondary');
+      });
+      btn.classList.add('active', 'btn-primary');
+      btn.classList.remove('btn-secondary');
+      currentTrack = btn.getAttribute('data-track') || '';
+      try { sessionStorage.removeItem(SITES_CACHE_KEY); } catch (e) {}
+      loadSites(true);
     };
   });
 

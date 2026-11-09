@@ -217,7 +217,7 @@ window.api = (function() {
     _activeRequests++;
     _updateProgress();
 
-    // 20s Still Loading Popup with Wait & Retry (cancels in-flight, re-sends with SAME request_id)
+    // 60s (1 min) Still Loading Popup with Wait & Retry (cancels in-flight, re-sends with SAME request_id)
     var slowPopupEl = null;
     var popupShown = false;
     var activeController = null;
@@ -273,7 +273,7 @@ window.api = (function() {
 
     var slowTimer = setTimeout(function() {
       _showSlowPopup();
-    }, 20000);
+    }, 60000);
 
     try {
       for (var attempt = 0; attempt <= maxRetries; attempt++) {
