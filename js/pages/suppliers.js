@@ -147,14 +147,15 @@ window.pages.suppliers = async function(container) {
     listEl.innerHTML = filtered.map(function(s) {
       return `
         <div class="card sup-card" data-id="${s.supplier_id}" style="margin-bottom:0.75rem; cursor:pointer;${!s.is_active ? 'opacity:0.65;' : ''}">
-          <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.75rem;">
             <div>
               <div style="font-weight:700; color:var(--text-main); font-size:1.05rem;">${window.ui.esc(s.name)}</div>
               ${s.gst_no ? `<div style="font-size:0.85rem; color:var(--text-muted); margin-top:0.25rem;">GST: <code>${window.ui.esc(s.gst_no)}</code></div>` : ''}
               ${s.phone ? `<div style="font-size:0.85rem; color:var(--text-muted); margin-top:0.25rem;">📞 ${window.ui.esc(s.phone)}</div>` : ''}
+              ${s.created_by_name && window.auth && window.auth.getRole && window.auth.getRole() !== 'SITE_USER' ? `<div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.35rem;">👤 Added by ${window.ui.esc(s.created_by_name)}</div>` : ''}
             </div>
-                          ${s.created_by_name && window.auth && window.auth.getRole && window.auth.getRole() !== 'SITE_USER' ? '<div style="font-size:0.72rem;color:var(--text-muted);margin-top:4px;text-align:right;">Added by ' + window.ui.esc(s.created_by_name) + '</div>' : ''}
-            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:0.25rem;">
+                          
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:0.35rem; flex-shrink:0; text-align:right;">
               <span class="sup-bal-el-${s.supplier_id}" style="font-size:0.8rem;color:var(--text-muted);">
                 ${!s.is_active ? '<em style="color:var(--text-muted);">(Inactive)</em>' : ''}
               </span>

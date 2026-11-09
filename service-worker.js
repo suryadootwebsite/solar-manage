@@ -10,7 +10,7 @@
  * Doc ref: Doc 06 §1, Doc 09 S03
  */
 
-const APP_VERSION = '1.0.2';
+const APP_VERSION = '1.0.4';
 const CACHE_NAME = 'solar-ms-shell-v' + APP_VERSION;
 
 const SHELL_ASSETS = [
@@ -42,6 +42,8 @@ const SHELL_ASSETS = [
   './js/pages/dashboard.js',
   './js/pages/customers.js',
   './js/pages/masters.js',
+  './js/pages/products.js',
+  './js/pages/locations.js',
   './js/pages/lots.js',
   './js/pages/stock.js',
   './js/pages/transfers.js',

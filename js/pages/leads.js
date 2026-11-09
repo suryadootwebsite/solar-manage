@@ -145,7 +145,6 @@ window.pages.leads = async function (container) {
 
       var isFollowupToday = lead.next_followup_date === today && lead.status !== 'WON' && lead.status !== 'LOST';
       var isOverdue = lead.next_followup_date && lead.next_followup_date < today && lead.status !== 'WON' && lead.status !== 'LOST';
-
       var followupBadge = '';
       if (isFollowupToday) {
         followupBadge = '<span style="background:#ffedd5;color:#c2410c;font-size:0.75rem;font-weight:700;padding:0.2rem 0.5rem;border-radius:4px;display:inline-flex;align-items:center;gap:0.25rem;">⏰ Today</span>';
@@ -202,9 +201,11 @@ window.pages.leads = async function (container) {
                 '<button class="btn btn-secondary lead-btn-note" data-id="' + esc(lead.lead_id) + '" style="font-size:0.78rem;padding:0.25rem 0.65rem;min-height:32px;">📝 Note</button>' +
                 '<a href="tel:' + esc(lead.phone) + '" class="btn btn-secondary" style="font-size:0.78rem;padding:0.25rem 0.65rem;min-height:32px;text-decoration:none;">📞 Call</a>' +
                 '<a href="' + waUrl + '" target="_blank" class="btn btn-secondary" style="font-size:0.78rem;padding:0.25rem 0.65rem;min-height:32px;text-decoration:none;">💬 WA</a>' +
-                (lead.status !== 'WON' && lead.status !== 'LOST' ? (
+                (!lead.converted_customer_id ? (
                   '<button class="btn btn-primary lead-btn-convert" data-id="' + esc(lead.lead_id) + '" style="font-size:0.78rem;padding:0.25rem 0.65rem;min-height:32px;">🏆 Convert</button>'
-                ) : '') +
+                ) : (
+                  '<span class="badge badge-success" style="font-size:0.75rem;padding:0.35rem 0.6rem;display:inline-flex;align-items:center;">✓ Converted</span>'
+                )) +
               '</div>' +
             '</div>' +
           '</div>' +
@@ -329,7 +330,10 @@ window.pages.leads = async function (container) {
         // ───────────────────────────────────────────────────────
 
         '<div id="lead-sheet-err" class="text-danger" style="margin-bottom:0.75rem;font-size:0.85rem;display:none;"></div>' +
-        '<button type="button" id="btn-save-lead" class="btn btn-primary btn-full" style="min-height:44px;">' + (isEdit ? 'Update Lead' : 'Save Lead') + '</button>' +
+        '<div style="display:flex;gap:0.5rem;flex-wrap:wrap;">' +
+          '<button type="button" id="btn-save-lead" class="btn ' + (isEdit ? 'btn-secondary' : 'btn-primary') + ' btn-full" style="min-height:44px;flex:1;">' + (isEdit ? 'Update Lead' : 'Save Lead') + '</button>' +
+          (isEdit && !existingLead.converted_customer_id ? '<button type="button" id="btn-edit-convert-lead" class="btn btn-primary" style="min-height:44px;flex:1;">🏆 Convert to Site</button>' : '') +
+        '</div>' +
       '</div>';
 
     window.ui.openBottomSheet(sheetTitle, sheetHtml, '');
@@ -382,6 +386,14 @@ window.pages.leads = async function (container) {
     // Save
     var saveBtn = document.getElementById('btn-save-lead');
     var errEl = document.getElementById('lead-sheet-err');
+
+    var editConvBtn = document.getElementById('btn-edit-convert-lead');
+    if (editConvBtn && isEdit) {
+      editConvBtn.addEventListener('click', function () {
+        window.ui.closeBottomSheet();
+        openConvertSheet(existingLead);
+      });
+    }
 
     if (saveBtn) {
       saveBtn.addEventListener('click', async function () {

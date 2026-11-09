@@ -118,7 +118,7 @@ window.pages.users = function(container) {
           </div>
 
           <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.75rem; border-top:1px solid var(--border); padding-top:0.75rem;">
-            ${(isOwnerRole || (callerRole === 'MANAGER' && u.role !== 'OWNER')) ? `
+            ${isOwnerRole ? `
             <button
               class="btn btn-secondary edit-user-btn"
               data-id="${ui.esc(u.user_id)}"
@@ -126,6 +126,8 @@ window.pages.users = function(container) {
             >
               ✏️ ${ui.esc(t('btn.edit') || 'Edit')}
             </button>
+            ` : ''}
+            ${(isOwnerRole || (callerRole === 'MANAGER' && u.role !== 'OWNER')) ? `
             <button
               class="btn btn-secondary reset-pwd-btn"
               data-id="${ui.esc(u.user_id)}"
@@ -293,6 +295,10 @@ window.pages.users = function(container) {
 
 
   async function openEditUserModal(u) {
+    if (!isOwnerRole) {
+      ui.toast('Edit permission is restricted to Owner.', 'error');
+      return;
+    }
     var branches = [];
     try {
       var bRes = await api.call('branches.list', {});
