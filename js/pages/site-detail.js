@@ -1421,7 +1421,7 @@ window.pages.siteDetail = async function(container, params) {
   // ---------------------------------------------------------------------------
   // Issue Material Bottom Sheet
   // ---------------------------------------------------------------------------
-  async function openIssueMaterialSheet() {
+  async function openIssueMaterialSheet(onSuccess) {
     await ensureProductsLoaded();
     var prodsList = Object.values(productsMap);
     var formHtml = `
@@ -1554,6 +1554,8 @@ window.pages.siteDetail = async function(container, params) {
   function openUpdateStageDialog(site, stg, sm) {
     var stageName = sm.name_en || stg.stage_id;
     var isReqPhoto = sm.requires_photo === true || sm.requires_photo === 'TRUE' || sm.requires_photo === 1;
+    var isMatDispatchStage = (stageName && stageName.toLowerCase().indexOf('material dispatch') !== -1) ||
+      (stg.stage_id === 'STG-000005' || stg.stage_id === 'STG-F00007' || Number(stg.seq) === 5 || Number(sm.seq) === 5);
 
     var formHtml = `
       <form id="update-stage-form" novalidate>
@@ -1576,6 +1578,24 @@ window.pages.siteDetail = async function(container, params) {
           <label>Remark / Notes</label>
           <textarea id="usf-remark" class="input" rows="2">${esc(stg.remark || '')}</textarea>
         </div>
+
+        ${isMatDispatchStage ? `
+        <!-- Material Issue Section (Required for Material Dispatched) -->
+        <div id="usf-mat-section" style="margin-top:0.75rem; padding:0.65rem 0.75rem; background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.35rem;">
+            <strong style="font-size:0.85rem; color:#1e40af; display:flex; align-items:center; gap:0.35rem;">
+              <span>📦 Material Issue</span>
+              <span style="color:#dc2626; font-size:0.75rem; font-weight:700;">* (Required to Complete)</span>
+            </strong>
+            <button type="button" id="usf-btn-issue-material" class="btn btn-primary btn-sm" style="font-size:0.78rem; padding:0.25rem 0.65rem; background:#2563eb; color:#fff;">
+              + Issue Material
+            </button>
+          </div>
+          <div id="usf-mat-status-text" style="font-size:0.75rem; color:#1e3a8a;">
+            Checking issued materials...
+          </div>
+        </div>
+        ` : ''}
 
         <!-- 1. Already Uploaded Stage Photos (Always visible to all) -->
         <div id="usf-existing-section" style="margin-top:0.75rem; padding:0.6rem 0.75rem; background:var(--card-bg,#f8fafc); border:1px solid var(--border,#e2e8f0); border-radius:6px;">
@@ -1638,6 +1658,40 @@ window.pages.siteDetail = async function(container, params) {
     var existingBadge = document.getElementById('usf-existing-count-badge');
     var stagedGrid = document.getElementById('usf-staged-grid');
     var stagedBadge = document.getElementById('usf-staged-count-badge');
+
+    var matStatusText = document.getElementById('usf-mat-status-text');
+    var btnIssueMat = document.getElementById('usf-btn-issue-material');
+    var hasIssuedMaterials = false;
+
+    async function checkMaterialStatus() {
+      if (!isMatDispatchStage || !matStatusText) return;
+      try {
+        var res = await window.api.call('usage.list', { site_id: site.site_id });
+        var rows = (res && (res.items || res.rows)) || [];
+        var activeIssues = rows.filter(function(r) { return r.type === 'ISSUE' || !r.type; });
+        if (activeIssues.length > 0) {
+          hasIssuedMaterials = true;
+          var totalQty = activeIssues.reduce(function(sum, x) { return sum + (Number(x.qty) || 0); }, 0);
+          matStatusText.innerHTML = '<span style="color:#059669; font-weight:600;">✅ ' + activeIssues.length + ' material item(s) issued (' + totalQty + ' total qty)</span>';
+        } else {
+          hasIssuedMaterials = false;
+          matStatusText.innerHTML = '<span style="color:#b45309; font-weight:600;">⚠️ No materials issued yet. Material issue is required before marking this stage COMPLETED.</span>';
+        }
+      } catch(e) {
+        matStatusText.innerHTML = '<span style="color:#6b7280;">Unable to check material status.</span>';
+      }
+    }
+
+    if (isMatDispatchStage) {
+      checkMaterialStatus();
+      if (btnIssueMat) {
+        btnIssueMat.onclick = function() {
+          openIssueMaterialSheet(function() {
+            openUpdateStageDialog(site, stg, sm);
+          });
+        };
+      }
+    }
     var errEl = document.getElementById('usf-error');
     var submitBtn = document.getElementById('usf-submit');
 
@@ -1866,6 +1920,25 @@ window.pages.siteDetail = async function(container, params) {
         return;
       }
 
+      if (isMatDispatchStage && toStatus === 'COMPLETED') {
+        if (!hasIssuedMaterials) {
+          submitBtn.textContent = 'Verifying materials...';
+          try {
+            var vRes = await window.api.call('usage.list', { site_id: site.site_id });
+            var vRows = (vRes && (vRes.items || vRes.rows)) || [];
+            var vIssues = vRows.filter(function(r) { return r.type === 'ISSUE' || !r.type; });
+            if (vIssues.length > 0) {
+              hasIssuedMaterials = true;
+            }
+          } catch(e) {}
+        }
+        if (!hasIssuedMaterials) {
+          errEl.textContent = 'Material issue is required before marking Material Dispatched as COMPLETED. Please click "+ Issue Material" first.';
+          errEl.style.display = 'block';
+          return;
+        }
+      }
+
       // Photos are optional — requires_photo enforcement disabled
       window.ui.withButtonLoading(submitBtn, async function() {
         try {
@@ -1897,11 +1970,7 @@ window.pages.siteDetail = async function(container, params) {
           window.ui.toast(stagedPhotos.length > 0 ? ('Stage updated and ' + stagedPhotos.length + ' photo(s) uploaded!') : 'Stage updated', 'success');
           await loadDetails();
 
-          // P2-2: Prompt ONLY for "Material Dispatched" (seq 5)
-          var isSeq5 = Number(stg.seq) === 5 || Number(sm.seq) === 5 || stageName === 'Material Dispatched';
-          if (isSeq5 && (toStatus === 'IN_PROGRESS' || toStatus === 'COMPLETED')) {
-            promptStageMaterial(stageName);
-          }
+// Post-update material prompt removed per user request
         } catch(err) {
           errEl.textContent = err.message || 'Update failed';
           errEl.style.display = 'block';

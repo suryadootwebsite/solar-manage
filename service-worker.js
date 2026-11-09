@@ -10,7 +10,7 @@
  * Doc ref: Doc 06 §1, Doc 09 S03
  */
 
-const APP_VERSION = '1.0.6';
+const APP_VERSION = '1.0.8';
 const CACHE_NAME = 'solar-ms-shell-v' + APP_VERSION;
 
 const SHELL_ASSETS = [

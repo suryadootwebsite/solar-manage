@@ -31,7 +31,7 @@ window.pages.sites = async function(container) {
     </div>
     <!-- Payment Track / Stage Filter (All, Cash, Finance) -->
     <div id="sites-track-chips" style="display:flex; gap:0.35rem; margin-bottom:0.85rem; overflow-x:auto; padding-bottom:4px; -webkit-overflow-scrolling:touch; scrollbar-width:none; align-items:center;">
-      <span style="font-size:0.8rem; font-weight:600; color:var(--text-muted); margin-right:0.25rem; white-space:nowrap;">Track:</span>
+      
       <button type="button" class="btn btn-primary site-track-btn active" data-track="" style="padding:0.25rem 0.65rem; font-size:0.78rem; min-height:30px; white-space:nowrap;">All Tracks</button>
       <button type="button" class="btn btn-secondary site-track-btn" data-track="CASH" style="padding:0.25rem 0.65rem; font-size:0.78rem; min-height:30px; white-space:nowrap;">💵 Cash (16)</button>
       <button type="button" class="btn btn-secondary site-track-btn" data-track="FINANCE" style="padding:0.25rem 0.65rem; font-size:0.78rem; min-height:30px; white-space:nowrap;">🏦 Finance (18)</button>
