@@ -90,10 +90,22 @@
       // 2. Fetch fresh data with selected period
       api.call('dashboard.get', { period: { month: selMonth, year: selYear } })
         .then(function(dash) {
+          if (!dash || typeof dash !== 'object') {
+            contentEl.innerHTML = '<div class="card card-error" style="padding:1.5rem;text-align:center;"><h3 style="color:#dc2626;margin-bottom:0.5rem;">Dashboard Error</h3><p class="text-muted">Invalid server response. Please retry.</p></div>';
+            refreshBtn.style.display = 'inline-flex';
+            return;
+          }
           try {
             sessionStorage.setItem(getCacheKey(), JSON.stringify(dash));
           } catch (e) {}
-          renderDashboardData(contentEl, dash, role, handlePeriodChange);
+          try {
+            renderDashboardData(contentEl, dash, role, handlePeriodChange);
+          } catch (renderErr) {
+            var msg = renderErr && renderErr.message ? renderErr.message : String(renderErr);
+            contentEl.innerHTML = '<div class="card card-error" style="padding:1.5rem;text-align:center;"><h3 style="color:#dc2626;margin-bottom:0.5rem;">Dashboard Error</h3><p class="text-muted">' + msg + '</p></div>';
+            refreshBtn.style.display = 'inline-flex';
+            return;
+          }
           refreshBtn.style.display = 'none';
         })
         .catch(function(err) {
@@ -156,7 +168,7 @@
       { val: '11', label: t('dash.month_11') || 'Nov' },
       { val: '12', label: t('dash.month_12') || 'Dec' }
     ];
-    var activePeriod = dash.period || { month: selMonth, year: selYear };
+    var activePeriod = dash.period || { month: (function(){ try { return localStorage.getItem('sms_dash_sel_month') || 'ALL'; } catch(e) { return 'ALL'; } })(), year: (function(){ try { return localStorage.getItem('sms_dash_sel_year') || 'ALL'; } catch(e) { return 'ALL'; } })() };
 
     html += '<div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;margin-bottom:1rem;background:var(--bg-main, #f9fafb);padding:0.6rem 0.75rem;border-radius:8px;border:1px solid var(--border-color, #e5e7eb);">' +
       '<span style="font-size:0.85rem;font-weight:600;color:var(--text-muted);display:inline-flex;align-items:center;gap:0.3rem;">📅 ' + ui.esc(t('dash.period') || 'Period') + ':</span>' +

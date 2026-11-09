@@ -1867,15 +1867,7 @@ window.pages.siteDetail = async function(container, params) {
         return;
       }
 
-      // Enforce requires_photo when marking stage COMPLETED
-      if (toStatus === 'COMPLETED' && isReqPhoto) {
-        if (!stagedPhotos.length && (!existingPhotos || !existingPhotos.length)) {
-          errEl.textContent = 'Photo proof is required to mark this stage as COMPLETED. Please attach or capture at least one photo.';
-          errEl.style.display = 'block';
-          return;
-        }
-      }
-
+      // Photos are optional — requires_photo enforcement disabled
       window.ui.withButtonLoading(submitBtn, async function() {
         try {
           if (stagedPhotos.length > 0) {

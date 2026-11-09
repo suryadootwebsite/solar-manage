@@ -417,5 +417,7 @@
   "leads.search_placeholder": "नाम, फोन, शहर, विवरण खोजें...",
   "leads.empty": "कोई लीड नहीं मिली",
   "leads.add_title": "नई लीड जोड़ें",
-  "leads.edit_title": "लीड एडिट करें"
+  "leads.edit_title": "लीड एडिट करें",
+  "nav.products": "उत्पाद",
+  "nav.locations": "स्थान"
 }

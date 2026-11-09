@@ -2,11 +2,11 @@
  * leads.js — Leads Pipeline & Customer Conversion Screen (S14).
  *
  * Implements:
- *   - Status filter chips with live counts.
+ *   - Status filter buttons (same style as sites.js — btn-primary/btn-secondary).
  *   - Search bar via shared list-search component.
  *   - Today / Overdue follow-up highlights.
  *   - Direct call (tel:) & WhatsApp (wa.me) links.
- *   - Add / Edit Lead bottom sheet (with Address & Quotation Amount).
+ *   - Add / Edit Lead bottom sheet (with Address, Quotation Amount & optional Photo).
  *   - Notes timeline bottom sheet.
  *   - Convert to Customer & Site modal (with Cash / Finance Stage Track).
  */
@@ -26,7 +26,23 @@ window.pages.leads = async function (container) {
     return;
   }
 
-  container.innerHTML = 
+  // ── Status labels
+  var STATUS_LABELS = {
+    ALL: 'All', NEW: 'New', CONTACTED: 'Contacted', SITE_VISIT: 'Site Visit',
+    QUOTATION_SENT: 'Quote', NEGOTIATION: 'Negotiation', WON: 'Won', LOST: 'Lost'
+  };
+  var STATUS_LIST = ['NEW', 'CONTACTED', 'SITE_VISIT', 'QUOTATION_SENT', 'NEGOTIATION', 'WON', 'LOST'];
+
+  // ── Build filter row (same btn style as sites.js)
+  var filterBtns = ['ALL'].concat(STATUS_LIST).map(function (st, idx) {
+    var isActive = idx === 0;
+    return '<button type="button" class="btn ' + (isActive ? 'btn-primary' : 'btn-secondary') +
+      ' lead-filter-btn" data-status="' + st + '" style="padding:0.35rem 0.75rem;font-size:0.8rem;min-height:36px;white-space:nowrap;">' +
+      STATUS_LABELS[st] + ' <span id="lcount-' + st + '" style="opacity:0.75;">0</span>' +
+      '</button>';
+  }).join('');
+
+  container.innerHTML =
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;flex-wrap:wrap;gap:0.5rem;">' +
       '<div>' +
         '<h2 style="margin:0;font-size:1.35rem;">' + esc(t('leads.title') || 'Leads') + '</h2>' +
@@ -37,15 +53,9 @@ window.pages.leads = async function (container) {
 
     '<div id="leads-search-mount"></div>' +
 
-    '<div id="leads-filter-chips" class="filter-chips-scroll" style="display:flex;gap:0.4rem;overflow-x:auto;padding-bottom:0.5rem;margin-bottom:0.75rem;-webkit-overflow-scrolling:touch;">' +
-      '<button type="button" class="chip active" data-status="ALL">All <span class="chip-count" id="count-ALL">0</span></button>' +
-      '<button type="button" class="chip" data-status="NEW">New <span class="chip-count" id="count-NEW">0</span></button>' +
-      '<button type="button" class="chip" data-status="CONTACTED">Contacted <span class="chip-count" id="count-CONTACTED">0</span></button>' +
-      '<button type="button" class="chip" data-status="SITE_VISIT">Site Visit <span class="chip-count" id="count-SITE_VISIT">0</span></button>' +
-      '<button type="button" class="chip" data-status="QUOTATION_SENT">Quote <span class="chip-count" id="count-QUOTATION_SENT">0</span></button>' +
-      '<button type="button" class="chip" data-status="NEGOTIATION">Negotiation <span class="chip-count" id="count-NEGOTIATION">0</span></button>' +
-      '<button type="button" class="chip" data-status="WON">Won <span class="chip-count" id="count-WON">0</span></button>' +
-      '<button type="button" class="chip" data-status="LOST">Lost <span class="chip-count" id="count-LOST">0</span></button>' +
+    // ── Filter bar: same scroll-row as sites
+    '<div style="display:flex;gap:0.4rem;overflow-x:auto;padding-bottom:0.5rem;margin-bottom:0.75rem;-webkit-overflow-scrolling:touch;scrollbar-width:none;">' +
+      filterBtns +
     '</div>' +
 
     '<div id="leads-list-view">' +
@@ -63,7 +73,7 @@ window.pages.leads = async function (container) {
   // Shared Search Bar
   if (window.components && window.components.createSearchBar) {
     var searchBar = window.components.createSearchBar({
-      placeholder: t('leads.search_placeholder') || 'Search name, phone, city, notes...',
+      placeholder: t('leads.search_placeholder') || 'Search name, phone, city...',
       onSearch: function (q) {
         searchQuery = q;
         renderLeadsList();
@@ -72,13 +82,17 @@ window.pages.leads = async function (container) {
     searchMount.appendChild(searchBar.element);
   }
 
-  // Filter chips click
-  var chips = container.querySelectorAll('#leads-filter-chips .chip');
-  chips.forEach(function (c) {
-    c.addEventListener('click', function () {
-      chips.forEach(function (ch) { ch.classList.remove('active'); });
-      c.classList.add('active');
-      currentStatus = c.getAttribute('data-status');
+  // Filter button clicks — same logic as sites.js
+  var filterButtons = container.querySelectorAll('.lead-filter-btn');
+  filterButtons.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      filterButtons.forEach(function (b) {
+        b.classList.remove('active', 'btn-primary');
+        b.classList.add('btn-secondary');
+      });
+      btn.classList.add('active', 'btn-primary');
+      btn.classList.remove('btn-secondary');
+      currentStatus = btn.getAttribute('data-status');
       renderLeadsList();
     });
   });
@@ -86,7 +100,7 @@ window.pages.leads = async function (container) {
   // Load Leads
   async function loadLeads() {
     try {
-      var res = await window.api.call('leads.list', { limit: 100 });
+      var res = await window.api.call('leads.list', { limit: 200 });
       allLeads = (res && res.leads) || [];
       updateStatusCounts();
       renderLeadsList();
@@ -97,35 +111,29 @@ window.pages.leads = async function (container) {
 
   function updateStatusCounts() {
     var counts = { ALL: allLeads.length };
-    ['NEW', 'CONTACTED', 'SITE_VISIT', 'QUOTATION_SENT', 'NEGOTIATION', 'WON', 'LOST'].forEach(function (st) {
-      counts[st] = 0;
-    });
-
+    STATUS_LIST.forEach(function (st) { counts[st] = 0; });
     allLeads.forEach(function (l) {
       if (counts[l.status] !== undefined) counts[l.status]++;
     });
-
     for (var st in counts) {
-      var el = document.getElementById('count-' + st);
+      var el = document.getElementById('lcount-' + st);
       if (el) el.textContent = counts[st];
     }
   }
 
   function renderLeadsList() {
     var filtered = allLeads;
-
-    // Filter by status
     if (currentStatus !== 'ALL') {
       filtered = filtered.filter(function (l) { return l.status === currentStatus; });
     }
-
-    // Filter by search query across multiple fields
     if (searchQuery && window.components && window.components.filterListByQuery) {
-      filtered = window.components.filterListByQuery(filtered, searchQuery, ['name', 'phone', 'alt_phone', 'city', 'address', 'interest', 'remark', 'lead_id']);
+      filtered = window.components.filterListByQuery(filtered, searchQuery,
+        ['name', 'phone', 'alt_phone', 'city', 'address', 'interest', 'remark', 'lead_id']);
     }
 
     if (!filtered.length) {
-      listView.innerHTML = '<div class="card text-muted" style="text-align:center;padding:2rem;">' + esc(t('leads.empty') || 'No leads found') + '</div>';
+      listView.innerHTML = '<div class="card text-muted" style="text-align:center;padding:2rem;">' +
+        esc(t('leads.empty') || 'No leads found') + '</div>';
       return;
     }
 
@@ -147,106 +155,94 @@ window.pages.leads = async function (container) {
         followupBadge = '<span style="color:var(--text-muted);font-size:0.75rem;">Follow-up: ' + esc(lead.next_followup_date) + '</span>';
       }
 
+      var photoThumb = '';
+      if (lead.photo_data_uri) {
+        photoThumb = '<img src="' + lead.photo_data_uri + '" alt="photo" style="width:48px;height:48px;object-fit:cover;border-radius:6px;border:1px solid var(--border-color,#e5e7eb);flex-shrink:0;">';
+      }
+
       var phoneDigits = String(lead.phone || '').replace(/\D/g, '');
       var waUrl = 'https://wa.me/91' + (phoneDigits.length === 10 ? phoneDigits : phoneDigits.slice(-10));
 
       return (
         '<div class="card lead-card" data-id="' + esc(lead.lead_id) + '" style="margin-bottom:0.75rem;padding:1rem;border-radius:10px;">' +
-          '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:0.4rem;">' +
-            '<div>' +
-              '<h3 style="margin:0;font-size:1.05rem;font-weight:700;">' + esc(lead.name) + '</h3>' +
-              '<div style="font-size:0.8rem;color:var(--text-muted);margin-top:0.2rem;">' +
+          '<div style="display:flex;gap:0.6rem;align-items:flex-start;">' +
+            photoThumb +
+            '<div style="flex:1;min-width:0;">' +
+              '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:0.3rem;">' +
+                '<h3 style="margin:0;font-size:1.05rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60vw;">' + esc(lead.name) + '</h3>' +
+                '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.25rem;flex-shrink:0;">' +
+                  '<span class="badge ' + statusBadgeClass + '" style="font-size:0.72rem;">' + esc(lead.status) + '</span>' +
+                  followupBadge +
+                '</div>' +
+              '</div>' +
+              '<div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.4rem;">' +
                 'ID: <strong>' + esc(lead.lead_id) + '</strong>' +
                 (lead.city ? ' · 📍 ' + esc(lead.city) : '') +
-                (lead.address ? ' · 🏠 ' + esc(lead.address) : '') +
                 (lead.source ? ' · ' + esc(lead.source) : '') +
               '</div>' +
+              (lead.interest || lead.expected_kw || lead.estimated_amount_paise ? (
+                '<div style="font-size:0.82rem;background:var(--bg-main,#f9fafb);padding:0.3rem 0.5rem;border-radius:6px;margin:0.35rem 0;">' +
+                  '⚡ <strong>' + (lead.expected_kw ? (lead.expected_kw + ' kW · ') : '') + '</strong>' + esc(lead.interest || 'Solar System') +
+                  (lead.estimated_amount_paise ? (' · <strong style="color:var(--brand,#0284c7);">₹' + (lead.estimated_amount_paise / 100).toLocaleString('en-IN') + '</strong>') : '') +
+                '</div>'
+              ) : '') +
+              (lead.remark ? (
+                '<div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:0.4rem;white-space:pre-line;max-height:48px;overflow:hidden;">' +
+                  esc(lead.remark.slice(-120)) +
+                '</div>'
+              ) : '') +
+              (lead.status === 'WON' && lead.converted_customer_id ? (
+                '<div style="font-size:0.75rem;color:var(--color-success,#16a34a);margin-bottom:0.4rem;">' +
+                  '✓ Customer: <strong>' + esc(lead.converted_customer_id) + '</strong>' +
+                  (lead.converted_site_id ? (' · Site: <strong>' + esc(lead.converted_site_id) + '</strong>') : '') +
+                '</div>'
+              ) : '') +
+              '<div style="display:flex;gap:0.4rem;flex-wrap:wrap;padding-top:0.5rem;border-top:1px solid var(--border-color,#f0f0f0);">' +
+                '<button class="btn btn-secondary lead-btn-edit" data-id="' + esc(lead.lead_id) + '" style="font-size:0.78rem;padding:0.25rem 0.65rem;min-height:32px;">✏️ Edit</button>' +
+                '<button class="btn btn-secondary lead-btn-note" data-id="' + esc(lead.lead_id) + '" style="font-size:0.78rem;padding:0.25rem 0.65rem;min-height:32px;">📝 Note</button>' +
+                '<a href="tel:' + esc(lead.phone) + '" class="btn btn-secondary" style="font-size:0.78rem;padding:0.25rem 0.65rem;min-height:32px;text-decoration:none;">📞 Call</a>' +
+                '<a href="' + waUrl + '" target="_blank" class="btn btn-secondary" style="font-size:0.78rem;padding:0.25rem 0.65rem;min-height:32px;text-decoration:none;">💬 WA</a>' +
+                (lead.status !== 'WON' && lead.status !== 'LOST' ? (
+                  '<button class="btn btn-primary lead-btn-convert" data-id="' + esc(lead.lead_id) + '" style="font-size:0.78rem;padding:0.25rem 0.65rem;min-height:32px;">🏆 Convert</button>'
+                ) : '') +
+              '</div>' +
             '</div>' +
-            '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.3rem;">' +
-              '<span class="badge ' + statusBadgeClass + '" style="font-size:0.75rem;">' + esc(lead.status) + '</span>' +
-              followupBadge +
-            '</div>' +
-          '</div>' +
-
-          (lead.interest || lead.expected_kw || lead.estimated_amount_paise ? (
-            '<div style="font-size:0.85rem;background:var(--bg-main, #f9fafb);padding:0.4rem 0.6rem;border-radius:6px;margin:0.5rem 0;">' +
-              '⚡ <strong>' + (lead.expected_kw ? (lead.expected_kw + ' kW · ') : '') + '</strong>' + esc(lead.interest || 'Solar System') +
-              (lead.estimated_amount_paise ? (' · <strong style="color:var(--brand, #0284c7);">₹' + (lead.estimated_amount_paise / 100).toLocaleString('en-IN') + '</strong>') : '') +
-            '</div>'
-          ) : '') +
-
-          (lead.remark ? (
-            '<div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.6rem;white-space:pre-line;max-height:60px;overflow:hidden;">' +
-              esc(lead.remark.slice(-150)) +
-            '</div>'
-          ) : '') +
-
-          (lead.status === 'WON' && lead.converted_customer_id ? (
-            '<div style="font-size:0.78rem;color:var(--color-success, #16a34a);margin-bottom:0.5rem;">' +
-              '✓ Converted to Customer: <strong>' + esc(lead.converted_customer_id) + '</strong>' +
-              (lead.converted_site_id ? (' · Site: <strong>' + esc(lead.converted_site_id) + '</strong>') : '') +
-            '</div>'
-          ) : '') +
-
-          // Action Buttons
-          '<div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-top:0.6rem;padding-top:0.6rem;border-top:1px solid var(--border-color, #f3f4f6);">' +
-            '<a href="tel:' + esc(lead.phone) + '" class="btn btn-outline btn-sm" style="flex:1;min-height:36px;text-align:center;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;font-size:0.8rem;">' +
-              '📞 Call' +
-            '</a>' +
-            '<a href="' + waUrl + '" target="_blank" rel="noopener" class="btn btn-outline btn-sm" style="flex:1;min-height:36px;text-align:center;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;font-size:0.8rem;color:#16a34a;border-color:#16a34a;">' +
-              '💬 WhatsApp' +
-            '</a>' +
-            '<button type="button" class="btn btn-outline btn-sm btn-lead-note" data-id="' + esc(lead.lead_id) + '" style="min-height:36px;font-size:0.8rem;">📝 Note</button>' +
-            '<button type="button" class="btn btn-secondary btn-sm btn-lead-edit" data-id="' + esc(lead.lead_id) + '" style="min-height:36px;font-size:0.8rem;">Edit</button>' +
-            (lead.status !== 'WON' ? (
-              '<button type="button" class="btn btn-primary btn-sm btn-lead-convert" data-id="' + esc(lead.lead_id) + '" style="min-height:36px;font-size:0.8rem;">Convert ➔</button>'
-            ) : '') +
           '</div>' +
         '</div>'
       );
     }).join('');
 
-    // Attach card action listeners
-    attachCardListeners();
-  }
-
-  function attachCardListeners() {
-    // Add Note
-    listView.querySelectorAll('.btn-lead-note').forEach(function (btn) {
+    // Bind action buttons
+    listView.querySelectorAll('.lead-btn-edit').forEach(function (btn) {
       btn.addEventListener('click', function (e) {
         e.stopPropagation();
-        var leadId = btn.getAttribute('data-id');
-        openNoteSheet(leadId);
-      });
-    });
-
-    // Edit
-    listView.querySelectorAll('.btn-lead-edit').forEach(function (btn) {
-      btn.addEventListener('click', function (e) {
-        e.stopPropagation();
-        var leadId = btn.getAttribute('data-id');
-        var lead = allLeads.find(function (l) { return l.lead_id === leadId; });
+        var lead = allLeads.find(function (l) { return l.lead_id === btn.getAttribute('data-id'); });
         if (lead) openLeadSheet(lead);
       });
     });
-
-    // Convert
-    listView.querySelectorAll('.btn-lead-convert').forEach(function (btn) {
+    listView.querySelectorAll('.lead-btn-note').forEach(function (btn) {
       btn.addEventListener('click', function (e) {
         e.stopPropagation();
-        var leadId = btn.getAttribute('data-id');
-        var lead = allLeads.find(function (l) { return l.lead_id === leadId; });
+        openNoteSheet(btn.getAttribute('data-id'));
+      });
+    });
+    listView.querySelectorAll('.lead-btn-convert').forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var lead = allLeads.find(function (l) { return l.lead_id === btn.getAttribute('data-id'); });
         if (lead) openConvertSheet(lead);
       });
     });
   }
 
-  // Add / Edit Lead Bottom Sheet
+  // ─────────────────────────────────────────────
+  // Add / Edit Lead Bottom Sheet (with optional photo)
+  // ─────────────────────────────────────────────
   function openLeadSheet(existingLead) {
     var isEdit = !!existingLead;
     var sheetTitle = isEdit ? (t('leads.edit_title') || 'Edit Lead') : (t('leads.add_title') || 'Add New Lead');
 
-    var sheetHtml = 
+    var sheetHtml =
       '<div style="padding:0.25rem 0;">' +
         '<div class="form-field">' +
           '<label>Customer / Lead Name *</label>' +
@@ -259,7 +255,7 @@ window.pages.leads = async function (container) {
           '</div>' +
           '<div class="form-field">' +
             '<label>Alt Phone</label>' +
-            '<input type="tel" id="lead-f-alt-phone" class="input" value="' + esc(isEdit ? existingLead.alt_phone : '') + '">' +
+            '<input type="tel" id="lead-f-alt-phone" class="input" value="' + esc(isEdit ? (existingLead.alt_phone || '') : '') + '">' +
           '</div>' +
         '</div>' +
         '<div class="form-field">' +
@@ -269,7 +265,7 @@ window.pages.leads = async function (container) {
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">' +
           '<div class="form-field">' +
             '<label>City</label>' +
-            '<input type="text" id="lead-f-city" class="input" value="' + esc(isEdit ? existingLead.city : '') + '" placeholder="City">' +
+            '<input type="text" id="lead-f-city" class="input" value="' + esc(isEdit ? (existingLead.city || '') : '') + '" placeholder="City">' +
           '</div>' +
           '<div class="form-field">' +
             '<label>Source</label>' +
@@ -293,14 +289,14 @@ window.pages.leads = async function (container) {
         '<div class="form-field">' +
           '<label>Status</label>' +
           '<select id="lead-f-status" class="input">' +
-            ['NEW', 'CONTACTED', 'SITE_VISIT', 'QUOTATION_SENT', 'NEGOTIATION', 'WON', 'LOST'].map(function (st) {
-              return '<option value="' + st + '" ' + (isEdit && existingLead.status === st ? 'selected' : '') + '>' + st + '</option>';
+            STATUS_LIST.map(function (st) {
+              return '<option value="' + st + '" ' + (isEdit && existingLead.status === st ? 'selected' : '') + '>' + STATUS_LABELS[st] + '</option>';
             }).join('') +
           '</select>' +
         '</div>' +
         '<div class="form-field" id="wrap-lost-reason" style="display:' + (isEdit && existingLead.status === 'LOST' ? 'block' : 'none') + ';">' +
           '<label>Lost Reason *</label>' +
-          '<input type="text" id="lead-f-lost-reason" class="input" value="' + esc(isEdit ? existingLead.lost_reason : '') + '" placeholder="Price too high, competitor, etc.">' +
+          '<input type="text" id="lead-f-lost-reason" class="input" value="' + esc(isEdit ? (existingLead.lost_reason || '') : '') + '" placeholder="Price too high, competitor, etc.">' +
         '</div>' +
         '<div class="form-field">' +
           '<label>Next Follow-up Date</label>' +
@@ -308,18 +304,37 @@ window.pages.leads = async function (container) {
         '</div>' +
         '<div class="form-field">' +
           '<label>Interest / Requirements</label>' +
-          '<textarea id="lead-f-interest" class="input" rows="2" placeholder="e.g. 5kW Hybrid with battery backup">' + esc(isEdit ? existingLead.interest : '') + '</textarea>' +
+          '<textarea id="lead-f-interest" class="input" rows="2" placeholder="e.g. 5kW Hybrid with battery backup">' + esc(isEdit ? (existingLead.interest || '') : '') + '</textarea>' +
         '</div>' +
         '<div class="form-field">' +
           '<label>Remark / Notes</label>' +
-          '<textarea id="lead-f-remark" class="input" rows="2" placeholder="Initial conversation details...">' + esc(isEdit ? existingLead.remark : '') + '</textarea>' +
+          '<textarea id="lead-f-remark" class="input" rows="2" placeholder="Initial conversation details...">' + esc(isEdit ? (existingLead.remark || '') : '') + '</textarea>' +
         '</div>' +
+
+        // ── Optional Photo Section ──────────────────────────────
+        '<div class="form-field">' +
+          '<label>Photo <span style="font-weight:400;color:var(--text-muted);font-size:0.78rem;">(Optional — site visit, meter, roof, etc.)</span></label>' +
+          '<div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">' +
+            // Existing photo preview
+            (isEdit && existingLead.photo_data_uri
+              ? '<img id="lead-photo-preview" src="' + existingLead.photo_data_uri + '" alt="photo" style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid var(--border-color,#e5e7eb);">'
+              : '<img id="lead-photo-preview" src="" alt="" style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid var(--border-color,#e5e7eb);display:none;">') +
+            '<div style="display:flex;flex-direction:column;gap:0.4rem;">' +
+              '<label class="btn btn-secondary" for="lead-f-photo" style="min-height:36px;font-size:0.82rem;padding:0.3rem 0.75rem;cursor:pointer;margin:0;">📷 Choose Photo</label>' +
+              '<input type="file" id="lead-f-photo" accept="image/*" capture="environment" style="display:none;">' +
+              '<button type="button" id="lead-photo-clear" class="btn btn-secondary" style="min-height:30px;font-size:0.75rem;padding:0.2rem 0.5rem;' + (isEdit && existingLead.photo_data_uri ? '' : 'display:none;') + '">✕ Remove</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        // ───────────────────────────────────────────────────────
+
         '<div id="lead-sheet-err" class="text-danger" style="margin-bottom:0.75rem;font-size:0.85rem;display:none;"></div>' +
         '<button type="button" id="btn-save-lead" class="btn btn-primary btn-full" style="min-height:44px;">' + (isEdit ? 'Update Lead' : 'Save Lead') + '</button>' +
       '</div>';
 
     window.ui.openBottomSheet(sheetTitle, sheetHtml, '');
 
+    // Status → lost-reason toggle
     var statusSel = document.getElementById('lead-f-status');
     var lostWrap = document.getElementById('wrap-lost-reason');
     if (statusSel && lostWrap) {
@@ -328,6 +343,43 @@ window.pages.leads = async function (container) {
       });
     }
 
+    // Photo preview
+    var photoInput = document.getElementById('lead-f-photo');
+    var photoPreview = document.getElementById('lead-photo-preview');
+    var photoClearBtn = document.getElementById('lead-photo-clear');
+    var _photoDataUri = (isEdit && existingLead.photo_data_uri) ? existingLead.photo_data_uri : null;
+
+    if (photoInput && photoPreview) {
+      photoInput.addEventListener('change', function () {
+        var file = photoInput.files && photoInput.files[0];
+        if (!file) return;
+        // Limit to 2MB
+        if (file.size > 2 * 1024 * 1024) {
+          window.ui.toast('Photo too large. Max 2MB.', 'error');
+          photoInput.value = '';
+          return;
+        }
+        var reader = new FileReader();
+        reader.onload = function (ev) {
+          _photoDataUri = ev.target.result;
+          photoPreview.src = _photoDataUri;
+          photoPreview.style.display = 'block';
+          if (photoClearBtn) photoClearBtn.style.display = '';
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    if (photoClearBtn) {
+      photoClearBtn.addEventListener('click', function () {
+        _photoDataUri = null;
+        if (photoPreview) { photoPreview.src = ''; photoPreview.style.display = 'none'; }
+        if (photoInput) photoInput.value = '';
+        photoClearBtn.style.display = 'none';
+      });
+    }
+
+    // Save
     var saveBtn = document.getElementById('btn-save-lead');
     var errEl = document.getElementById('lead-sheet-err');
 
@@ -335,8 +387,7 @@ window.pages.leads = async function (container) {
       saveBtn.addEventListener('click', async function () {
         await window.ui.withButtonLoading(saveBtn, async function () {
           errEl.style.display = 'none';
-          var amountInput = document.getElementById('lead-f-amount');
-          var amountVal = amountInput ? (parseFloat(amountInput.value) || 0) : 0;
+          var amountVal = parseFloat(document.getElementById('lead-f-amount').value) || 0;
 
           var payload = {
             name: document.getElementById('lead-f-name').value.trim(),
@@ -354,20 +405,19 @@ window.pages.leads = async function (container) {
             remark: document.getElementById('lead-f-remark').value.trim()
           };
 
-          if (!payload.name) {
-            errEl.textContent = 'Please enter lead name';
-            errEl.style.display = 'block';
-            return;
+          // Attach photo only if changed/set
+          if (_photoDataUri && _photoDataUri !== (isEdit && existingLead.photo_data_uri ? existingLead.photo_data_uri : null)) {
+            payload.photo_data_uri = _photoDataUri;
+          } else if (!_photoDataUri && isEdit && existingLead.photo_data_uri) {
+            payload.photo_data_uri = ''; // cleared
           }
+
+          if (!payload.name) { errEl.textContent = 'Please enter lead name'; errEl.style.display = 'block'; return; }
           if (!payload.phone || payload.phone.replace(/\D/g, '').length !== 10) {
-            errEl.textContent = 'Please enter a valid 10-digit phone number';
-            errEl.style.display = 'block';
-            return;
+            errEl.textContent = 'Please enter a valid 10-digit phone number'; errEl.style.display = 'block'; return;
           }
           if (payload.status === 'LOST' && !payload.lost_reason) {
-            errEl.textContent = 'Lost reason is required when status is LOST';
-            errEl.style.display = 'block';
-            return;
+            errEl.textContent = 'Lost reason is required when status is LOST'; errEl.style.display = 'block'; return;
           }
 
           try {
@@ -394,68 +444,70 @@ window.pages.leads = async function (container) {
     }
   }
 
+  // ─────────────────────────────────────────────
   // Add Note Bottom Sheet
+  // ─────────────────────────────────────────────
   function openNoteSheet(leadId) {
     var lead = allLeads.find(function (l) { return l.lead_id === leadId; });
     var sheetTitle = 'Notes — ' + (lead ? lead.name : leadId);
 
-    var sheetHtml = 
+    var sheetHtml =
       '<div style="padding:0.25rem 0;">' +
-        '<div style="background:var(--bg-main, #f9fafb);padding:0.75rem;border-radius:8px;max-height:200px;overflow-y:auto;font-size:0.85rem;white-space:pre-line;margin-bottom:1rem;border:1px solid var(--border-color, #e5e7eb);">' +
+        '<div style="background:var(--bg-main,#f9fafb);padding:0.75rem;border-radius:8px;max-height:200px;overflow-y:auto;font-size:0.85rem;white-space:pre-line;margin-bottom:1rem;border:1px solid var(--border-color,#e5e7eb);">' +
           esc(lead && lead.remark ? lead.remark : 'No notes recorded yet.') +
         '</div>' +
         '<div class="form-field">' +
           '<label>Add New Note / Follow-up Update</label>' +
-          '<textarea id="note-f-text" class="input" rows="3" placeholder="Called client, discussed 5kW quote, follow-up on Friday..."></textarea>' +
+          '<textarea id="note-f-text" class="input" rows="3" placeholder="Called client, discussed quote, follow-up on Friday..."></textarea>' +
         '</div>' +
         '<div id="note-sheet-err" class="text-danger" style="margin-bottom:0.75rem;font-size:0.85rem;display:none;"></div>' +
-        '<button type="button" id="btn-save-note" class="btn btn-primary btn-full" style="min-height:44px;">Add Note to Timeline</button>' +
+        '<button type="button" id="btn-save-note" class="btn btn-primary btn-full" style="min-height:44px;">Save Note</button>' +
       '</div>';
 
     window.ui.openBottomSheet(sheetTitle, sheetHtml, '');
 
-    var saveBtn = document.getElementById('btn-save-note');
-    var errEl = document.getElementById('note-sheet-err');
-    var noteInput = document.getElementById('note-f-text');
+    var noteBtn = document.getElementById('btn-save-note');
+    var noteErr = document.getElementById('note-sheet-err');
 
-    if (saveBtn) {
-      saveBtn.addEventListener('click', async function () {
-        var note = noteInput.value.trim();
-        if (!note) {
-          errEl.textContent = 'Please enter note text';
-          errEl.style.display = 'block';
-          return;
-        }
+    if (noteBtn) {
+      noteBtn.addEventListener('click', async function () {
+        await window.ui.withButtonLoading(noteBtn, async function () {
+          noteErr.style.display = 'none';
+          var txt = (document.getElementById('note-f-text').value || '').trim();
+          if (!txt) { noteErr.textContent = 'Please enter a note'; noteErr.style.display = 'block'; return; }
 
-        await window.ui.withButtonLoading(saveBtn, async function () {
+          var existingRemark = (lead && lead.remark) ? lead.remark : '';
+          var ts = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+          var newRemark = existingRemark + (existingRemark ? '\n\n' : '') + '[' + ts + '] ' + txt;
+
           try {
-            await window.api.call('leads.addNote', { lead_id: leadId, note: note });
-            window.ui.toast('Note added to timeline', 'success');
+            await window.api.call('leads.update', { lead_id: leadId, remark: newRemark });
+            window.ui.toast('Note saved', 'success');
             window.ui.closeBottomSheet();
             await loadLeads();
           } catch (e) {
-            errEl.textContent = e.message || 'Failed to add note';
-            errEl.style.display = 'block';
+            noteErr.textContent = e.message || 'Failed to save note';
+            noteErr.style.display = 'block';
           }
         });
       });
     }
   }
 
-  // Convert to Customer & Site Sheet
+  // ─────────────────────────────────────────────
+  // Convert Lead to Customer + Site
+  // ─────────────────────────────────────────────
   function openConvertSheet(lead) {
-    var sheetTitle = 'Convert Lead to Customer';
+    var sheetTitle = 'Convert Lead — ' + lead.name;
 
-    var sheetHtml = 
+    var sheetHtml =
       '<div style="padding:0.25rem 0;">' +
-        '<p class="text-muted" style="margin:0 0 1rem;font-size:0.85rem;">This will create a permanent Customer master record and optionally a new active Site.</p>' +
-        '<div class="card" style="margin-bottom:1rem;padding:0.75rem;font-size:0.85rem;">' +
-          '<strong>Customer:</strong> ' + esc(lead.name) + '<br>' +
-          '<strong>Phone:</strong> ' + esc(lead.phone) + '<br>' +
-          (lead.city ? ('<strong>City:</strong> ' + esc(lead.city) + '<br>') : '') +
-          (lead.address ? ('<strong>Address:</strong> ' + esc(lead.address) + '<br>') : '') +
-          (lead.expected_kw ? ('<strong>Interest:</strong> ' + lead.expected_kw + ' kW') : '') +
-          (lead.estimated_amount_paise ? ('<br><strong>Quotation:</strong> ₹' + (lead.estimated_amount_paise / 100).toLocaleString('en-IN')) : '') +
+        '<div style="background:var(--bg-main,#f9fafb);padding:0.75rem;border-radius:8px;font-size:0.88rem;margin-bottom:1rem;">' +
+          '<strong>' + esc(lead.name) + '</strong><br>' +
+          '<span class="text-muted">Phone: ' + esc(lead.phone) + '</span><br>' +
+          (lead.city ? ('<span class="text-muted">City: ' + esc(lead.city) + '</span><br>') : '') +
+          (lead.expected_kw ? ('<span class="text-muted">Interest: ' + lead.expected_kw + ' kW</span><br>') : '') +
+          (lead.estimated_amount_paise ? ('<span class="text-muted">Quotation: ₹' + (lead.estimated_amount_paise / 100).toLocaleString('en-IN') + '</span>') : '') +
         '</div>' +
         '<div class="form-field" style="display:flex;align-items:center;gap:0.5rem;margin-bottom:1rem;">' +
           '<input type="checkbox" id="conv-create-site" checked style="width:20px;height:20px;">' +
@@ -477,7 +529,7 @@ window.pages.leads = async function (container) {
             '</div>' +
           '</div>' +
           '<div class="form-field">' +
-            '<label>Payment Track / Stage Template *</label>' +
+            '<label>Payment Track *</label>' +
             '<select id="conv-payment-type" class="input">' +
               '<option value="CASH">CASH (16 Standard Stages)</option>' +
               '<option value="FINANCE">FINANCE / LOAN (18 Bank & Loan Stages)</option>' +
@@ -518,7 +570,7 @@ window.pages.leads = async function (container) {
 
           try {
             var res = await window.api.call('leads.convert', payload);
-            window.ui.toast('Lead converted successfully! Customer: ' + res.customer_id + (res.site_id ? (' · Site: ' + res.site_id) : ''), 'success');
+            window.ui.toast('Lead converted! Customer: ' + res.customer_id + (res.site_id ? (' · Site: ' + res.site_id) : ''), 'success');
             window.ui.closeBottomSheet();
             await loadLeads();
           } catch (e) {
@@ -533,9 +585,7 @@ window.pages.leads = async function (container) {
   // Header Add Button
   var addBtn = document.getElementById('btn-add-lead');
   if (addBtn) {
-    addBtn.addEventListener('click', function () {
-      openLeadSheet(null);
-    });
+    addBtn.addEventListener('click', function () { openLeadSheet(null); });
   }
 
   // Initial load

@@ -39,7 +39,8 @@
       stock: t('nav.stock') || 'Stock',
       lots: t('nav.purchase') || 'Purchase',
       customers: t('nav.customers') || 'Customers',
-      masters: t('nav.masters') || 'Masters',
+      products: t('nav.products') || 'Products',
+      locations: t('nav.locations') || 'Locations',
       suppliers: t('nav.suppliers') || 'Suppliers',
       money: t('nav.money') || 'Money',
       reports: t('nav.reports') || 'Reports',
@@ -139,8 +140,8 @@
 
   // ---------------------------------------------------------------------------
   // Navigation visibility & Role permissions (B1, B3)
-  // OWNER: Dashboard, Sites, Stock, Purchase, Customers, Masters, Money, Reports, Users, Settings
-  // MANAGER: only permitted actions (e.g. Dashboard, Sites, Stock, Purchase, Customers, Masters, Reports)
+  // OWNER: Dashboard, Sites, Stock, Purchase, Customers, Products, Locations, Money, Reports, Users, Settings
+  // MANAGER: only permitted actions (e.g. Dashboard, Sites, Stock, Purchase, Customers, Products, Locations, Reports)
   // SITE_USER: only Sites, Stock (if permitted)
   // ---------------------------------------------------------------------------
   function syncNavVisibility() {
@@ -173,7 +174,8 @@
         stock: false,
         lots: false,
         customers: false,
-        masters: false,
+        products: false,
+        locations: false,
         suppliers: false,
         money: false,
         reports: false,
@@ -188,7 +190,8 @@
         stock: window.auth.can('stock.summary'),
         lots: window.auth.can('lots.list'),
         customers: window.auth.can('customers.list'),
-        masters: window.auth.can('products.list') || window.auth.can('locations.list'),
+        products: window.auth.can('products.list'),
+        locations: window.auth.can('locations.list'),
         suppliers: (role === 'OWNER' || role === 'MANAGER') && window.auth.can('suppliers.list'),
         money: role === 'OWNER' && window.auth.can('cpay.add'),
         reports: role !== 'SITE_USER' && window.auth.can('reports.list'),
@@ -405,6 +408,8 @@
   window.router.register('/users', window.pages.users);
   window.router.register('/customers', window.pages.customers);
   window.router.register('/masters', window.pages.masters);
+  window.router.register('/products', window.pages.products);
+  window.router.register('/locations', window.pages.locations);
   window.router.register('/suppliers', window.pages.suppliers);
   window.router.register('/lots', window.pages.lots);
   window.router.register('/settings', window.pages.settings);
