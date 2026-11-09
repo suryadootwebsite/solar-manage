@@ -1423,45 +1423,101 @@ window.pages.siteDetail = async function(container, params) {
   // ---------------------------------------------------------------------------
   async function openIssueMaterialSheet(onSuccess) {
     await ensureProductsLoaded();
-    var prodsList = Object.values(productsMap);
+    var sortedProds = Object.values(productsMap)
+      .filter(function(p) { return p.is_active !== false && p.is_active !== 'FALSE'; })
+      .sort(function(a, b) { return String(a.name || '').localeCompare(String(b.name || '')); });
+
+    function renderSheetRow(idx) {
+      return `
+        <div class="sdt-if-row" data-line-idx="${idx}" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:0.5rem; margin-bottom:0.5rem;">
+          <div style="display:flex; gap:0.4rem; align-items:center;">
+            <div style="flex:1;">
+              <select class="input sdt-if-prod" style="width:100%; font-size:0.8rem; padding:0.35rem 0.5rem; min-height:36px;">
+                <option value="">-- Select Product --</option>
+                ${sortedProds.map(function(p) { return `<option value="${p.product_id}" data-serial="${p.track_serial ? '1' : '0'}">${esc(p.name)} (${esc(p.category || p.unit || '')})</option>`; }).join('')}
+              </select>
+            </div>
+            <div class="sdt-if-qty-wrap" style="width:75px; flex-shrink:0;">
+              <input type="number" class="input sdt-if-qty" min="1" value="1" placeholder="Qty" style="font-size:0.8rem; padding:0.35rem 0.4rem; min-height:36px; text-align:center;">
+            </div>
+            <button type="button" class="btn btn-secondary sdt-if-del-row" style="min-height:36px; min-width:34px; padding:0.25rem 0.5rem; color:#dc2626; border-color:#fca5a5;" title="Remove Line">✕</button>
+          </div>
+          <div class="sdt-if-serial-wrap" style="display:none; margin-top:0.35rem;">
+            <input type="text" class="input sdt-if-serials" placeholder="Serial numbers (comma-separated, e.g. SN1, SN2)" style="font-size:0.78rem; padding:0.3rem 0.5rem; min-height:32px;">
+          </div>
+        </div>
+      `;
+    }
+
     var formHtml = `
       <form id="sdt-issue-form" novalidate>
-        <div class="form-field">
-          <label>Product *</label>
-          <select id="sdt-if-product" class="input" required>
-            <option value="">Select Product</option>
-            ${prodsList.map(function(p) { return `<option value="${p.product_id}" data-serial="${p.track_serial ? '1' : '0'}">${esc(p.name)}</option>`; }).join('')}
-          </select>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+          <label style="font-weight:700; margin:0; font-size:0.85rem;">Material Lines (Multiple Items):</label>
+          <button type="button" id="sdt-if-add-row" class="btn btn-secondary btn-sm" style="font-size:0.75rem; padding:0.2rem 0.5rem;">➕ Add Line</button>
         </div>
-        <div class="form-field" id="sdt-if-qty-wrap">
-          <label>Quantity *</label>
-          <input type="number" id="sdt-if-qty" class="input" min="1" value="1" required>
-        </div>
-        <div class="form-field" id="sdt-if-serial-wrap" style="display:none;">
-          <label>Serial Numbers (comma-separated)</label>
-          <textarea id="sdt-if-serials" class="input" rows="2" placeholder="e.g. SN123, SN124"></textarea>
-        </div>
-        <div class="form-field">
+        <div id="sdt-if-rows-container"></div>
+        <div class="form-field" style="margin-top:0.75rem;">
           <label>Issue Date</label>
           <input type="date" id="sdt-if-date" class="input" value="${new Date().toISOString().slice(0, 10)}">
         </div>
         <div id="sdt-if-error" class="text-error" style="display:none; margin-bottom:0.75rem;"></div>
-        <button type="submit" id="sdt-if-submit" class="btn btn-primary btn-full">Issue Materials</button>
+        <button type="submit" id="sdt-if-submit" class="btn btn-primary btn-full" style="background:#059669; border-color:#059669; font-weight:700;">📦 Issue Now</button>
       </form>
     `;
 
-    window.ui.openBottomSheet('Issue Material to ' + siteData.site_name, formHtml, '');
+    window.ui.openBottomSheet('Issue Materials to ' + siteData.site_name, formHtml, '');
 
-    var prodSelect = document.getElementById('sdt-if-product');
-    var qtyWrap = document.getElementById('sdt-if-qty-wrap');
-    var serialWrap = document.getElementById('sdt-if-serial-wrap');
+    var rowsContainer = document.getElementById('sdt-if-rows-container');
+    var addRowBtn = document.getElementById('sdt-if-add-row');
+    var rowCounter = 0;
 
-    prodSelect.onchange = function() {
-      var opt = prodSelect.options[prodSelect.selectedIndex];
-      var isSerial = opt && opt.getAttribute('data-serial') === '1';
-      qtyWrap.style.display = isSerial ? 'none' : 'block';
-      serialWrap.style.display = isSerial ? 'block' : 'none';
-    };
+    function bindSheetRowEvents(rEl) {
+      if (!rEl) return;
+      var pSelect = rEl.querySelector('.sdt-if-prod');
+      var qWrap = rEl.querySelector('.sdt-if-qty-wrap');
+      var sWrap = rEl.querySelector('.sdt-if-serial-wrap');
+      var delBtn = rEl.querySelector('.sdt-if-del-row');
+
+      if (pSelect) {
+        pSelect.onchange = function() {
+          var opt = pSelect.options[pSelect.selectedIndex];
+          var isSerial = opt && opt.getAttribute('data-serial') === '1';
+          if (qWrap) qWrap.style.display = isSerial ? 'none' : 'block';
+          if (sWrap) sWrap.style.display = isSerial ? 'block' : 'none';
+        };
+      }
+      if (delBtn) {
+        delBtn.onclick = function() {
+          var allRows = rowsContainer.querySelectorAll('.sdt-if-row');
+          if (allRows.length > 1) {
+            rEl.remove();
+          } else {
+            if (pSelect) pSelect.value = '';
+            var qInp = rEl.querySelector('.sdt-if-qty');
+            if (qInp) qInp.value = '1';
+            var sInp = rEl.querySelector('.sdt-if-serials');
+            if (sInp) sInp.value = '';
+            if (qWrap) qWrap.style.display = 'block';
+            if (sWrap) sWrap.style.display = 'none';
+          }
+        };
+      }
+    }
+
+    if (rowsContainer) {
+      rowsContainer.innerHTML = renderSheetRow(rowCounter++);
+      bindSheetRowEvents(rowsContainer.firstElementChild);
+    }
+
+    if (addRowBtn) {
+      addRowBtn.onclick = function() {
+        var div = document.createElement('div');
+        div.innerHTML = renderSheetRow(rowCounter++);
+        var newR = div.firstElementChild;
+        rowsContainer.appendChild(newR);
+        bindSheetRowEvents(newR);
+      };
+    }
 
     document.getElementById('sdt-issue-form').onsubmit = async function(e) {
       e.preventDefault();
@@ -1469,34 +1525,42 @@ window.pages.siteDetail = async function(container, params) {
       var submitBtn = document.getElementById('sdt-if-submit');
       errEl.style.display = 'none';
 
-      var prodId = prodSelect.value;
-      if (!prodId) {
-        errEl.textContent = 'Product is required';
-        errEl.style.display = 'block';
-        return;
+      var lines = [];
+      var rowEls = rowsContainer.querySelectorAll('.sdt-if-row');
+      for (var i = 0; i < rowEls.length; i++) {
+        var rEl = rowEls[i];
+        var pSelect = rEl.querySelector('.sdt-if-prod');
+        var prodId = pSelect.value;
+        if (!prodId) continue;
+
+        var opt = pSelect.options[pSelect.selectedIndex];
+        var isSerial = opt && opt.getAttribute('data-serial') === '1';
+
+        if (isSerial) {
+          var sInp = rEl.querySelector('.sdt-if-serials');
+          var snList = (sInp ? sInp.value : '').split(/[,\n]+/).map(function(s) { return s.trim(); }).filter(Boolean);
+          if (!snList.length) {
+            errEl.textContent = 'Serial number(s) required for ' + (productsMap[prodId] ? productsMap[prodId].name : prodId);
+            errEl.style.display = 'block';
+            return;
+          }
+          lines.push({ product_id: prodId, serial_nos: snList });
+        } else {
+          var qInp = rEl.querySelector('.sdt-if-qty');
+          var qtyVal = parseInt(qInp ? qInp.value : '0', 10);
+          if (!qtyVal || qtyVal <= 0) {
+            errEl.textContent = 'Valid quantity required for ' + (productsMap[prodId] ? productsMap[prodId].name : prodId);
+            errEl.style.display = 'block';
+            return;
+          }
+          lines.push({ product_id: prodId, qty: qtyVal });
+        }
       }
 
-      var opt = prodSelect.options[prodSelect.selectedIndex];
-      var isSerial = opt && opt.getAttribute('data-serial') === '1';
-      var line = { product_id: prodId };
-
-      if (isSerial) {
-        var rawSn = document.getElementById('sdt-if-serials').value;
-        var snList = rawSn.split(/[,\n]+/).map(function(s) { return s.trim(); }).filter(Boolean);
-        if (!snList.length) {
-          errEl.textContent = 'At least one serial number is required';
-          errEl.style.display = 'block';
-          return;
-        }
-        line.serial_nos = snList;
-      } else {
-        var qty = parseInt(document.getElementById('sdt-if-qty').value, 10);
-        if (!qty || qty <= 0) {
-          errEl.textContent = 'Valid quantity is required';
-          errEl.style.display = 'block';
-          return;
-        }
-        line.qty = qty;
+      if (!lines.length) {
+        errEl.textContent = 'Please select at least one material product to issue';
+        errEl.style.display = 'block';
+        return;
       }
 
       window.ui.withButtonLoading(submitBtn, async function() {
@@ -1505,15 +1569,18 @@ window.pages.siteDetail = async function(container, params) {
             site_id: siteId,
             location_id: siteData.default_location_id || 'LOC-MAIN',
             used_on: document.getElementById('sdt-if-date').value,
-            lines: [line]
+            lines: lines
           });
           window.ui.closeBottomSheet();
-          window.ui.toast('Materials issued successfully', 'success');
+          window.ui.toast(lines.length + ' material item(s) issued successfully', 'success');
           delete _tabLoaded['material'];
           delete _tabData['material'];
           delete _tabLoaded['serials'];
           delete _tabData['serials'];
           if (currentTab === 'material' || currentTab === 'serials') renderCurrentTab();
+          if (typeof onSuccess === 'function') {
+            onSuccess();
+          }
         } catch(err) {
           errEl.textContent = err.message || 'Failed to issue material';
           errEl.style.display = 'block';
@@ -1551,7 +1618,8 @@ window.pages.siteDetail = async function(container, params) {
   // ---------------------------------------------------------------------------
   // Update Stage Bottom Sheet (Doc 06 S07 + S12 Multi-Photo & Gallery Integration)
   // ---------------------------------------------------------------------------
-  function openUpdateStageDialog(site, stg, sm) {
+  async function openUpdateStageDialog(site, stg, sm) {
+    await ensureProductsLoaded();
     var stageName = sm.name_en || stg.stage_id;
     var isReqPhoto = sm.requires_photo === true || sm.requires_photo === 'TRUE' || sm.requires_photo === 1;
     var isMatDispatchStage = (stageName && stageName.toLowerCase().indexOf('material dispatch') !== -1) ||
@@ -1581,18 +1649,37 @@ window.pages.siteDetail = async function(container, params) {
 
         ${isMatDispatchStage ? `
         <!-- Material Issue Section (Required for Material Dispatched) -->
-        <div id="usf-mat-section" style="margin-top:0.75rem; padding:0.65rem 0.75rem; background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.35rem;">
+        <div id="usf-mat-section" style="margin-top:0.75rem; padding:0.65rem 0.75rem; background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
             <strong style="font-size:0.85rem; color:#1e40af; display:flex; align-items:center; gap:0.35rem;">
               <span>📦 Material Issue</span>
               <span style="color:#dc2626; font-size:0.75rem; font-weight:700;">* (Required to Complete)</span>
             </strong>
-            <button type="button" id="usf-btn-issue-material" class="btn btn-primary btn-sm" style="font-size:0.78rem; padding:0.25rem 0.65rem; background:#2563eb; color:#fff;">
-              + Issue Material
-            </button>
           </div>
-          <div id="usf-mat-status-text" style="font-size:0.75rem; color:#1e3a8a;">
-            Checking issued materials...
+
+          <!-- 1. Already Issued Materials Box -->
+          <div id="usf-mat-issued-box" style="margin-bottom:0.6rem;">
+            <div style="font-size:0.75rem; color:#1e3a8a;"><span class="spinner" style="width:12px;height:12px;display:inline-block;vertical-align:middle;margin-right:4px;"></span> Checking issued materials...</div>
+          </div>
+
+          <!-- 2. Multi-Line Items Entry -->
+          <div style="background:#fff; border:1px solid #cbd5e1; border-radius:6px; padding:0.5rem; margin-top:0.4rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem;">
+              <span style="font-size:0.78rem; font-weight:700; color:#1e293b;">Issue Materials (Line Items):</span>
+              <button type="button" id="usf-mat-add-line-btn" class="btn btn-secondary btn-sm" style="font-size:0.75rem; padding:0.2rem 0.5rem; min-height:28px;">
+                ➕ Add Line
+              </button>
+            </div>
+            
+            <div id="usf-mat-lines-container"></div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.5rem; padding-top:0.4rem; border-top:1px dashed #e2e8f0;">
+              <span style="font-size:0.72rem; color:var(--text-muted);">Select products & enter qty/serials</span>
+              <button type="button" id="usf-mat-issue-now-btn" class="btn btn-primary btn-sm" style="font-size:0.8rem; padding:0.35rem 0.85rem; background:#059669; border-color:#059669; color:#fff; font-weight:700; min-height:34px;">
+                📦 Issue Now
+              </button>
+            </div>
+            <div id="usf-mat-inline-err" class="text-error" style="display:none; font-size:0.75rem; margin-top:0.35rem;"></div>
           </div>
         </div>
         ` : ''}
@@ -1659,36 +1746,216 @@ window.pages.siteDetail = async function(container, params) {
     var stagedGrid = document.getElementById('usf-staged-grid');
     var stagedBadge = document.getElementById('usf-staged-count-badge');
 
-    var matStatusText = document.getElementById('usf-mat-status-text');
-    var btnIssueMat = document.getElementById('usf-btn-issue-material');
+    var matIssuedBox = document.getElementById('usf-mat-issued-box');
+    var matLinesContainer = document.getElementById('usf-mat-lines-container');
+    var btnAddMatLine = document.getElementById('usf-mat-add-line-btn');
+    var btnIssueNow = document.getElementById('usf-mat-issue-now-btn');
+    var matErrorEl = document.getElementById('usf-mat-inline-err');
     var hasIssuedMaterials = false;
 
-    async function checkMaterialStatus() {
-      if (!isMatDispatchStage || !matStatusText) return;
+    function buildMatLineHtml(idx) {
+      var sortedProds = Object.values(productsMap)
+        .filter(function(p) { return p.is_active !== false && p.is_active !== 'FALSE'; })
+        .sort(function(a, b) { return String(a.name || '').localeCompare(String(b.name || '')); });
+
+      return `
+        <div class="usf-mat-row" data-line-idx="${idx}" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:0.45rem; margin-bottom:0.4rem;">
+          <div style="display:flex; gap:0.35rem; align-items:center;">
+            <div style="flex:1;">
+              <select class="input usf-mat-prod" style="width:100%; font-size:0.8rem; padding:0.3rem 0.4rem; min-height:34px;">
+                <option value="">-- Select Product --</option>
+                ${sortedProds.map(function(p) {
+                  return `<option value="${p.product_id}" data-serial="${p.track_serial ? '1' : '0'}">${esc(p.name)} (${esc(p.category || p.unit || '')})</option>`;
+                }).join('')}
+              </select>
+            </div>
+            <div class="usf-mat-qty-wrap" style="width:70px; flex-shrink:0;">
+              <input type="number" class="input usf-mat-qty" min="1" value="1" placeholder="Qty" style="font-size:0.8rem; padding:0.3rem 0.35rem; min-height:34px; text-align:center;">
+            </div>
+            <button type="button" class="btn btn-secondary usf-mat-del-line" style="min-height:34px; min-width:32px; padding:0.2rem 0.4rem; color:#dc2626; border-color:#fca5a5; font-size:0.75rem;" title="Remove Line">✕</button>
+          </div>
+          <div class="usf-mat-serial-wrap" style="display:none; margin-top:0.3rem;">
+            <input type="text" class="input usf-mat-serials" placeholder="Serial numbers (comma-separated, e.g. SN1, SN2)" style="font-size:0.75rem; padding:0.25rem 0.4rem; min-height:30px;">
+          </div>
+        </div>
+      `;
+    }
+
+    function bindLineEvents(rowEl) {
+      if (!rowEl) return;
+      var prodSelect = rowEl.querySelector('.usf-mat-prod');
+      var qtyWrap = rowEl.querySelector('.usf-mat-qty-wrap');
+      var serialWrap = rowEl.querySelector('.usf-mat-serial-wrap');
+      var delBtn = rowEl.querySelector('.usf-mat-del-line');
+
+      if (prodSelect) {
+        prodSelect.onchange = function() {
+          var opt = prodSelect.options[prodSelect.selectedIndex];
+          var isSerial = opt && opt.getAttribute('data-serial') === '1';
+          if (qtyWrap) qtyWrap.style.display = isSerial ? 'none' : 'block';
+          if (serialWrap) serialWrap.style.display = isSerial ? 'block' : 'none';
+        };
+      }
+
+      if (delBtn) {
+        delBtn.onclick = function() {
+          var allRows = matLinesContainer.querySelectorAll('.usf-mat-row');
+          if (allRows.length > 1) {
+            rowEl.remove();
+          } else {
+            if (prodSelect) prodSelect.value = '';
+            var qtyInput = rowEl.querySelector('.usf-mat-qty');
+            if (qtyInput) qtyInput.value = '1';
+            var snInput = rowEl.querySelector('.usf-mat-serials');
+            if (snInput) snInput.value = '';
+            if (qtyWrap) qtyWrap.style.display = 'block';
+            if (serialWrap) serialWrap.style.display = 'none';
+          }
+        };
+      }
+    }
+
+    async function loadIssuedMaterials() {
+      if (!matIssuedBox) return;
       try {
         var res = await window.api.call('usage.list', { site_id: site.site_id });
         var rows = (res && (res.items || res.rows)) || [];
-        var activeIssues = rows.filter(function(r) { return r.type === 'ISSUE' || !r.type; });
-        if (activeIssues.length > 0) {
+        var issues = rows.filter(function(r) { return r.type === 'ISSUE' || !r.type; });
+        if (issues.length > 0) {
           hasIssuedMaterials = true;
-          var totalQty = activeIssues.reduce(function(sum, x) { return sum + (Number(x.qty) || 0); }, 0);
-          matStatusText.innerHTML = '<span style="color:#059669; font-weight:600;">✅ ' + activeIssues.length + ' material item(s) issued (' + totalQty + ' total qty)</span>';
+          var totalQty = issues.reduce(function(sum, x) { return sum + (Number(x.qty) || 0); }, 0);
+          matIssuedBox.innerHTML = `
+            <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:6px; padding:0.5rem 0.65rem;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.35rem;">
+                <strong style="color:#15803d; font-size:0.8rem;">
+                  ✅ Issued Materials (${issues.length} item${issues.length > 1 ? 's' : ''}, ${totalQty} total qty):
+                </strong>
+              </div>
+              <div style="max-height:110px; overflow-y:auto; display:flex; flex-direction:column; gap:0.25rem;">
+                ${issues.map(function(r) {
+                  var p = productsMap[r.product_id] || {};
+                  var snText = r.serial_no ? ` · S/N: <code>${esc(r.serial_no)}</code>` : '';
+                  return `
+                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.75rem; color:#14532d; background:#fff; padding:0.2rem 0.45rem; border-radius:4px; border:1px solid #dcfce7;">
+                      <span style="font-weight:600;">${esc(p.name || r.product_id)}${snText}</span>
+                      <span style="font-weight:700;">Qty: ${r.qty}</span>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          `;
         } else {
           hasIssuedMaterials = false;
-          matStatusText.innerHTML = '<span style="color:#b45309; font-weight:600;">⚠️ No materials issued yet. Material issue is required before marking this stage COMPLETED.</span>';
+          matIssuedBox.innerHTML = `
+            <div style="background:#fffbeb; border:1px solid #fef3c7; border-radius:6px; padding:0.45rem 0.65rem; font-size:0.78rem; color:#92400e;">
+              ⚠️ No materials issued yet. Add lines below and tap <strong>"Issue Now"</strong>.
+            </div>
+          `;
         }
       } catch(e) {
-        matStatusText.innerHTML = '<span style="color:#6b7280;">Unable to check material status.</span>';
+        matIssuedBox.innerHTML = '<div style="font-size:0.75rem; color:var(--text-muted);">Could not load issued materials.</div>';
       }
     }
 
     if (isMatDispatchStage) {
-      checkMaterialStatus();
-      if (btnIssueMat) {
-        btnIssueMat.onclick = function() {
-          openIssueMaterialSheet(function() {
-            openUpdateStageDialog(site, stg, sm);
-          });
+      loadIssuedMaterials();
+
+      var lineCounter = 0;
+      if (matLinesContainer) {
+        matLinesContainer.innerHTML = buildMatLineHtml(lineCounter++);
+        bindLineEvents(matLinesContainer.firstElementChild);
+      }
+
+      if (btnAddMatLine) {
+        btnAddMatLine.onclick = function() {
+          var div = document.createElement('div');
+          div.innerHTML = buildMatLineHtml(lineCounter++);
+          var newRow = div.firstElementChild;
+          matLinesContainer.appendChild(newRow);
+          bindLineEvents(newRow);
+        };
+      }
+
+      if (btnIssueNow) {
+        btnIssueNow.onclick = async function() {
+          if (matErrorEl) matErrorEl.style.display = 'none';
+
+          var lines = [];
+          var rowEls = matLinesContainer.querySelectorAll('.usf-mat-row');
+          for (var i = 0; i < rowEls.length; i++) {
+            var rEl = rowEls[i];
+            var pSelect = rEl.querySelector('.usf-mat-prod');
+            var prodId = pSelect.value;
+            if (!prodId) continue;
+
+            var opt = pSelect.options[pSelect.selectedIndex];
+            var isSerial = opt && opt.getAttribute('data-serial') === '1';
+
+            if (isSerial) {
+              var snInput = rEl.querySelector('.usf-mat-serials');
+              var snList = (snInput ? snInput.value : '').split(/[,\n]+/).map(function(s) { return s.trim(); }).filter(Boolean);
+              if (!snList.length) {
+                if (matErrorEl) {
+                  matErrorEl.textContent = 'Serial number(s) required for ' + (productsMap[prodId] ? productsMap[prodId].name : prodId);
+                  matErrorEl.style.display = 'block';
+                }
+                return;
+              }
+              lines.push({ product_id: prodId, serial_nos: snList });
+            } else {
+              var qInput = rEl.querySelector('.usf-mat-qty');
+              var qtyVal = parseInt(qInput ? qInput.value : '0', 10);
+              if (!qtyVal || qtyVal <= 0) {
+                if (matErrorEl) {
+                  matErrorEl.textContent = 'Valid quantity required for ' + (productsMap[prodId] ? productsMap[prodId].name : prodId);
+                  matErrorEl.style.display = 'block';
+                }
+                return;
+              }
+              lines.push({ product_id: prodId, qty: qtyVal });
+            }
+          }
+
+          if (!lines.length) {
+            if (matErrorEl) {
+              matErrorEl.textContent = 'Please select at least one material product to issue.';
+              matErrorEl.style.display = 'block';
+            }
+            return;
+          }
+
+          btnIssueNow.disabled = true;
+          btnIssueNow.textContent = 'Issuing...';
+          try {
+            await window.api.call('usage.issue', {
+              site_id: site.site_id,
+              location_id: site.default_location_id || 'LOC-MAIN',
+              used_on: new Date().toISOString().slice(0, 10),
+              lines: lines
+            });
+            window.ui.toast(lines.length + ' material item(s) issued successfully!', 'success');
+
+            // Reset lines container to 1 blank row
+            matLinesContainer.innerHTML = buildMatLineHtml(lineCounter++);
+            bindLineEvents(matLinesContainer.firstElementChild);
+
+            // Refresh issued list immediately!
+            await loadIssuedMaterials();
+
+            delete _tabLoaded['material'];
+            delete _tabData['material'];
+            delete _tabLoaded['serials'];
+            delete _tabData['serials'];
+          } catch(err) {
+            if (matErrorEl) {
+              matErrorEl.textContent = err.message || 'Failed to issue materials';
+              matErrorEl.style.display = 'block';
+            }
+          } finally {
+            btnIssueNow.disabled = false;
+            btnIssueNow.innerHTML = '📦 Issue Now';
+          }
         };
       }
     }
