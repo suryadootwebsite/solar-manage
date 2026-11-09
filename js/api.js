@@ -230,7 +230,7 @@ window.api = (function() {
     }
 
     function _showSlowPopup() {
-      if (popupShown || slowPopupEl || typeof document === "undefined") return;
+      if (popupShown || slowPopupEl || typeof document === "undefined" || _activeRequests <= 0) return;
       popupShown = true;
       slowPopupEl = document.createElement("div");
       slowPopupEl.id = "still-loading-popup-" + requestId;
@@ -362,9 +362,25 @@ window.api = (function() {
       }
     } finally {
       clearTimeout(slowTimer);
+      _dismissSlowPopup();
       _activeRequests--;
       _updateProgress();
-    }
+      if (_activeRequests <= 0) {
+        try {
+          var lingering = document.querySelectorAll('.still-loading-popup');
+          lingering.forEach(function(el) { if (el && el.parentNode) el.parentNode.removeChild(el); });
+        } catch(e) {}
+      }
+  }
+
+  }
+  if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+    window.addEventListener('hashchange', function() {
+      try {
+        var lingering = document.querySelectorAll('.still-loading-popup');
+        lingering.forEach(function(el) { if (el && el.parentNode) el.parentNode.removeChild(el); });
+      } catch(e) {}
+    });
   }
 
   return {

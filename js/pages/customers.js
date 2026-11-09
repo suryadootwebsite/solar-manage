@@ -150,6 +150,8 @@ window.pages.customers = async function(container) {
     }
 
     var html = filtered.map(function(c) {
+      var phoneDigits = String(c.phone || '').replace(/\D/g, '');
+      var waUrl = phoneDigits ? ('https://wa.me/91' + (phoneDigits.length === 10 ? phoneDigits : phoneDigits.slice(-10))) : '';
       return `
         <div class="card customer-card" data-id="${c.customer_id}" style="margin-bottom:0.75rem; cursor:${canUpdate ? 'pointer' : 'default'};">
           <div style="display:flex; justify-content:space-between; align-items:flex-start;">
@@ -165,7 +167,13 @@ window.pages.customers = async function(container) {
               ${c.doc_count ? `<span class="badge" style="font-size:0.75rem; background:#f1f5f9; color:#475569;">📄 ${c.doc_count}</span>` : ''}
             </div>
           </div>
-            ${c.created_by_name && window.auth && window.auth.getRole && window.auth.getRole() !== 'SITE_USER' ? '<div style="font-size:0.72rem;color:var(--text-muted);margin-top:4px;text-align:right;">Added by ' + window.ui.esc(c.created_by_name) + '</div>' : ''}
+          ${c.created_by_name && window.auth && window.auth.getRole && window.auth.getRole() !== 'SITE_USER' ? '<div style="font-size:0.72rem;color:var(--text-muted);margin-top:4px;text-align:right;">Added by ' + window.ui.esc(c.created_by_name) + '</div>' : ''}
+          ${c.phone ? `
+            <div style="display:flex; gap:0.4rem; flex-wrap:wrap; margin-top:0.6rem; padding-top:0.6rem; border-top:1px solid var(--border);">
+              <a href="tel:${window.ui.esc(c.phone)}" class="btn btn-secondary" onclick="event.stopPropagation();" style="font-size:0.78rem; padding:0.25rem 0.65rem; min-height:32px; text-decoration:none;">📞 Call</a>
+              <a href="${waUrl}" target="_blank" rel="noopener" class="btn btn-secondary" onclick="event.stopPropagation();" style="font-size:0.78rem; padding:0.25rem 0.65rem; min-height:32px; text-decoration:none;">💬 WA</a>
+            </div>
+          ` : ''}
         </div>
       `;
     }).join('');
@@ -198,8 +206,12 @@ window.pages.customers = async function(container) {
           <div style="font-weight:700; font-size:1.15rem; color:var(--text-main); margin-bottom:0.25rem;">${window.ui.esc(c.name)}</div>
           <div style="font-size:0.875rem; color:var(--text-muted); margin-bottom:0.25rem;">📞 <a href="tel:${window.ui.esc(c.phone)}">${window.ui.esc(c.phone)}</a> ${c.alt_phone ? ' | ' + window.ui.esc(c.alt_phone) : ''}</div>
           ${c.city || c.address ? `<div style="font-size:0.875rem; color:var(--text-muted); margin-bottom:0.5rem;">📍 ${window.ui.esc([c.address, c.city, c.pincode].filter(Boolean).join(', '))}</div>` : ''}
-          <div style="margin-top:0.75rem;">
+          <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.75rem;">
             <button id="btn-edit-cust-detail" class="btn btn-outline btn-sm">Edit Details</button>
+            ${c.phone ? `
+              <a href="tel:${window.ui.esc(c.phone)}" class="btn btn-secondary btn-sm" style="text-decoration:none;">📞 Call</a>
+              <a href="https://wa.me/91${String(c.phone).replace(/\D/g, '').slice(-10)}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm" style="text-decoration:none;">💬 WhatsApp</a>
+            ` : ''}
           </div>
         </div>
         <div id="cust-detail-docs-mount"></div>

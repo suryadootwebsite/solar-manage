@@ -145,6 +145,8 @@ window.pages.suppliers = async function(container) {
     }
 
     listEl.innerHTML = filtered.map(function(s) {
+      var phoneDigits = String(s.phone || '').replace(/\D/g, '');
+      var waUrl = phoneDigits ? ('https://wa.me/91' + (phoneDigits.length === 10 ? phoneDigits : phoneDigits.slice(-10))) : '';
       return `
         <div class="card sup-card" data-id="${s.supplier_id}" style="margin-bottom:0.75rem; cursor:pointer;${!s.is_active ? 'opacity:0.65;' : ''}">
           <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.75rem;">
@@ -162,6 +164,12 @@ window.pages.suppliers = async function(container) {
               ${s.doc_count ? `<span class="badge" style="font-size:0.75rem; background:#f1f5f9; color:#475569;">📄 ${s.doc_count}</span>` : ''}
             </div>
           </div>
+          ${s.phone ? `
+            <div style="display:flex; gap:0.4rem; flex-wrap:wrap; margin-top:0.6rem; padding-top:0.6rem; border-top:1px solid var(--border);">
+              <a href="tel:${window.ui.esc(s.phone)}" class="btn btn-secondary" onclick="event.stopPropagation();" style="font-size:0.78rem; padding:0.25rem 0.65rem; min-height:32px; text-decoration:none;">📞 Call</a>
+              <a href="${waUrl}" target="_blank" rel="noopener" class="btn btn-secondary" onclick="event.stopPropagation();" style="font-size:0.78rem; padding:0.25rem 0.65rem; min-height:32px; text-decoration:none;">💬 WA</a>
+            </div>
+          ` : ''}
         </div>
       `;
     }).join('');
@@ -206,8 +214,12 @@ window.pages.suppliers = async function(container) {
         ${s.gst_no ? `<div style="font-size:0.875rem; color:var(--text-muted); margin-bottom:0.25rem;">GST: <code>${window.ui.esc(s.gst_no)}</code></div>` : ''}
         ${s.phone ? `<div style="font-size:0.875rem; color:var(--text-muted); margin-bottom:0.25rem;">📞 <a href="tel:${window.ui.esc(s.phone)}">${window.ui.esc(s.phone)}</a></div>` : ''}
         ${s.address ? `<div style="font-size:0.875rem; color:var(--text-muted); margin-bottom:0.5rem;">📍 ${window.ui.esc(s.address)}</div>` : ''}
-        <div style="margin-top:0.75rem;">
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.75rem;">
           ${isOwner ? `<button id="btn-edit-sup-detail" class="btn btn-outline btn-sm">Edit Details</button>` : ''}
+          ${s.phone ? `
+            <a href="tel:${window.ui.esc(s.phone)}" class="btn btn-secondary btn-sm" style="text-decoration:none;">📞 Call</a>
+            <a href="https://wa.me/91${String(s.phone).replace(/\D/g, '').slice(-10)}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm" style="text-decoration:none;">💬 WhatsApp</a>
+          ` : ''}
         </div>
         <div id="sup-detail-docs-mount" style="margin-top:1rem;"></div>
       </div>

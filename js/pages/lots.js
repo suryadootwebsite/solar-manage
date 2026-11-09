@@ -84,9 +84,8 @@ window.pages.lots = async function(container) {
     loadRow.innerHTML = 'Loading more...';
     listView.appendChild(loadRow);
     try {
-      var payload = { sort: currentSort, offset: _offset, limit: 40 };
-      if (currentStatus) payload.status = currentStatus;
-      if (currentOrdStatus) payload.order_status = currentOrdStatus;
+      var payload = { sort: currentSortLots, offset: _offset, limit: 40 };
+      if (currentStatusFilter) payload.status = currentStatusFilter;
       var res = await window.api.call('lots.list', payload);
       var el = document.getElementById('load-more-row-lot');
       if (el) el.remove();
@@ -284,7 +283,7 @@ window.pages.lots = async function(container) {
         `;
       }).join('');
 
-      var isManager = (role === 'MANAGER');
+      var isManager = (userRole === 'MANAGER');
       var canSetRate = isOwner && lot.status === 'PENDING_RATE';
       var canCancel = isOwner && lot.status !== 'CANCELLED';
       var curOrd = lot.order_status || '';

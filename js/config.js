@@ -16,7 +16,7 @@ window.APP_CONFIG = {
 
   // App Metadata
   APP_NAME: 'Solar Management System',
-  APP_VERSION: '1.0.4',
+  APP_VERSION: '1.0.5',
 
   // Localization
   DEFAULT_LANG: 'en',
