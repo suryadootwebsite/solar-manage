@@ -10,7 +10,7 @@
  * Doc ref: Doc 06 §1, Doc 09 S03
  */
 
-const APP_VERSION = '1.0.1';
+const APP_VERSION = '1.0.2';
 const CACHE_NAME = 'solar-ms-shell-v' + APP_VERSION;
 
 const SHELL_ASSETS = [
@@ -38,6 +38,7 @@ const SHELL_ASSETS = [
   './js/components/serial-input.js',
   './js/components/list-search.js',
   './js/components/doc-manager.js',
+  './js/pages/leads.js',
   './js/pages/dashboard.js',
   './js/pages/customers.js',
   './js/pages/masters.js',
@@ -107,7 +108,7 @@ self.addEventListener('fetch', (event) => {
       })
       .catch(() => {
         // Network failed (offline) -> fallback to cache
-        return caches.match(event.request).then((cachedResponse) => {
+        return caches.match(event.request, { ignoreSearch: true }).then((cachedResponse) => {
           if (cachedResponse) {
             return cachedResponse;
           }

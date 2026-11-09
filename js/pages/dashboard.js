@@ -12,6 +12,9 @@
 (function() {
   window.pages = window.pages || {};
 
+  var selMonth = (function(){ try { return localStorage.getItem('sms_dash_sel_month') || 'ALL'; } catch(e) { return 'ALL'; } })();
+  var selYear = (function(){ try { return localStorage.getItem('sms_dash_sel_year') || 'ALL'; } catch(e) { return 'ALL'; } })();
+
   function render(container) {
     var t = window.i18n.t;
     var ui = window.ui;
@@ -53,8 +56,8 @@
         '<div class="card skeleton" style="height:180px;"></div>';
     }
 
-    var selMonth = localStorage.getItem('sms_dash_sel_month') || 'ALL';
-    var selYear = localStorage.getItem('sms_dash_sel_year') || 'ALL';
+    selMonth = localStorage.getItem('sms_dash_sel_month') || 'ALL';
+    selYear = localStorage.getItem('sms_dash_sel_year') || 'ALL';
 
     function getCacheKey() {
       return 'sms_cache_dashboard_' + role + '_' + selMonth + '_' + selYear;
@@ -168,7 +171,7 @@
       { val: '11', label: t('dash.month_11') || 'Nov' },
       { val: '12', label: t('dash.month_12') || 'Dec' }
     ];
-    var activePeriod = dash.period || { month: (function(){ try { return localStorage.getItem('sms_dash_sel_month') || 'ALL'; } catch(e) { return 'ALL'; } })(), year: (function(){ try { return localStorage.getItem('sms_dash_sel_year') || 'ALL'; } catch(e) { return 'ALL'; } })() };
+    var activePeriod = (dash && dash.period) || { month: (selMonth || 'ALL'), year: (selYear || 'ALL') };
 
     html += '<div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;margin-bottom:1rem;background:var(--bg-main, #f9fafb);padding:0.6rem 0.75rem;border-radius:8px;border:1px solid var(--border-color, #e5e7eb);">' +
       '<span style="font-size:0.85rem;font-weight:600;color:var(--text-muted);display:inline-flex;align-items:center;gap:0.3rem;">📅 ' + ui.esc(t('dash.period') || 'Period') + ':</span>' +
