@@ -39,11 +39,7 @@ window.auth = (function() {
   }
 
   function isOwnerLike(role) {
-    return role === 'OWNER' || role === 'DEVELOPER';
-  }
-
-  function isDeveloper() {
-    return getRole() === 'DEVELOPER';
+    return role === 'OWNER';
   }
 
   function isViewOnly(role) {
@@ -53,7 +49,7 @@ window.auth = (function() {
 
   function can(action) {
     var role = getRole();
-    // OWNER has full access. DEVELOPER only has read-only actions per ACTION_ROLES.
+    // OWNER has full access.
     if (role === 'OWNER') return true;
     var perms = getPermissions();
     return perms.indexOf(action) !== -1;
@@ -114,7 +110,6 @@ window.auth = (function() {
     getPermissions: getPermissions,
     can: can,
     isOwnerLike: isOwnerLike,
-    isDeveloper: isDeveloper,
     isViewOnly: isViewOnly,
     setSession: setSession,
     setToken: setToken,

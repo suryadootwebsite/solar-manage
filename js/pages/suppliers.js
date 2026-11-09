@@ -174,7 +174,7 @@ window.pages.suppliers = async function(container) {
     });
 
     var callerRole = window.auth && window.auth.getRole ? window.auth.getRole() : '';
-    if (callerRole === 'OWNER' || callerRole === 'MANAGER' || callerRole === 'DEVELOPER') {
+    if (callerRole === 'OWNER' || callerRole === 'MANAGER') {
       filtered.forEach(function(s) {
         if (s.is_active === false) return;
         var el = listEl.querySelector('.sup-bal-el-' + s.supplier_id);

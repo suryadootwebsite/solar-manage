@@ -16,7 +16,7 @@ window.pages.siteDetail = async function(container, params) {
   var currentUser = window.auth.getUser() || {};
   var userRole = currentUser.role || 'SITE_USER';
   var currentUserId = currentUser.user_id || '';
-  var isOwner = userRole === 'OWNER' || userRole === 'DEVELOPER';
+  var isOwner = userRole === 'OWNER';
 
   container.innerHTML = `
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
@@ -652,7 +652,7 @@ window.pages.siteDetail = async function(container, params) {
 
       wrapEl.innerHTML = headerHtml + bodyHtml;
 
-      // Diagnostics ping (OWNER/DEVELOPER only) — shows backend version
+      // Diagnostics ping (OWNER only) — shows backend version
       if (isOwner) {
         var diagEl = document.getElementById('sdt-photos-diag');
         if (diagEl) {
@@ -1345,7 +1345,7 @@ window.pages.siteDetail = async function(container, params) {
       </div>
     `;
 
-    // B1: Contract value edit (OWNER/DEVELOPER see current; MANAGER write-only)
+    // B1: Contract value edit (OWNER see current; MANAGER write-only)
     if (isOwner || userRole === 'MANAGER') {
       var cvDiv = document.createElement('div');
       cvDiv.className = 'card';

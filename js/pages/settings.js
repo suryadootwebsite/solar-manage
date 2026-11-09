@@ -255,7 +255,7 @@ window.pages.settings = function(container) {
       }
     })();
 
-    // B10: Performance card — slow requests (OWNER/DEVELOPER only)
+    // B10: Performance card — slow requests (OWNER only)
     (async function() {
       var perfCard = document.createElement('div');
       perfCard.className = 'card';
@@ -288,7 +288,7 @@ window.pages.settings = function(container) {
       }
     })();
 
-    // System Backup & Drive Storage Card (OWNER/DEVELOPER only)
+    // System Backup & Drive Storage Card (OWNER only)
     (async function() {
       var backupCard = document.createElement('div');
       backupCard.className = 'card';
@@ -348,7 +348,7 @@ window.pages.settings = function(container) {
       }
     })();
 
-    // System Integrity & Health Card (OWNER/DEVELOPER only)
+    // System Integrity & Health Card (OWNER only)
     (async function() {
       var healthCard = document.createElement('div');
       healthCard.className = 'card';
@@ -462,8 +462,8 @@ window.pages.settings = function(container) {
       }
     })();
 
-    // F3: Company & Branch Management (DEVELOPER only)
-    if (window.auth && window.auth.getRole && window.auth.getRole() === 'DEVELOPER') {
+    // F3: Company & Branch Management (OWNER only)
+    if (window.auth && window.auth.getRole && window.auth.getRole() === 'OWNER') {
       (async function() {
         var devCard = document.createElement('div');
         devCard.className = 'card';

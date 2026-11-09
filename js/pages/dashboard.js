@@ -125,7 +125,7 @@
 
     var isOwner = window.auth.isOwnerLike(role);
 
-    // Toggle for OWNER/DEVELOPER
+    // Toggle for OWNER
     if (isOwner) {
       html +=
         '<div style="display:flex;gap:0.5rem;margin-bottom:1rem;">' +
@@ -189,7 +189,7 @@
         kpiCard(t('dash.stock_value'), formatCurrency(dash.stock_value_paise || 0), '#059669') +
         kpiCard(t('dash.receivable'), formatCurrency(dash.receivable_paise || 0), '#2563eb') +
         kpiCard(t('dash.payable'), formatCurrency(dash.payable_paise || 0), '#d97706') +
-        kpiCard(t('dash.month_profit'), formatCurrency(dash.month_profit_paise || 0), (dash.month_profit_paise || 0) >= 0 ? '#059669' : '#dc2626');
+        kpiCard(t('dash.month_profit'), formatCurrency(dash.period_profit_paise || 0), (dash.period_profit_paise || 0) >= 0 ? '#059669' : '#dc2626');
     } else if (role === 'MANAGER' || role === 'VIEW_ONLY') {
       html +=
         kpiCard(t('dash.active_sites'), dash.active_sites_count || 0, 'var(--brand)') +

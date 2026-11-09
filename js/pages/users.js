@@ -24,7 +24,7 @@ window.pages.users = function(container) {
   }
 
   var callerRole = window.auth && window.auth.getRole ? window.auth.getRole() : '';
-  var isOwnerOrDev = callerRole === 'OWNER' || callerRole === 'DEVELOPER';
+  var isOwnerOrDev = callerRole === 'OWNER';
   var isOwnerRole = callerRole === 'OWNER';
 
   container.innerHTML = `
@@ -79,7 +79,7 @@ window.pages.users = function(container) {
   function renderUsers(items) {
     allUsers = items;
     var callerRole = window.auth && window.auth.getRole ? window.auth.getRole() : '';
-    var isOwnerOrDev = callerRole === 'OWNER' || callerRole === 'DEVELOPER';
+    var isOwnerOrDev = callerRole === 'OWNER';
     var isOwnerRole = callerRole === 'OWNER';
     var listContainer = document.getElementById('users-list-container');
     if (!listContainer) return;

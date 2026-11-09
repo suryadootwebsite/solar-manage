@@ -186,10 +186,10 @@
         lots: window.auth.can('lots.list'),
         customers: window.auth.can('customers.list'),
         masters: window.auth.can('products.list') || window.auth.can('locations.list'),
-        suppliers: (role === 'OWNER' || role === 'MANAGER' || role === 'DEVELOPER') && window.auth.can('suppliers.list'),
+        suppliers: (role === 'OWNER' || role === 'MANAGER') && window.auth.can('suppliers.list'),
         money: role === 'OWNER' && window.auth.can('cpay.add'),
         reports: role !== 'SITE_USER' && window.auth.can('reports.list'),
-        users: (role === 'OWNER' || role === 'MANAGER' || role === 'DEVELOPER') && window.auth.can('users.list'),
+        users: (role === 'OWNER' || role === 'MANAGER') && window.auth.can('users.list'),
         settings: role === 'OWNER'
       };
     }
@@ -220,7 +220,6 @@
 
     var roleBadges = {
       OWNER: '<span class="badge badge-success">OWNER</span>',
-      DEVELOPER: '<span class="badge badge-info">DEVELOPER · View only</span>',
       MANAGER: '<span class="badge badge-info">MANAGER</span>',
       SITE_USER: '<span class="badge badge-warning">SITE USER</span>'
     };
@@ -233,7 +232,6 @@
         <div>
           <div style="font-weight:700; font-size:1.05rem; color:var(--text-main);">${window.ui.esc(name)}</div>
           <div style="margin-top:0.2rem;">${roleBadges[role] || role}</div>
-          ${role === 'DEVELOPER' ? '<div style="margin-top:0.3rem;font-size:0.78rem;color:var(--text-muted,#888);">Read-only access — cannot modify data</div>' : ''}
         </div>
       </div>
 
