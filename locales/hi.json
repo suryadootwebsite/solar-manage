@@ -415,5 +415,7 @@
   "leads.subtitle": "पूछताछ, फॉलो-अप एवं ग्राहक कन्वर्जन",
   "leads.new_btn": "नई लीड जोड़ें",
   "leads.search_placeholder": "नाम, फोन, शहर, विवरण खोजें...",
-  "leads.empty": "कोई लीड नहीं मिली"
+  "leads.empty": "कोई लीड नहीं मिली",
+  "leads.add_title": "नई लीड जोड़ें",
+  "leads.edit_title": "लीड एडिट करें"
 }

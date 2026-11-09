@@ -6,9 +6,9 @@
  *   - Search bar via shared list-search component.
  *   - Today / Overdue follow-up highlights.
  *   - Direct call (tel:) & WhatsApp (wa.me) links.
- *   - Add / Edit Lead bottom sheet.
+ *   - Add / Edit Lead bottom sheet (with Address & Quotation Amount).
  *   - Notes timeline bottom sheet.
- *   - Convert to Customer & Site modal.
+ *   - Convert to Customer & Site modal (with Cash / Finance Stage Track).
  */
 
 window.pages = window.pages || {};
@@ -18,7 +18,7 @@ window.pages.leads = async function (container) {
   var esc = (window.ui && window.ui.esc) ? window.ui.esc : function (s) { return String(s || ''); };
 
   var user = (window.auth && window.auth.getUser) ? window.auth.getUser() : {};
-  var isOwnerOrManager = user.role === 'OWNER' || user.role === 'DEVELOPER' || user.role === 'MANAGER';
+  var isOwnerOrManager = user.role === 'OWNER' || user.role === 'MANAGER';
 
   if (!isOwnerOrManager) {
     container.innerHTML = '<div class="card text-danger" style="padding:2rem;text-align:center;">' +
@@ -29,8 +29,8 @@ window.pages.leads = async function (container) {
   container.innerHTML = 
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;flex-wrap:wrap;gap:0.5rem;">' +
       '<div>' +
-        '<h2 style="margin:0;font-size:1.35rem;">' + esc(t('leads.title') || 'Leads Pipeline') + '</h2>' +
-        '<p class="text-muted" style="margin:0.2rem 0 0;font-size:0.85rem;">' + esc(t('leads.subtitle') || 'Inquiries, follow-ups & customer conversions') + '</p>' +
+        '<h2 style="margin:0;font-size:1.35rem;">' + esc(t('leads.title') || 'Leads') + '</h2>' +
+        '<p class="text-muted" style="margin:0.2rem 0 0;font-size:0.85rem;">' + esc(t('leads.subtitle') || 'Customer inquiries, quotations & conversions') + '</p>' +
       '</div>' +
       '<button id="btn-add-lead" class="btn btn-primary" style="min-height:42px;">+ ' + esc(t('leads.new_btn') || 'Add Lead') + '</button>' +
     '</div>' +
@@ -121,7 +121,7 @@ window.pages.leads = async function (container) {
 
     // Filter by search query across multiple fields
     if (searchQuery && window.components && window.components.filterListByQuery) {
-      filtered = window.components.filterListByQuery(filtered, searchQuery, ['name', 'phone', 'alt_phone', 'city', 'interest', 'remark', 'lead_id']);
+      filtered = window.components.filterListByQuery(filtered, searchQuery, ['name', 'phone', 'alt_phone', 'city', 'address', 'interest', 'remark', 'lead_id']);
     }
 
     if (!filtered.length) {
@@ -244,9 +244,10 @@ window.pages.leads = async function (container) {
   // Add / Edit Lead Bottom Sheet
   function openLeadSheet(existingLead) {
     var isEdit = !!existingLead;
+    var sheetTitle = isEdit ? (t('leads.edit_title') || 'Edit Lead') : (t('leads.add_title') || 'Add New Lead');
+
     var sheetHtml = 
-      '<div style="padding:1rem;">' +
-        '<h3 style="margin:0 0 1rem;font-size:1.15rem;">' + (isEdit ? 'Edit Lead' : 'Add New Lead') + '</h3>' +
+      '<div style="padding:0.25rem 0;">' +
         '<div class="form-field">' +
           '<label>Customer / Lead Name *</label>' +
           '<input type="text" id="lead-f-name" class="input" value="' + esc(isEdit ? existingLead.name : '') + '" placeholder="e.g. Ramesh Patel">' +
@@ -260,6 +261,10 @@ window.pages.leads = async function (container) {
             '<label>Alt Phone</label>' +
             '<input type="tel" id="lead-f-alt-phone" class="input" value="' + esc(isEdit ? existingLead.alt_phone : '') + '">' +
           '</div>' +
+        '</div>' +
+        '<div class="form-field">' +
+          '<label>Address</label>' +
+          '<input type="text" id="lead-f-address" class="input" value="' + esc(isEdit ? (existingLead.address || '') : '') + '" placeholder="Full address / landmark">' +
         '</div>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">' +
           '<div class="form-field">' +
@@ -281,13 +286,17 @@ window.pages.leads = async function (container) {
             '<input type="number" step="0.5" id="lead-f-kw" class="input" value="' + (isEdit ? (existingLead.expected_kw || '') : '') + '" placeholder="e.g. 5">' +
           '</div>' +
           '<div class="form-field">' +
-            '<label>Status</label>' +
-            '<select id="lead-f-status" class="input">' +
-              ['NEW', 'CONTACTED', 'SITE_VISIT', 'QUOTATION_SENT', 'NEGOTIATION', 'WON', 'LOST'].map(function (st) {
-                return '<option value="' + st + '" ' + (isEdit && existingLead.status === st ? 'selected' : '') + '>' + st + '</option>';
-              }).join('') +
-            '</select>' +
+            '<label>Quotation Amount (₹)</label>' +
+            '<input type="number" id="lead-f-amount" class="input" value="' + (isEdit && existingLead.estimated_amount_paise ? (existingLead.estimated_amount_paise / 100) : '') + '" placeholder="e.g. 250000">' +
           '</div>' +
+        '</div>' +
+        '<div class="form-field">' +
+          '<label>Status</label>' +
+          '<select id="lead-f-status" class="input">' +
+            ['NEW', 'CONTACTED', 'SITE_VISIT', 'QUOTATION_SENT', 'NEGOTIATION', 'WON', 'LOST'].map(function (st) {
+              return '<option value="' + st + '" ' + (isEdit && existingLead.status === st ? 'selected' : '') + '>' + st + '</option>';
+            }).join('') +
+          '</select>' +
         '</div>' +
         '<div class="form-field" id="wrap-lost-reason" style="display:' + (isEdit && existingLead.status === 'LOST' ? 'block' : 'none') + ';">' +
           '<label>Lost Reason *</label>' +
@@ -309,7 +318,7 @@ window.pages.leads = async function (container) {
         '<button type="button" id="btn-save-lead" class="btn btn-primary btn-full" style="min-height:44px;">' + (isEdit ? 'Update Lead' : 'Save Lead') + '</button>' +
       '</div>';
 
-    window.ui.openBottomSheet(sheetHtml);
+    window.ui.openBottomSheet(sheetTitle, sheetHtml, '');
 
     var statusSel = document.getElementById('lead-f-status');
     var lostWrap = document.getElementById('wrap-lost-reason');
@@ -326,6 +335,9 @@ window.pages.leads = async function (container) {
       saveBtn.addEventListener('click', async function () {
         await window.ui.withButtonLoading(saveBtn, async function () {
           errEl.style.display = 'none';
+          var amountInput = document.getElementById('lead-f-amount');
+          var amountVal = amountInput ? (parseFloat(amountInput.value) || 0) : 0;
+
           var payload = {
             name: document.getElementById('lead-f-name').value.trim(),
             phone: document.getElementById('lead-f-phone').value.trim(),
@@ -334,7 +346,7 @@ window.pages.leads = async function (container) {
             city: document.getElementById('lead-f-city').value.trim(),
             source: document.getElementById('lead-f-source').value,
             expected_kw: parseFloat(document.getElementById('lead-f-kw').value) || 0,
-            estimated_amount_paise: Math.round((parseFloat(document.getElementById('lead-f-amount').value) || 0) * 100),
+            estimated_amount_paise: Math.round(amountVal * 100),
             status: document.getElementById('lead-f-status').value,
             lost_reason: document.getElementById('lead-f-lost-reason').value.trim(),
             next_followup_date: document.getElementById('lead-f-followup').value,
@@ -385,9 +397,10 @@ window.pages.leads = async function (container) {
   // Add Note Bottom Sheet
   function openNoteSheet(leadId) {
     var lead = allLeads.find(function (l) { return l.lead_id === leadId; });
+    var sheetTitle = 'Notes — ' + (lead ? lead.name : leadId);
+
     var sheetHtml = 
-      '<div style="padding:1rem;">' +
-        '<h3 style="margin:0 0 0.5rem;font-size:1.15rem;">Notes Timeline — ' + esc(lead ? lead.name : leadId) + '</h3>' +
+      '<div style="padding:0.25rem 0;">' +
         '<div style="background:var(--bg-main, #f9fafb);padding:0.75rem;border-radius:8px;max-height:200px;overflow-y:auto;font-size:0.85rem;white-space:pre-line;margin-bottom:1rem;border:1px solid var(--border-color, #e5e7eb);">' +
           esc(lead && lead.remark ? lead.remark : 'No notes recorded yet.') +
         '</div>' +
@@ -399,7 +412,7 @@ window.pages.leads = async function (container) {
         '<button type="button" id="btn-save-note" class="btn btn-primary btn-full" style="min-height:44px;">Add Note to Timeline</button>' +
       '</div>';
 
-    window.ui.openBottomSheet(sheetHtml);
+    window.ui.openBottomSheet(sheetTitle, sheetHtml, '');
 
     var saveBtn = document.getElementById('btn-save-note');
     var errEl = document.getElementById('note-sheet-err');
@@ -431,15 +444,18 @@ window.pages.leads = async function (container) {
 
   // Convert to Customer & Site Sheet
   function openConvertSheet(lead) {
+    var sheetTitle = 'Convert Lead to Customer';
+
     var sheetHtml = 
-      '<div style="padding:1rem;">' +
-        '<h3 style="margin:0 0 0.5rem;font-size:1.15rem;">Convert Lead to Customer</h3>' +
+      '<div style="padding:0.25rem 0;">' +
         '<p class="text-muted" style="margin:0 0 1rem;font-size:0.85rem;">This will create a permanent Customer master record and optionally a new active Site.</p>' +
         '<div class="card" style="margin-bottom:1rem;padding:0.75rem;font-size:0.85rem;">' +
           '<strong>Customer:</strong> ' + esc(lead.name) + '<br>' +
           '<strong>Phone:</strong> ' + esc(lead.phone) + '<br>' +
           (lead.city ? ('<strong>City:</strong> ' + esc(lead.city) + '<br>') : '') +
+          (lead.address ? ('<strong>Address:</strong> ' + esc(lead.address) + '<br>') : '') +
           (lead.expected_kw ? ('<strong>Interest:</strong> ' + lead.expected_kw + ' kW') : '') +
+          (lead.estimated_amount_paise ? ('<br><strong>Quotation:</strong> ₹' + (lead.estimated_amount_paise / 100).toLocaleString('en-IN')) : '') +
         '</div>' +
         '<div class="form-field" style="display:flex;align-items:center;gap:0.5rem;margin-bottom:1rem;">' +
           '<input type="checkbox" id="conv-create-site" checked style="width:20px;height:20px;">' +
@@ -460,12 +476,19 @@ window.pages.leads = async function (container) {
               '<input type="number" id="conv-contract-val" class="input" value="' + (lead.estimated_amount_paise ? (lead.estimated_amount_paise / 100) : '') + '" placeholder="e.g. 250000">' +
             '</div>' +
           '</div>' +
+          '<div class="form-field">' +
+            '<label>Payment Track / Stage Template *</label>' +
+            '<select id="conv-payment-type" class="input">' +
+              '<option value="CASH">CASH (16 Standard Stages)</option>' +
+              '<option value="FINANCE">FINANCE / LOAN (18 Bank & Loan Stages)</option>' +
+            '</select>' +
+          '</div>' +
         '</div>' +
         '<div id="conv-sheet-err" class="text-danger" style="margin-bottom:0.75rem;font-size:0.85rem;display:none;"></div>' +
         '<button type="button" id="btn-do-convert" class="btn btn-primary btn-full" style="min-height:44px;">Confirm & Convert</button>' +
       '</div>';
 
-    window.ui.openBottomSheet(sheetHtml);
+    window.ui.openBottomSheet(sheetTitle, sheetHtml, '');
 
     var chkSite = document.getElementById('conv-create-site');
     var siteFields = document.getElementById('conv-site-fields');

@@ -58,6 +58,10 @@ window.ui = (function() {
   var _sheetStack = [];
 
   function openBottomSheet(title, bodyHtml, footerButtonsHtml) {
+    if (bodyHtml === undefined && typeof title === 'string' && title.trim().startsWith('<')) {
+      bodyHtml = title;
+      title = '';
+    }
     var backdrop = document.getElementById('modal-backdrop');
     if (!backdrop) return;
 
