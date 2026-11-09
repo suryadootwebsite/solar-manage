@@ -236,7 +236,7 @@ window.pages.sites = async function(container) {
                 ${window.ui.esc(s.site_name)} ${stuckBadge}
               </div>
               <div style="font-size:0.875rem; color:var(--text-muted); margin-top:0.25rem;">
-                👤 ${window.ui.esc(getCustomerName(s.customer_id))} · <strong>${s.system_kw} kW</strong>
+                👤 ${window.ui.esc(getCustomerName(s.customer_id))} · <strong>${s.system_kw} kW</strong> ${(s.payment_type === 'FINANCE') ? '<span class="badge" style="background:#e0e7ff; color:#3730a3; font-size:0.7rem; margin-left:0.35rem;">FINANCE</span>' : '<span class="badge" style="background:#f3f4f6; color:#4b5563; font-size:0.7rem; margin-left:0.35rem;">CASH</span>'}
               </div>
               <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.25rem;">
                 Current Stage: <strong style="color:var(--brand);">${window.ui.esc(getStageName(s.current_stage_id) || 'Survey')}</strong>

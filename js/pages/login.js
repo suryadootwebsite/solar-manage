@@ -63,13 +63,6 @@ window.pages.login = function(container) {
             </div>
           </div>
 
-          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem;">
-            <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.875rem; color:var(--text-main); cursor:pointer; min-height:44px;">
-              <input type="checkbox" id="login-remember" style="width:20px; height:20px; accent-color:var(--brand);" />
-              <span>${ui.esc(t('login.remember_me'))}</span>
-            </label>
-          </div>
-
           <button
             type="submit"
             id="login-submit-btn"
@@ -107,7 +100,7 @@ window.pages.login = function(container) {
       e.preventDefault();
       var username = document.getElementById('login-username').value.trim();
       var password = document.getElementById('login-password').value;
-      var remember = document.getElementById('login-remember').checked;
+      var remember = true; // Always remember — checkbox removed (FIX 2)
 
       if (!username || !password) return;
 

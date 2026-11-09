@@ -15,7 +15,6 @@ window.pages.masters = async function(container) {
       <div style="display:flex; gap:0.5rem; overflow-x:auto; padding-bottom:0.25rem;" id="masters-tabs-bar">
         <button class="btn btn-secondary tab-btn active" data-sub="products">${window.ui.esc(t('masters.tab_products'))}</button>
         <button class="btn btn-secondary tab-btn" data-sub="locations">${window.ui.esc(t('masters.tab_locations'))}</button>
-        <button class="btn btn-secondary tab-btn" data-sub="stages">${window.ui.esc(t('masters.tab_stages'))}</button>
       </div>
     </div>
     <div id="masters-sub-content">

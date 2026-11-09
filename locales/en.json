@@ -409,5 +409,11 @@
   "users.delete_success": "User deleted successfully",
   "users.disabled_since": "Disabled since",
   "users.delete_available_in": "Delete available in {n} day(s)",
-  "nav.suppliers": "Suppliers"
+  "nav.suppliers": "Suppliers",
+  "nav.leads": "Leads",
+  "leads.title": "Leads Pipeline",
+  "leads.subtitle": "Inquiries, follow-ups & customer conversions",
+  "leads.new_btn": "Add Lead",
+  "leads.search_placeholder": "Search name, phone, city, notes...",
+  "leads.empty": "No leads found"
 }

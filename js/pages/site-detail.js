@@ -353,7 +353,7 @@ window.pages.siteDetail = async function(container, params) {
 
     contentEl.innerHTML = `
       <div class="card" style="margin-bottom:1rem;">
-        <h2 style="margin:0 0 0.5rem 0;">${esc(siteData.site_name)}</h2>
+        <h2 style="margin:0 0 0.5rem 0;">${esc(siteData.site_name)} ${payBadgeHtml}</h2>
         <div style="font-size:0.875rem; color:var(--text-muted); margin-bottom:0.5rem;">
           Customer: <strong>${esc(customerData ? customerData.name : siteData.customer_id)}</strong> ${customerData ? `(${esc(customerData.phone)})` : ''}
         </div>

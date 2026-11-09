@@ -34,12 +34,12 @@ window.pages.users = function(container) {
           <h1 style="font-size:1.5rem; margin:0 0 0.25rem; color:var(--text-main);">${ui.esc(t('users.title') || 'User Management')}</h1>
           <p style="font-size:0.875rem; color:var(--text-muted); margin:0;">${ui.esc(t('users.subtitle') || 'Staff roles, branches, and credentials')}</p>
         </div>
-        ${isOwnerOrDev
+        ${isOwnerRole
           ? `<button id="add-user-btn" class="btn btn-primary" style="min-height:44px; display:inline-flex; align-items:center; gap:0.5rem;">
                <span>+</span>
                <span>${ui.esc(t('users.new_btn') || 'Add User')}</span>
              </button>`
-          : `<p style="font-size:0.85rem;color:var(--text-muted);padding:0.5rem 0;">User management is restricted to Owner. Contact owner to modify users.</p>`
+          : ''
         }
       </div>
 
@@ -118,7 +118,7 @@ window.pages.users = function(container) {
           </div>
 
           <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.75rem; border-top:1px solid var(--border); padding-top:0.75rem;">
-            ${isOwnerOrDev ? `
+            ${(isOwnerRole || (callerRole === 'MANAGER' && u.role !== 'OWNER')) ? `
             <button
               class="btn btn-secondary edit-user-btn"
               data-id="${ui.esc(u.user_id)}"
@@ -134,6 +134,8 @@ window.pages.users = function(container) {
             >
               🔑 ${ui.esc(t('users.reset_pwd_btn') || 'Reset Password')}
             </button>
+            ` : ''}
+            ${isOwnerRole ? `
             <button
               class="btn ${isActive ? 'btn-danger' : 'btn-secondary'} toggle-active-btn"
               data-id="${ui.esc(u.user_id)}"
@@ -143,7 +145,7 @@ window.pages.users = function(container) {
             >
               ${isActive ? (ui.esc(t('users.disable_btn') || 'Disable')) : (ui.esc(t('users.enable_btn') || 'Enable'))}
             </button>
-            ${!isActive && isOwnerRole ? _renderDeleteInfo(u) : ''}
+            ${!isActive ? _renderDeleteInfo(u) : ''}
             ` : ''}
           </div>
         </div>
@@ -325,8 +327,8 @@ window.pages.users = function(container) {
             <input type="text" id="eu-name" value="${ui.esc(u.name || '')}" required class="form-control" style="width:100%; min-height:44px; padding:0.5rem; border:1.5px solid var(--border); border-radius:8px; box-sizing:border-box;" />
           </div>
           <div>
-            <label style="display:block; font-size:0.875rem; font-weight:600; margin-bottom:0.25rem;">Username (Immutable)</label>
-            <input type="text" id="eu-username" value="${ui.esc(u.username || '')}" disabled class="form-control" style="width:100%; min-height:44px; padding:0.5rem; border:1.5px solid var(--border); border-radius:8px; box-sizing:border-box; background:var(--bg-muted, #f3f4f6); color:var(--text-muted); cursor:not-allowed;" />
+            <label style="display:block; font-size:0.875rem; font-weight:600; margin-bottom:0.25rem;">Username</label>
+            <input type="text" id="eu-username" value="${ui.esc(u.username || '')}" class="form-control" style="width:100%; min-height:44px; padding:0.5rem; border:1.5px solid var(--border); border-radius:8px; box-sizing:border-box;" />
           </div>
           <div>
             <label style="display:block; font-size:0.875rem; font-weight:600; margin-bottom:0.25rem;">Phone Number</label>
@@ -365,6 +367,7 @@ window.pages.users = function(container) {
       saveBtn.onclick = function() {
         ui.withButtonLoading(saveBtn, async function() {
           var nameInput = document.getElementById('eu-name');
+          var usernameInput = document.getElementById('eu-username');
           var phoneInput = document.getElementById('eu-phone');
           var roleSelect = document.getElementById('eu-role');
 
@@ -380,6 +383,7 @@ window.pages.users = function(container) {
           var patchPayload = {
             user_id: u.user_id,
             display_name: nameInput ? nameInput.value.trim() : u.name,
+            username: usernameInput ? usernameInput.value.trim() : u.username,
             phone: phoneInput ? phoneInput.value.trim() : '',
             branch_ids: selectedBranches.join(',')
           };
@@ -413,7 +417,7 @@ window.pages.users = function(container) {
             <code id="temp-pwd-text" style="font-size:1.4rem; font-weight:700; color:var(--brand); letter-spacing:1px;">${ui.esc(tempPassword)}</code>
           </div>
           <p style="font-size:0.8rem; color:var(--text-muted); margin:0;">
-            Share this password with the staff member. They will be required to change it upon first login.
+            Share this password with the staff member.
           </p>
         </div>
       `,

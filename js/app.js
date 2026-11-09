@@ -34,6 +34,7 @@
 
     var tabLabels = {
       dashboard: t('nav.dashboard') || 'Dashboard',
+      leads: t('nav.leads') || 'Leads',
       sites: t('nav.sites') || 'Sites',
       stock: t('nav.stock') || 'Stock',
       lots: t('nav.purchase') || 'Purchase',
@@ -167,6 +168,7 @@
     if (role === 'SITE_USER') {
       tabPermissions = {
         dashboard: false,
+        leads: false,
         sites: true,
         stock: false,
         lots: false,
@@ -181,6 +183,7 @@
     } else {
       tabPermissions = {
         dashboard: window.auth.can('dashboard.get'),
+        leads: (role === 'OWNER' || role === 'MANAGER') && window.auth.can('leads.list'),
         sites: window.auth.can('sites.list'),
         stock: window.auth.can('stock.summary'),
         lots: window.auth.can('lots.list'),
@@ -190,7 +193,7 @@
         money: role === 'OWNER' && window.auth.can('cpay.add'),
         reports: role !== 'SITE_USER' && window.auth.can('reports.list'),
         users: (role === 'OWNER' || role === 'MANAGER') && window.auth.can('users.list'),
-        settings: role === 'OWNER'
+        settings: role === 'OWNER' || role === 'MANAGER' || role === 'VIEW_ONLY'
       };
     }
 
@@ -385,6 +388,7 @@
 
   window.router.register('/', window.pages.ping);
   window.router.register('/ping', window.pages.ping);
+  window.router.register('/leads', window.pages.leads);
   window.router.register('/sites', window.pages.sites);
   window.router.register('/sites/:id', window.pages.siteDetail);
   window.router.register('/material-issue', window.pages.materialIssue);

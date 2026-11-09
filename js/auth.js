@@ -56,10 +56,10 @@ window.auth = (function() {
   }
 
   function setSession(token, remember, user, permissions) {
-    var storage = remember ? localStorage : sessionStorage;
-    storage.setItem(TOKEN_KEY, token);
-    if (user) storage.setItem(USER_KEY, JSON.stringify(user));
-    if (permissions) storage.setItem(PERMS_KEY, JSON.stringify(permissions));
+    // Always use localStorage so a page refresh never logs the user out (FIX 1)
+    localStorage.setItem(TOKEN_KEY, token);
+    if (user) localStorage.setItem(USER_KEY, JSON.stringify(user));
+    if (permissions) localStorage.setItem(PERMS_KEY, JSON.stringify(permissions));
     window.dispatchEvent(new CustomEvent('authchange', { detail: { isAuthenticated: true, user: user } }));
   }
 
