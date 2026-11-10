@@ -182,37 +182,47 @@
       '</select>' +
     '</div>';
 
+    function safeT(key, fallback) {
+      var val = (window.i18n && window.i18n.t) ? window.i18n.t(key) : null;
+      if (!val || val === 'Information unavailable' || val === 'जानकारी उपलब्ध नहीं है' || val === key) {
+        return fallback;
+      }
+      return val;
+    }
+
     // KPI Cards Grid
     html += '<div class="kpi-grid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));gap:1rem;margin-bottom:1.5rem;">';
 
     var isPeriodSel = activePeriod && (activePeriod.month !== 'ALL' || activePeriod.year !== 'ALL');
-    var inLabel = isPeriodSel ? (t('dash.period_in') || 'In (Qty)') : (t('dash.today_in') || 'In (Qty)');
-    var outLabel = isPeriodSel ? (t('dash.period_out') || 'Out (Qty)') : (t('dash.today_out') || 'Out (Qty)');
-    var fuLabel = isPeriodSel ? (t('dash.followups_period') || 'Follow-ups') : (t('dash.followups_due_today') || 'Follow-ups');
-    var profitLabel = isPeriodSel ? (t('dash.period_profit') || 'Period Profit') : (t('dash.month_profit') || 'Profit');
+    var inLabel = isPeriodSel ? safeT('dash.period_in', 'In (Qty)') : safeT('dash.today_in', 'Today Stock IN');
+    var outLabel = isPeriodSel ? safeT('dash.period_out', 'Out (Qty)') : safeT('dash.today_out', 'Today Stock OUT');
+    var fuLabel = isPeriodSel ? safeT('dash.followups_period', 'Follow-ups') : safeT('dash.followups_due_today', 'Follow-ups Today');
+    var profitLabel = isPeriodSel ? safeT('dash.period_profit', 'Period Profit') : safeT('dash.month_profit', 'This Month Profit');
+    var activeSitesLabel = isPeriodSel ? 'Period Sites' : safeT('dash.active_sites', 'Active Sites');
+    var stuckSitesLabel = isPeriodSel ? 'Period Stuck Sites' : safeT('dash.stuck_sites', 'Stuck Sites');
 
     if (isOwner && ownerView === 'operations') {
       html +=
-        kpiCard(fuLabel, dash.followups_due_today || 0, '#ea580c') + kpiCard(t('dash.active_sites'), dash.active_sites_count || 0, 'var(--brand)') +
-        kpiCard(t('dash.stuck_sites'), dash.stuck_count || 0, dash.stuck_count > 0 ? '#dc2626' : 'var(--text-muted)') +
+        kpiCard(fuLabel, dash.followups_due_today || 0, '#ea580c') + kpiCard(activeSitesLabel, dash.active_sites_count || 0, 'var(--brand)') +
+        kpiCard(stuckSitesLabel, dash.stuck_count || 0, dash.stuck_count > 0 ? '#dc2626' : 'var(--text-muted)') +
         kpiCard(inLabel, dash.today_in_qty || 0, '#059669') +
         kpiCard(outLabel, dash.today_out_qty || 0, '#2563eb') +
-        kpiCard(t('dash.pending_transfers'), dash.pending_transfers_count || 0, '#d97706');
+        kpiCard(safeT('dash.pending_transfers', 'In-Transit Transfers'), dash.pending_transfers_count || 0, '#d97706');
     } else if (isOwner) {
       html +=
-        kpiCard(t('dash.active_sites'), dash.active_sites_count || 0, 'var(--brand)') +
-        kpiCard(t('dash.stuck_sites'), dash.stuck_count || 0, dash.stuck_count > 0 ? '#dc2626' : 'var(--text-muted)') +
-        kpiCard(t('dash.stock_value'), formatCurrency(dash.stock_value_paise || 0), '#059669') +
-        kpiCard(t('dash.receivable'), formatCurrency(dash.receivable_paise || 0), '#2563eb') +
-        kpiCard(t('dash.payable'), formatCurrency(dash.payable_paise || 0), '#d97706') +
+        kpiCard(activeSitesLabel, dash.active_sites_count || 0, 'var(--brand)') +
+        kpiCard(stuckSitesLabel, dash.stuck_count || 0, dash.stuck_count > 0 ? '#dc2626' : 'var(--text-muted)') +
+        kpiCard(safeT('dash.stock_value', 'Stock Value'), formatCurrency(dash.stock_value_paise || 0), '#059669') +
+        kpiCard(safeT('dash.receivable', 'Customer Receivables'), formatCurrency(dash.receivable_paise || 0), '#2563eb') +
+        kpiCard(safeT('dash.payable', 'Supplier Payables'), formatCurrency(dash.payable_paise || 0), '#d97706') +
         kpiCard(profitLabel, formatCurrency(dash.period_profit_paise || 0), (dash.period_profit_paise || 0) >= 0 ? '#059669' : '#dc2626');
     } else if (role === 'MANAGER' || role === 'VIEW_ONLY') {
       html +=
-        kpiCard(t('dash.active_sites'), dash.active_sites_count || 0, 'var(--brand)') +
-        kpiCard(t('dash.stuck_sites'), dash.stuck_count || 0, dash.stuck_count > 0 ? '#dc2626' : 'var(--text-muted)') +
+        kpiCard(activeSitesLabel, dash.active_sites_count || 0, 'var(--brand)') +
+        kpiCard(stuckSitesLabel, dash.stuck_count || 0, dash.stuck_count > 0 ? '#dc2626' : 'var(--text-muted)') +
         kpiCard(inLabel, dash.today_in_qty || 0, '#059669') +
         kpiCard(outLabel, dash.today_out_qty || 0, '#2563eb') +
-        kpiCard(t('dash.pending_transfers'), dash.pending_transfers_count || 0, '#d97706');
+        kpiCard(safeT('dash.pending_transfers', 'In-Transit Transfers'), dash.pending_transfers_count || 0, '#d97706');
     } else if (role === 'SITE_USER') {
       html +=
         kpiCard(t('dash.my_sites'), (dash.my_sites || []).length, 'var(--brand)') +
@@ -227,7 +237,7 @@
         '<div class="card" style="border-left:4px solid #dc2626;margin-bottom:1.5rem;">' +
           '<h3 style="color:#dc2626;margin-bottom:0.75rem;display:flex;align-items:center;font-size:1.1rem;">' +
             '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>' +
-            ui.esc(t('dash.stuck_alert')) +
+            ui.esc(safeT('dash.stuck_alert', 'Sites Stuck in Current Stage (>3 Days)')) +
           '</h3>' +
           '<div class="table-responsive">' +
             '<table class="data-table">' +
@@ -318,20 +328,23 @@
     }
 
     // Stage Distribution Breakdown
+    html +=
+      '<div class="card">' +
+        '<h3 style="margin-bottom:1rem;font-size:1.1rem;">' + ui.esc(safeT('dash.stage_breakdown', 'Sites by Stage')) + (isPeriodSel ? ' (Selected Period)' : '') + '</h3>';
     if (dash.stage_counts && Object.keys(dash.stage_counts).length > 0) {
       html +=
-        '<div class="card">' +
-          '<h3 style="margin-bottom:1rem;font-size:1.1rem;">' + ui.esc(t('dash.stage_breakdown')) + '</h3>' +
-          '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:0.75rem;">' +
-            Object.keys(dash.stage_counts).map(function(stageName) {
-              return '<div style="background:var(--bg-subtle,#f8fafc);border:1px solid var(--border-color,#e2e8f0);padding:0.75rem;border-radius:8px;">' +
-                '<div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:4px;">' + ui.esc(stageName) + '</div>' +
-                '<div style="font-size:1.3rem;font-weight:700;color:var(--text);">' + dash.stage_counts[stageName] + '</div>' +
-              '</div>';
-            }).join('') +
-          '</div>' +
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:0.75rem;">' +
+          Object.keys(dash.stage_counts).map(function(stageName) {
+            return '<div style="background:var(--bg-subtle,#f8fafc);border:1px solid var(--border-color,#e2e8f0);padding:0.75rem;border-radius:8px;">' +
+              '<div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:4px;">' + ui.esc(stageName) + '</div>' +
+              '<div style="font-size:1.3rem;font-weight:700;color:var(--text);">' + dash.stage_counts[stageName] + '</div>' +
+            '</div>';
+          }).join('') +
         '</div>';
+    } else {
+      html += '<div style="color:var(--text-muted);font-size:0.875rem;text-align:center;padding:1.5rem 0;">No active sites in this period.</div>';
     }
+    html += '</div>';
 
     contentEl.innerHTML = html;
 

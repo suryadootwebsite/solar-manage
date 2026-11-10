@@ -420,5 +420,9 @@
   "leads.add_title": "नई लीड जोड़ें",
   "leads.edit_title": "लीड एडिट करें",
   "nav.products": "उत्पाद",
-  "nav.locations": "स्थान"
+  "nav.locations": "स्थान",
+  "dash.period_in": "स्टॉक इन (Qty)",
+  "dash.period_out": "स्टॉक आउट (Qty)",
+  "dash.followups_period": "फॉलो-अप",
+  "dash.period_profit": "अवधि का लाभ (Profit)"
 }

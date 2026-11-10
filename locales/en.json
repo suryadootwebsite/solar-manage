@@ -420,5 +420,9 @@
   "leads.add_title": "Add New Lead",
   "leads.edit_title": "Edit Lead",
   "nav.products": "Products",
-  "nav.locations": "Locations"
+  "nav.locations": "Locations",
+  "dash.period_in": "Stock In (Qty)",
+  "dash.period_out": "Stock Out (Qty)",
+  "dash.followups_period": "Follow-ups",
+  "dash.period_profit": "Period Profit"
 }
