@@ -210,6 +210,7 @@
   "lots.order_status": "ऑर्डर स्थिति (Order Status)",
   "lots.update_status_btn": "ऑर्डर स्थिति अपडेट करें",
   "lots.timeline": "ऑर्डर स्थिति समयरेखा",
+  "lots.status_order_confirmed": "ऑर्डर कन्फर्म",
   "lots.status_confirmed": "ऑर्डर पुष्ट",
   "lots.status_dispatched": "डिस्पैच हुआ",
   "lots.status_delivered": "डिलीवर हुआ",

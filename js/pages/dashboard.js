@@ -185,12 +185,18 @@
     // KPI Cards Grid
     html += '<div class="kpi-grid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));gap:1rem;margin-bottom:1.5rem;">';
 
+    var isPeriodSel = activePeriod && (activePeriod.month !== 'ALL' || activePeriod.year !== 'ALL');
+    var inLabel = isPeriodSel ? (t('dash.period_in') || 'In (Qty)') : (t('dash.today_in') || 'In (Qty)');
+    var outLabel = isPeriodSel ? (t('dash.period_out') || 'Out (Qty)') : (t('dash.today_out') || 'Out (Qty)');
+    var fuLabel = isPeriodSel ? (t('dash.followups_period') || 'Follow-ups') : (t('dash.followups_due_today') || 'Follow-ups');
+    var profitLabel = isPeriodSel ? (t('dash.period_profit') || 'Period Profit') : (t('dash.month_profit') || 'Profit');
+
     if (isOwner && ownerView === 'operations') {
       html +=
-        kpiCard(t('dash.followups_due_today') || 'Follow-ups Today', dash.followups_due_today || 0, '#ea580c') + kpiCard(t('dash.active_sites'), dash.active_sites_count || 0, 'var(--brand)') +
+        kpiCard(fuLabel, dash.followups_due_today || 0, '#ea580c') + kpiCard(t('dash.active_sites'), dash.active_sites_count || 0, 'var(--brand)') +
         kpiCard(t('dash.stuck_sites'), dash.stuck_count || 0, dash.stuck_count > 0 ? '#dc2626' : 'var(--text-muted)') +
-        kpiCard(t('dash.today_in'), dash.today_in_qty || 0, '#059669') +
-        kpiCard(t('dash.today_out'), dash.today_out_qty || 0, '#2563eb') +
+        kpiCard(inLabel, dash.today_in_qty || 0, '#059669') +
+        kpiCard(outLabel, dash.today_out_qty || 0, '#2563eb') +
         kpiCard(t('dash.pending_transfers'), dash.pending_transfers_count || 0, '#d97706');
     } else if (isOwner) {
       html +=
@@ -199,13 +205,13 @@
         kpiCard(t('dash.stock_value'), formatCurrency(dash.stock_value_paise || 0), '#059669') +
         kpiCard(t('dash.receivable'), formatCurrency(dash.receivable_paise || 0), '#2563eb') +
         kpiCard(t('dash.payable'), formatCurrency(dash.payable_paise || 0), '#d97706') +
-        kpiCard(t('dash.month_profit'), formatCurrency(dash.period_profit_paise || 0), (dash.period_profit_paise || 0) >= 0 ? '#059669' : '#dc2626');
+        kpiCard(profitLabel, formatCurrency(dash.period_profit_paise || 0), (dash.period_profit_paise || 0) >= 0 ? '#059669' : '#dc2626');
     } else if (role === 'MANAGER' || role === 'VIEW_ONLY') {
       html +=
         kpiCard(t('dash.active_sites'), dash.active_sites_count || 0, 'var(--brand)') +
         kpiCard(t('dash.stuck_sites'), dash.stuck_count || 0, dash.stuck_count > 0 ? '#dc2626' : 'var(--text-muted)') +
-        kpiCard(t('dash.today_in'), dash.today_in_qty || 0, '#059669') +
-        kpiCard(t('dash.today_out'), dash.today_out_qty || 0, '#2563eb') +
+        kpiCard(inLabel, dash.today_in_qty || 0, '#059669') +
+        kpiCard(outLabel, dash.today_out_qty || 0, '#2563eb') +
         kpiCard(t('dash.pending_transfers'), dash.pending_transfers_count || 0, '#d97706');
     } else if (role === 'SITE_USER') {
       html +=

@@ -202,10 +202,10 @@ window.pages.users = function(container) {
     if (submitBtn) {
       submitBtn.onclick = function() {
         errEl.style.display = 'none';
-        withButtonLoading(submitBtn, async function() {
+        ui.withButtonLoading(submitBtn, async function() {
           await api.call('users.delete', { user_id: user.user_id, confirm_text: 'DELETE' });
           ui.closeBottomSheet && ui.closeBottomSheet();
-          ui.showToast('User deleted successfully', 'success');
+          ui.toast('User deleted successfully', 'success');
           await loadUsers();
         }).catch(function(e) {
           errEl.textContent = (e.code ? '[' + e.code + '] ' : '') + (e.message || 'Delete failed');

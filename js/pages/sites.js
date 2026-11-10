@@ -145,9 +145,49 @@ window.pages.sites = async function(container) {
     return c ? c.name : id;
   }
 
+  var STAGE_DICT = {
+    'STG-000001': { name_en: 'Site Survey', name_hi: 'साइट सर्वे' },
+    'STG-000002': { name_en: 'Order Confirmed', name_hi: 'ऑर्डर कन्फर्म' },
+    'STG-000003': { name_en: 'Advance Received', name_hi: 'एडवांस भुगतान' },
+    'STG-000004': { name_en: 'Documents and Discom Application', name_hi: 'दस्तावेज़ और डिस्कॉम अर्जी' },
+    'STG-000005': { name_en: 'Material Dispatched', name_hi: 'सामग्री रवाना' },
+    'STG-000006': { name_en: 'Structure Complete', name_hi: 'स्ट्रक्चर पूरा' },
+    'STG-000007': { name_en: 'Panel Installation', name_hi: 'पैनल स्थापना' },
+    'STG-000008': { name_en: 'DC Wiring Complete', name_hi: 'डीसी वायरिंग पूर्ण' },
+    'STG-000009': { name_en: 'Inverter and AC Wiring', name_hi: 'इन्वर्टर और एसी वायरिंग' },
+    'STG-000010': { name_en: 'Earthing and Lightning Arrestor', name_hi: 'अर्थिंग और तड़ित चालक' },
+    'STG-000011': { name_en: 'Fencing Complete', name_hi: 'फेंसिंग पूर्ण' },
+    'STG-000012': { name_en: 'Net Meter Installed', name_hi: 'नेट मीटर लगा' },
+    'STG-000013': { name_en: 'Inspection', name_hi: 'निरीक्षण' },
+    'STG-000014': { name_en: 'Commissioning', name_hi: 'कमीशनिंग' },
+    'STG-000015': { name_en: 'Subsidy Application / Claim', name_hi: 'सब्सिडी दावा' },
+    'STG-000016': { name_en: 'Handover and Final Payment', name_hi: 'हैंडओवर और अंतिम भुगतान' },
+    'STG-F00001': { name_en: 'Site Survey', name_hi: 'साइट सर्वे' },
+    'STG-F00002': { name_en: 'Order Confirmed', name_hi: 'ऑर्डर कन्फर्म' },
+    'STG-F00003': { name_en: 'Loan Application Submitted', name_hi: 'लोन आवेदन' },
+    'STG-F00004': { name_en: 'Loan Sanctioned / Approved', name_hi: 'लोन स्वीकृति' },
+    'STG-F00005': { name_en: 'Margin Money Received', name_hi: 'मार्जिन मनी प्राप्त' },
+    'STG-F00006': { name_en: 'Documents and Discom Application', name_hi: 'दस्तावेज़ और डिस्कॉम अर्जी' },
+    'STG-F00007': { name_en: 'Material Dispatched', name_hi: 'सामग्री रवाना' },
+    'STG-F00008': { name_en: 'Structure Complete', name_hi: 'स्ट्रक्चर पूरा' },
+    'STG-F00009': { name_en: 'Panel Installation', name_hi: 'पैनल स्थापना' },
+    'STG-F00010': { name_en: 'DC Wiring Complete', name_hi: 'डीसी वायरिंग पूर्ण' },
+    'STG-F00011': { name_en: 'Inverter and AC Wiring', name_hi: 'इन्वर्टर और एसी वायरिंग' },
+    'STG-F00012': { name_en: 'Earthing and Lightning Arrestor', name_hi: 'अर्थिंग और तड़ित चालक' },
+    'STG-F00013': { name_en: 'Net Meter Installed', name_hi: 'नेट मीटर लगा' },
+    'STG-F00014': { name_en: 'Inspection', name_hi: 'निरीक्षण' },
+    'STG-F00015': { name_en: 'Commissioning', name_hi: 'कमीशनिंग' },
+    'STG-F00016': { name_en: 'Bank Inspection & Disbursement', name_hi: 'बैंक सत्यापन व भुगतान' },
+    'STG-F00017': { name_en: 'Subsidy Application / Claim', name_hi: 'सब्सिडी दावा' },
+    'STG-F00018': { name_en: 'Handover & Settlement', name_hi: 'हैंडओवर एवं खाता पूर्णता' }
+  };
+
   function getStageName(id) {
+    if (!id) return 'Not Set';
     var st = stages.find(function(x) { return x.stage_id === id; });
-    return st ? st.name_en : id;
+    if (st && st.name_en) return st.name_en;
+    if (STAGE_DICT[id] && STAGE_DICT[id].name_en) return STAGE_DICT[id].name_en;
+    return id;
   }
 
   function sortSitesList(list, sortVal) {

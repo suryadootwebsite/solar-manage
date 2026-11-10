@@ -7,7 +7,24 @@ window.pages = window.pages || {};
 
 window.pages.lots = async function(container) {
   var t = window.i18n.t;
-  var isOwner = window.auth.isOwnerLike(window.auth.getUser() && window.auth.getUser().role);
+  var currentUser = (window.auth && window.auth.getUser && window.auth.getUser()) || {};
+  var userRole = currentUser.role || (window.auth && window.auth.getRole && window.auth.getRole()) || '';
+  var isOwner = window.auth.isOwnerLike(userRole);
+
+  function getOrderStatusLabel(st) {
+    if (!st) return 'Unknown';
+    var u = String(st).toUpperCase();
+    var map = {
+      'ORDER_CONFIRMED': 'Order Confirmed',
+      'DISPATCHED': 'Dispatched',
+      'DELIVERED': 'Delivered',
+      'RETURN_IN_PROGRESS': 'Return in Progress',
+      'RETURNED': 'Returned',
+      'CANCELLED': 'Cancelled'
+    };
+    if (map[u]) return map[u];
+    return String(st).replace(/_/g, ' ');
+  }
 
   container.innerHTML = `
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:0.5rem;">
@@ -196,7 +213,7 @@ window.pages.lots = async function(container) {
         console.warn('[lots] Missing order_status for lot', l.lot_id);
       }
       var ordClass = ordStatus === 'DELIVERED' ? 'badge-success' : (ordStatus === 'DISPATCHED' ? 'badge-primary' : (ordStatus === 'RETURNED' ? 'badge-danger' : (ordStatus ? 'badge-warning' : 'badge-disabled')));
-      var localizedOrdStatus = ordStatus ? (t('lots.status_' + ordStatus.toLowerCase()) || ordStatus) : 'Unknown';
+      var localizedOrdStatus = getOrderStatusLabel(ordStatus);
       var isPendingRate = l.status === 'PENDING_RATE';
       var totalText = isOwner && l.grand_total_paise !== undefined ? `₹${(l.grand_total_paise / 100).toLocaleString('en-IN')}` : '';
 
@@ -283,6 +300,7 @@ window.pages.lots = async function(container) {
         `;
       }).join('');
 
+      var userRole = (window.auth && window.auth.getRole && window.auth.getRole()) || (currentUser && currentUser.role) || '';
       var isManager = (userRole === 'MANAGER');
       var canSetRate = isOwner && lot.status === 'PENDING_RATE';
       var canCancel = isOwner && lot.status !== 'CANCELLED';
@@ -561,7 +579,7 @@ window.pages.lots = async function(container) {
     var cur = lotDetail.order_status || '';
     var nextOptsArr = (lotDetail.allowed_next || []);
     var nextOpts = nextOptsArr.map(function(s) {
-      var lbl = (window.i18n && window.i18n.t) ? (window.i18n.t('lots.status_' + s) || s.replace(/_/g,' ')) : s.replace(/_/g,' ');
+      var lbl = getOrderStatusLabel(s);
       return '<option value="' + s + '">' + lbl + '</option>';
     }).join('');
 

@@ -517,15 +517,24 @@ window.pages.settings = function(container) {
                 ${branches.length === 0 ? '<div style="color:var(--text-muted);font-size:0.85rem;">No branches found.</div>' : ''}
                 ${branches.map(function(b) {
                   if (b.status === 'DELETED') return '';
+                  var brDisabledAt = b.disabled_at ? new Date(b.disabled_at) : null;
+                  var brDaysDiff = brDisabledAt ? Math.floor((Date.now() - brDisabledAt.getTime()) / (1000*60*60*24)) : 0;
+                  var brCanDelete = brDisabledAt && brDaysDiff >= 7;
+                  var brActionBtn = b.status === 'DISABLED'
+                    ? (brCanDelete
+                        ? `<button class="btn btn-danger btn-sm branch-del-btn" data-id="${ui.esc(b.branch_id)}" style="font-size:0.75rem;padding:0.2rem 0.5rem;min-height:32px;" title="Disabled ${brDaysDiff} day(s) ago">Delete</button>`
+                        : `<span class="badge badge-warning" style="font-size:0.72rem;padding:0.2rem 0.4rem;" title="Disabled ${brDaysDiff}/7 days">Disabled (${brDaysDiff}d/7d)</span>`)
+                    : `<button class="btn btn-secondary btn-sm branch-dis-btn" data-id="${ui.esc(b.branch_id)}" data-name="${ui.esc(b.name)}" style="font-size:0.75rem;padding:0.2rem 0.5rem;min-height:32px;">Disable</button>`;
                   return `
                     <div style="display:flex;justify-content:space-between;align-items:center;padding:0.4rem 0;border-bottom:1px solid var(--border,#e2e8f0);font-size:0.85rem;">
                       <div>
                         <strong>${ui.esc(b.branch_id)}</strong> — ${ui.esc(b.name)}
                         ${b.phone ? `<span style="color:var(--text-muted);font-size:0.75rem;"> (${ui.esc(b.phone)})</span>` : ''}
+                        ${b.status === 'DISABLED' ? `<span class="badge badge-warning" style="font-size:0.68rem;margin-left:4px;">Disabled</span>` : ''}
                       </div>
-                      <div style="display:flex;gap:0.35rem;">
-                        <button class="btn btn-secondary btn-sm branch-edit-btn" data-id="${ui.esc(b.branch_id)}" data-name="${ui.esc(b.name)}" data-phone="${ui.esc(b.phone || '')}" data-addr="${ui.esc(b.address || '')}" style="font-size:0.75rem;padding:0.2rem 0.5rem;min-height:32px;">Edit</button>
-                        <button class="btn btn-danger btn-sm branch-del-btn" data-id="${ui.esc(b.branch_id)}" style="font-size:0.75rem;padding:0.2rem 0.5rem;min-height:32px;">Delete</button>
+                      <div style="display:flex;gap:0.35rem;align-items:center;">
+                        ${b.status !== 'DISABLED' ? `<button class="btn btn-secondary btn-sm branch-edit-btn" data-id="${ui.esc(b.branch_id)}" data-name="${ui.esc(b.name)}" data-phone="${ui.esc(b.phone || '')}" data-addr="${ui.esc(b.address || '')}" style="font-size:0.75rem;padding:0.2rem 0.5rem;min-height:32px;">Edit</button>` : ''}
+                        ${brActionBtn}
                       </div>
                     </div>
                   `;
@@ -627,26 +636,72 @@ window.pages.settings = function(container) {
             };
           });
 
-          document.querySelectorAll('.branch-del-btn').forEach(function(btn) {
+          // Disable handler
+          document.querySelectorAll('.branch-dis-btn').forEach(function(btn) {
             btn.onclick = function() {
               var bid = btn.getAttribute('data-id');
+              var bname = btn.getAttribute('data-name');
               ui.confirmDialog(
-                'Delete Branch',
-                'Are you sure you want to delete branch ' + bid + '?',
+                'Disable Branch',
+                'Disable branch "' + bname + '" (' + bid + ')? It will be locked for 7 days before permanent deletion is allowed.',
                 async function() {
                   try {
-                    await api.call('branches.delete', { branch_id: bid });
-                    ui.showToast('Branch deleted', 'success');
+                    await api.call('branches.disable', { branch_id: bid });
+                    ui.showToast('Branch disabled. It can be deleted after 7 days.', 'success');
                     renderDevSection();
                   } catch(dErr) {
-                    if (dErr.rule === 'IN_USE' || (dErr.message && dErr.message.indexOf('IN_USE') >= 0)) {
-                      ui.showToast('Cannot delete — branch has users or sites assigned to it.', 'error');
-                    } else {
-                      ui.showToast(dErr.message || 'Delete failed', 'error');
-                    }
+                    ui.showToast(dErr.message || 'Disable failed', 'error');
                   }
                 }
               );
+            };
+          });
+
+          // Delete handler (after 7-day disable period) — requires typing DELETE
+          document.querySelectorAll('.branch-del-btn').forEach(function(btn) {
+            btn.onclick = function() {
+              var bid = btn.getAttribute('data-id');
+              var html = `
+                <div style="padding:0.5rem 0 1rem;">
+                  <div class="text-error" style="font-size:0.9rem;margin-bottom:1rem;padding:0.75rem;background:#fef2f2;border-radius:6px;border:1px solid #fecaca;">
+                    ⚠️ This permanently deletes the branch. This action cannot be undone.
+                  </div>
+                  <div style="margin-bottom:0.75rem;font-size:0.85rem;color:var(--text-muted);">
+                    Branch: <strong>${ui.esc(bid)}</strong>
+                  </div>
+                  <div class="form-field">
+                    <label>Type <strong>DELETE</strong> to confirm *</label>
+                    <input id="del-br-confirm" type="text" class="input" placeholder="DELETE" autocomplete="off">
+                  </div>
+                  <div id="del-br-error" class="text-error" style="display:none;margin-bottom:0.75rem;"></div>
+                  <button id="del-br-submit" class="btn btn-primary btn-full" style="background:#dc2626;border-color:#dc2626;" disabled>Delete Branch</button>
+                </div>
+              `;
+              ui.openBottomSheet('Delete Branch: ' + bid, html, '');
+              var confirmInput = document.getElementById('del-br-confirm');
+              var submitBtn = document.getElementById('del-br-submit');
+              var errEl = document.getElementById('del-br-error');
+              if (confirmInput) {
+                confirmInput.oninput = function() { submitBtn.disabled = confirmInput.value !== 'DELETE'; };
+              }
+              if (submitBtn) {
+                submitBtn.onclick = function() {
+                  errEl.style.display = 'none';
+                  ui.withButtonLoading(submitBtn, async function() {
+                    await api.call('branches.delete', { branch_id: bid, confirm_text: 'DELETE' });
+                    ui.closeBottomSheet && ui.closeBottomSheet();
+                    ui.showToast('Branch deleted permanently', 'success');
+                    renderDevSection();
+                  }).catch(function(e) {
+                    if (e.rule === 'IN_USE' || (e.message && e.message.indexOf('IN_USE') >= 0)) {
+                      errEl.textContent = 'Cannot delete — branch has users or sites assigned to it.';
+                    } else {
+                      errEl.textContent = (e.code ? '[' + e.code + '] ' : '') + (e.message || 'Delete failed');
+                    }
+                    errEl.style.display = 'block';
+                  });
+                };
+              }
             };
           });
         }

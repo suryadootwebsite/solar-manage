@@ -311,8 +311,10 @@ window.pages.siteDetail = async function(container, params) {
         sitePhotosData = [];
       }
 
-      smMap = {};
-      stagesData.forEach(function(sm) { smMap[sm.stage_id] = sm; });
+      smMap = Object.assign({}, STAGE_DICT);
+      stagesData.forEach(function(sm) {
+        smMap[sm.stage_id] = Object.assign({}, STAGE_DICT[sm.stage_id] || {}, sm);
+      });
 
       var statusClass = siteData.status === 'ACTIVE' ? 'badge-success' : (siteData.status === 'ON_HOLD' ? 'badge-warning' : (siteData.status === 'COMPLETED' ? 'badge-success' : 'badge-disabled'));
       var stuckHtml = siteData.is_stuck ? `<span class="badge badge-danger" style="margin-right:0.5rem;" title="${esc(siteData.stuck_reason || 'Site is stuck')}">⚠️ Stuck${siteData.stuck_reason ? ': ' + esc(siteData.stuck_reason) : ''}</span>` : '';
@@ -440,7 +442,7 @@ window.pages.siteDetail = async function(container, params) {
               <span class="badge" style="background:#f1f5f9; font-weight:700;">${stg.seq}</span>
               <div>
                 <div style="font-weight:600; display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap;">
-                  <span>${esc(sm.name_en || stg.stage_id)}</span>
+                  <span>${esc(sm.name_en || stg.name_en || stg.stage_id)}</span>
                   ${stgPhotos.length > 0 ? `<span class="badge" style="background:#e0f2fe; color:#0369a1; font-size:0.68rem; font-weight:600; padding:0.15rem 0.4rem; border:1px solid #bae6fd;">📷 ${stgPhotos.length} Photo${stgPhotos.length > 1 ? 's' : ''}</span>` : ''}
                 </div>
                 <div style="font-size:0.8rem; color:var(--text-muted);">${esc(sm.name_hi || '')}${stg.updated_by_name ? ` · <span style="font-size:0.75rem;">Updated by: ${esc(stg.updated_by_name)}</span>` : (stg.updated_by ? ` · <span style="font-size:0.75rem;">Updated by: ${esc(stg.updated_by)}</span>` : '')}</div>
@@ -741,7 +743,7 @@ window.pages.siteDetail = async function(container, params) {
     var stageOptions = '<option value="">(General Site Photo)</option>' +
       stagesData.map(function(stg) {
         var sm = smMap[stg.stage_id] || {};
-        var name = sm.name_en || stg.stage_id;
+        var name = sm.name_en || stg.name_en || stg.stage_id;
         var selected = (defaultStageId === stg.stage_id) ? 'selected' : '';
         return '<option value="' + esc(stg.stage_id) + '" ' + selected + '>' + esc(name) + ' (' + esc(stg.status) + ')</option>';
       }).join('');

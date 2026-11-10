@@ -211,6 +211,7 @@
   "lots.update_status_btn": "Update Order Status",
   "lots.timeline": "Order Status Timeline",
   "lots.status_confirmed": "Order Confirmed",
+  "lots.status_order_confirmed": "Order Confirmed",
   "lots.status_dispatched": "Dispatched",
   "lots.status_delivered": "Delivered",
   "lots.status_return_in_progress": "Return in Progress",
